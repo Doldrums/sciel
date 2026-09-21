@@ -1,0 +1,43 @@
+# Exploratory, fresh-start RL stack. This is a feature bundle, not a single ablation.
+extends: circle_live_gemini.yaml
+warm_start: null
+candidate_novelty:
+  enabled: true
+
+# Retain the canonical seed + three portfolio starts and the fitted v3 descriptor.
+# VQ, geometry containers and UCB are alternative representations/selectors.
+embed_niche: false
+three_head: false
+preset_selection: false
+
+policy:
+  enabled: true
+  mode_bandit: true
+  mode_bandit_temp: 0.5
+  mode_bandit_window: 50
+  mode_bandit_prior: 3.0
+  mode_source: null
+  # Monitor plateaus, while leaving mode selection with the online bandit.
+  plateau_shift: false
+  plateau_shadow: true
+
+idea_two_stage:
+  enabled: true
+  card_repair_attempts: 1
+# Card-diversity tilts require all other mode controllers to be disabled.
+idea_card_selection:
+  enabled: false
+
+research:
+  lesson_selection:
+    mode: source_diverse_guarded
+    diversity_weight: 0.5
+
+plateau_shadow: true
+log_evictions: true
+log_population: true
+
+# Full G/C/R already replaces these legacy knowledge and prediction routes.
+kb_free: false
+c2_event_bets: false
+bet_enabled: false

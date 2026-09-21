@@ -1,0 +1,16 @@
+# Fresh, unlimited native SCiEL search, with model-controlled compute jobs.
+# Run from this version's worktree; existing live checkpoints pin older code.
+extends: circle_parallel_gemini_research_cells.yaml
+warm_start: null
+budget: null
+max_iterations: null
+research_tools:
+  # Develop spare methods even while ordinary search keeps setting records.
+  proactive_every_attempts: 8
+  jobs:
+    enabled: true
+    # One long tool plus one ordinary evaluator can run on the shared host pool.
+    max_active: 1
+    max_pending: 16
+    max_cpu_seconds: 3600.0
+    max_wall_seconds: 7200.0

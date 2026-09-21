@@ -1,0 +1,47 @@
+# Small live integration run, not a paper experiment or an endless campaign.
+extends: circle.yaml
+num_islands: 1
+budget: 6
+max_iterations: 8
+inflight_cap: 1
+dup_cap: 1
+schedule_policy: round_robin
+milestone_fracs: []
+portfolio_seed: false
+dynamic_islands: false
+idea_island: false
+crossover: false
+embed_grid: false
+embed_niche: false
+op_fixed: full_rewrite
+selection_policy: novelty_chain
+container:
+  kind: legacy
+policy:
+  enabled: false
+research:
+  enabled: true
+  reflection_interval: 2
+  max_aux_calls: 12
+  max_lessons: 20
+  max_experiments: 20
+  max_fragments: 10
+  retrieve_k: 3
+wandb:
+  enabled: false
+llm:
+  mock: false
+  models: [gpt-4.1-mini-2025-04-14]
+  weights: [1.0]
+  api_base: https://api.openai.com/v1
+  api_key_env: OPENAI_API_KEY
+  max_tokens: 6144
+  max_retries: 1
+  timeout: 120
+  cost_reporting: estimated_uncached_token_rates
+  system_message: >
+    Pack 26 circles in a unit square to maximize the sum of radii (target 2.635).
+    Circles must remain inside the square and must not overlap. NumPy and SciPy
+    are available. Return valid Python implementing the required entry point.
+    Keep every construction under 10 seconds; use a time.monotonic deadline
+    inside iterative optimization and always return the best feasible result.

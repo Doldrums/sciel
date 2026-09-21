@@ -1,0 +1,5 @@
+extends: heilbronn.yaml
+crossover: true
+portfolio_seed: true
+dynamic_islands: true
+max_islands: 6

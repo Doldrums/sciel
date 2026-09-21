@@ -1,0 +1,13 @@
+{
+  "schema": "sciel-method-pilot-profile/1",
+  "task": "circle26",
+  "budget": {"dollars": "5", "cpu_seconds": 3600, "gpu_seconds": 0, "wall_seconds": 7200, "storage_bytes": 536870912, "steps": 12},
+  "resources": {"wall_seconds": 180, "cpu_seconds": 150, "memory_bytes": 1073741824, "pids": 32, "max_output_bytes": 1048576, "max_stderr_bytes": 65536},
+  "max_steps": 4,
+  "max_cases": 2,
+  "calendar_seconds": 3600,
+  "storage_bytes": 536870912,
+  "max_transfers": 1,
+  "llm": {"max_tokens": 4096, "temperature": 0.7, "timeout": 120},
+  "upfront_costs": []
+}

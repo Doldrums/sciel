@@ -1,0 +1,24 @@
+extends: func_min.yaml
+# Paired policy-ON arm against the current_s42 baseline (controller OFF).
+# Same task / seed / budget / models -> task_hash unchanged -> legal comparison
+# (`non_comparable: false`). The policy block only reshapes *search* (parent
+# selection mode-mix + plateau shift), never the fitness, so nothing that feeds
+# task_hash moves.
+random_seed: 42
+policy:
+  enabled: true
+  # step 1: static mode mixture over selection modes.
+  base_mix: {base: 0.8, exploit: 0.2}
+  # step 3: on a declared plateau, shift the mixture toward EXPLOIT of the
+  # frontier for a hold window. (explore yielded 0 records in the heilbronn A/B;
+  # exploit-shift is the diagnosis-aligned default. explore stays available in code.)
+  plateau_shift: true
+  plateau_mix: {base: 0.6, exploit: 0.4}
+  plateau_hold: 50
+  # OpportunityCostMonitor gate (yield forecast vs threshold).
+  plateau_threshold: 0.5
+  plateau_horizon: 50
+  plateau_min_n: 15
+  # tilt shape shared by both mixtures.
+  tilt_beta: 0.3
+  elite_k: 3

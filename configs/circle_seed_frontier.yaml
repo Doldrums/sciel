@@ -1,0 +1,9 @@
+extends: circle_frontier.yaml
+# ПУТЬ 1 "побить openevolve": старт = их лучшая программа (2.6258 под нашим
+# эвалуатором), движок продавливает остаток до потолка 2.635. Достигнуто 2.6280.
+task: oe/circle_packing_seed
+# Reuse the Circle axis; its recorded fit_task remains oe/circle_packing.
+embed_axis_path: ../sciel-artifacts/behavior_axis/oe_circle_packing_v3.npz
+sciel_tasks_repo: null
+sciel_tasks_revision: null
+budget: 60

@@ -1,0 +1,186 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "sciel_conclusion_v2",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "CONFIRMED",
+            "REFUTED",
+            "INCONCLUSIVE"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "description": "Nonblank text of 1 to 4096 characters. The exact length and nonblank requirements are enforced locally."
+        },
+        "lessons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule": {
+                "type": "string",
+                "description": "Nonblank text of 1 to 2048 characters. The exact length and nonblank requirements are enforced locally."
+              },
+              "polarity": {
+                "type": "string",
+                "enum": [
+                  "positive",
+                  "negative"
+                ]
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "branch",
+                  "global"
+                ]
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Identifier of 1 to 128 characters, with no whitespace or character below U+0020. The exact identifier requirements are enforced locally."
+                },
+                "minItems": 1,
+                "description": "Between 1 and 32 distinct identifiers; duplicates and excess items are rejected locally."
+              },
+              "branch": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Identifier of 1 to 128 characters, with no whitespace or character below U+0020. The exact identifier requirements are enforced locally. Use the exact branch ID for branch scope, null for global scope. The local parser enforces this scope/branch relationship."
+              }
+            },
+            "required": [
+              "rule",
+              "polarity",
+              "scope",
+              "evidence_ids",
+              "branch"
+            ],
+            "additionalProperties": false
+          },
+          "description": "At most 8 lessons; the count is enforced locally. Only supplied evidence IDs may support a lesson. Schema validity does not establish evidence membership or lesson admission."
+        },
+        "mechanism_review": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "claim_quote": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Nonblank text of 1 to 512 characters. The exact length and nonblank requirements are enforced locally. For source_effect or an available claim in unavailable, quote an exact substring of the original hypothesis or reasoning. For forecast use null: its numeric target is bound by forecast_ref, not arbitrary claim text. For unavailable with no original claim, use null. Local validation and evidence binding enforce these conditions."
+              },
+              "source_quotes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": [
+                        "controlled_change.parent_body",
+                        "controlled_change.target_body",
+                        "controlled_change.before.text",
+                        "controlled_change.after.text",
+                        "change_excerpt"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "Nonblank text of 1 to 512 characters. The exact length and nonblank requirements are enforced locally."
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "At most 2 exact quotes from supplied source fields; this count is enforced locally. A non-unknown source_effect assessment requires at least one quote. For forecast and unavailable use []; the local validator enforces these conditions. Copy each source quote from the exact field named in that quote. controlled_change.parent_body and target_body are operator bodies; controlled_change.before.text and after.text can be complete wrapped functions with different indentation. These fields are not interchangeable. Prefer short single-line literal substrings; use separate quotes when two lines are needed. For a multiline quote preserve every newline and space in the named field. Do not copy a body and label it as the wrapped function, normalize whitespace, or assume a matching quote in another field will be accepted. A matching but unrelated source substring does not support an assessment. Use source quotes for code effects and the observed comparison for forecast agreement; a return statement alone cannot verify a numeric forecast. Literal binding does not prove the assessment or causal explanation."
+              },
+              "assessment": {
+                "type": "string",
+                "enum": [
+                  "directly_supported",
+                  "contradicted",
+                  "unknown"
+                ]
+              },
+              "direct_effect": {
+                "type": "string",
+                "description": "Nonblank text of 1 to 512 characters. The exact length and nonblank requirements are enforced locally."
+              },
+              "untested_downstream": {
+                "type": "string",
+                "description": "Nonblank text of 1 to 512 characters. The exact length and nonblank requirements are enforced locally."
+              },
+              "evidence_kind": {
+                "type": "string",
+                "enum": [
+                  "source_effect",
+                  "forecast",
+                  "unavailable"
+                ]
+              },
+              "forecast_ref": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "experiment_id": {
+                    "type": "string",
+                    "description": "Identifier of 1 to 128 characters, with no whitespace or character below U+0020. The exact identifier requirements are enforced locally."
+                  },
+                  "target": {
+                    "type": "string",
+                    "enum": [
+                      "native_delta_interval"
+                    ]
+                  }
+                },
+                "required": [
+                  "experiment_id",
+                  "target"
+                ],
+                "additionalProperties": false,
+                "description": "Only for forecast: this exact ordinary experiment ID and native delta interval. Null for source_effect and unavailable. Local binding rederives the assessment from the authoritative observation."
+              }
+            },
+            "required": [
+              "claim_quote",
+              "source_quotes",
+              "assessment",
+              "direct_effect",
+              "untested_downstream",
+              "evidence_kind",
+              "forecast_ref"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "description": "One to 4 entries, enforced locally. The entire mechanism_review must fit 4096 characters after canonical ASCII-escaped JSON encoding, including field names. This aggregate limit is enforced locally. Each entry has exactly claim_quote, source_quotes, assessment, direct_effect, untested_downstream, evidence_kind and forecast_ref. evidence_kind is source_effect, forecast or unavailable. For source_effect, claim_quote is a literal substring of original hypothesis.text or reasoning; forecast_ref=null. A non-unknown source_effect assessment requires exact source quotes; it remains an unverified model interpretation. For forecast, claim_quote=null and source_quotes=[]: do not certify arbitrary prose as a numeric forecast. forecast_ref must contain exactly experiment_id (this ordinary experiment ID) and target=\"native_delta_interval\". This refers only to the supplied hypothesis predicted_low/high for the native controller score delta, never paired raw/certified sums or intermediate restart effects. Use OBSERVED_COMPARISON_JSON.forecast: position=inside requires assessment directly_supported, above/below requires contradicted, unavailable requires unknown. The host rederives these numerical facts; your free explanation and effect text remain unverified. For unavailable, forecast_ref=null, source_quotes=[] and assessment=unknown; quote the original claim literally when available, otherwise use claim_quote=null. A spans_zero interval is not negative. No source quote is needed or allowed for a forecast or unavailable entry."
+        }
+      },
+      "required": [
+        "verdict",
+        "explanation",
+        "lessons",
+        "mechanism_review"
+      ],
+      "additionalProperties": false,
+      "description": "One bare JSON object, no markers, fences or surrounding prose. Local response and JSON-block limits remain 262144 and 32768 characters respectively. Shape validity never overrides source/evidence binding or lesson gates."
+    }
+  }
+}

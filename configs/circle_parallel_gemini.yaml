@@ -1,0 +1,23 @@
+# Parallel-wave execution; start fresh instead of resuming a serial experiment.
+# Twenty-four initial islands compete at 384/576 evaluations; SH can retire them.
+# pop_cap is the legacy soft retention target, not a strict maximum.
+extends: circle_live_gemini.yaml
+budget: null
+max_iterations: null
+num_islands: 24
+pop_cap: 256
+max_islands: 24
+dynamic_islands: false
+schedule_policy: sh
+schedule_horizon: 768
+milestone_fracs: [0.5, 0.75]
+sh_min_fair_evals: 16
+parallel_search:
+  enabled: true
+  workers: 4
+  host_llm_slots: 12
+  provider_slots: 12
+  host_evaluator_slots: 2
+  capacity_dir: null
+  max_inflight_per_island: 1
+  max_inflight_per_parent: 1

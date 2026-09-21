@@ -1,0 +1,98 @@
+name: Runtime and installation
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installed-wheel:
+    name: Wheel / ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Build distributable wheel
+        run: |
+          python -m venv .build-venv
+          .build-venv/bin/python -m pip install build
+          .build-venv/bin/python -m build --wheel
+      - name: Install wheel into a new environment
+        run: |
+          python -m venv .runtime-venv
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          .runtime-venv/bin/python -m pip install "${wheel}[tasks,dev]"
+          .runtime-venv/bin/python -m pip check
+      - name: Verify installed package and real task contracts
+        env:
+          SCIEL_EXPECT_INSTALLED: '1'
+          HF_HUB_OFFLINE: '1'
+          WANDB_MODE: disabled
+        run: |
+          mkdir -p validation
+          .runtime-venv/bin/python -m pip freeze > validation/freeze.txt
+          .runtime-venv/bin/python -I -m pytest tests/integration -q -ra \
+            --noconftest --import-mode=importlib -o pythonpath= \
+            --junitxml=validation/installed-wheel.xml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-${{ matrix.os }}-py${{ matrix.python }}
+          path: validation/
+          retention-days: 14
+
+  checkout-suite:
+    name: Complete checkout suite / Linux / Python 3.14
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Check repository boundaries
+        run: python scripts/check_repository.py
+      - name: Install development and learning dependencies
+        run: |
+          python -m venv .suite-venv
+          .suite-venv/bin/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          .suite-venv/bin/python -m pip install '.[tasks,learning,dev,analysis]'
+          .suite-venv/bin/python -m pip check
+      - name: Run full source-checkout suite
+        env:
+          HF_HUB_OFFLINE: '1'
+          WANDB_MODE: disabled
+        run: |
+          mkdir -p validation
+          .suite-venv/bin/python -m pip freeze > validation/freeze.txt
+          .suite-venv/bin/python -m pytest tests/ -q -ra \
+            --junitxml=validation/checkout-suite.xml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: checkout-suite-linux-py314
+          path: validation/
+          retention-days: 14

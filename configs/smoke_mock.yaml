@@ -1,0 +1,9 @@
+extends: _base.yaml
+embed_grid: false
+task: oe/function_minimization
+num_islands: 3
+budget: 30
+milestone_fracs: [0.5, 0.75]
+llm:
+  mock: true
+  system_message: "minimize f(x,y) = sin(x)cos(y) + sin(xy) + (x^2+y^2)/20"

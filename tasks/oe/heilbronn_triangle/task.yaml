@@ -1,0 +1,61 @@
+suite: oe
+name: heilbronn_triangle
+origin: oe
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level heilbronn_triangle11() returning finite coordinates of
+  shape (11,2) inside the closed equilateral triangle with vertices
+  (0,0), (1,0), (0.5,sqrt(3)/2). Maximize the smallest area over all 165 triples.
+  min_area_normalized=min_area/(sqrt(3)/4);
+  combined_score=min_area_normalized/0.036529889880030156 for valid coordinates,
+  otherwise 0. The denominator is a fixed normalization reference, not a current
+  record or proven bound. Duplicate/collinear triples give zero area.
+  Scoring casts coordinates to binary64; boundary tolerance is 1e-6.
+  Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must
+  pass smoke within 30 wall seconds; full allows 90 seconds. Confirm uses 3 repeats
+  within 120 seconds, retaining the first failure, otherwise the worst score.
+  These are stage wall limits including overhead. The seed returns eleven
+  coincident zeros; construct a placement and use reproducible algorithm seeds.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: min_area_normalized
+  numerator_units: outer_triangle_area_fraction
+  denominator: 0.036529889880030156
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - min_area
+  - min_area_normalized
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Evolved programs on this task routinely use unseeded randomness: the same
+# program scored 0.54 to 0.78 across repeats. The seed program returns a
+# constant, which is why the determinism check passed for the whole history of
+# the task and the confirm stage stayed switched off, so a lucky draw stood as
+# a record and was never re-sampled.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 90.0
+confirm_timeout: 120.0
+license: "Apache-2.0 (openevolve examples)"

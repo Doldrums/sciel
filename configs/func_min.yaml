@@ -1,0 +1,32 @@
+extends: _base.yaml
+embed_grid: true
+task: oe/function_minimization
+num_islands: 3
+budget: 150
+milestone_fracs: [0.5, 0.75]
+# Use the audited task definitions versioned alongside this engine.
+sciel_tasks_repo: null
+sciel_tasks_revision: null
+wandb:
+  enabled: true
+  mode: offline
+  project: sciel-night
+llm:
+  models:
+    - google/gemini-2.5-flash-lite
+    - google/gemini-2.5-flash
+  weights: [0.8, 0.2]
+  api_base: https://openrouter.ai/api/v1
+  api_key_env: OPENROUTER_API_KEY
+  temperature: 0.7
+  system_message: >
+    You are an expert in optimization algorithms. Improve the search_algorithm to
+    find the global minimum of f(x, y) = sin(x)*cos(y) + sin(x*y) + (x^2+y^2)/20,
+    escaping local minima, within the fixed objective-evaluation budget.
+    Execution environment: Python's standard library, NumPy and SciPy are
+    available. scikit-learn (sklearn), cma, GPy and scikit-optimize (skopt) are
+    unavailable. Implement any needed optimization routines using the available
+    libraries; the evaluator does not install additional packages.
+    Each run_search() permits at most 50 objective queries in total, including
+    finite differences, local optimization and all restarts. Query through the
+    supplied evaluate_function; unused wall-clock time does not increase this limit.

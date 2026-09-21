@@ -1,0 +1,7 @@
+extends: circle.yaml
+task: oe/circle_packing_seed
+# Reuse the Circle axis; its recorded fit_task remains oe/circle_packing.
+embed_axis_path: ../sciel-artifacts/behavior_axis/oe_circle_packing_v3.npz
+sciel_tasks_repo: null
+sciel_tasks_revision: null
+budget: 40

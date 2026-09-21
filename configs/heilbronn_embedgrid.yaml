@@ -1,0 +1,7 @@
+extends: heilbronn.yaml
+# arch-v4 #4a A/B arm: MAP-Elites descriptor axis from embedder-v2 (behavior),
+# replacing the code-length axis.
+embed_grid: true
+embed_grid_path: ../sciel-artifacts/code_embed_v2.pt
+# Preserve the legacy random projection; fitted v3 axes require the v3 embedder.
+embed_axis_path: null

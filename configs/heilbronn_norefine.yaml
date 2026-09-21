@@ -1,0 +1,5 @@
+extends: heilbronn.yaml
+# A/B baseline arm: disable exploit-on-stall (refine_stall unreachable within the
+# 80-eval budget) so the treatment arm is heilbronn_default (refine on by default).
+budget: 80
+refine_stall: 100000

@@ -1,0 +1,27 @@
+suite: oe
+name: matmul_tensor
+origin: oe
+primary_metric: combined_score
+case_metrics:
+  - residual
+  - rank
+  - rank_ok
+  - exact
+  - discreteness
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+resources: cpu
+stochastic: false
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 300.0
+known_best: 48
+license: "sciel (matmul tensor; AlphaEvolve reference)"

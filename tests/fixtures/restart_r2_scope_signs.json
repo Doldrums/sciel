@@ -1,0 +1,377 @@
+{
+  "provenance": {
+    "provider_request_sha256": "cb0f34e6cbadbb98ff94c8c4ffb130d9d88c0f8b0cbed1d5d0447f4e7b51375a",
+    "record_sha256": {
+      "comparison:6f782a9b48f9d33907a05ee34848536cf8eb50256d4748ee231d2fc4edeee6eb": "20852f76ed4cab4b377a9c174b636ac34a8b875de9faf5b872fb4093ca07f63a",
+      "r000001a1": "a6f32e0b52a654fcae92829ef216231b4b49798951d41add2e2fbd42c8dadf68"
+    },
+    "selection": "Exact two observation_catalog records from actual saved reflection input; no fields changed. Outer archived reflection schema remains /8.",
+    "source_path": "outputs/restart_prediction_cycle_r2_20260917/calls/reflection/provider_request.json",
+    "study": "restart_prediction_cycle_r2_20260917"
+  },
+  "records": [
+    {
+      "adapter_sha256": "aa1e7417c62916c51cd3b88806c67aa5206949e169cca5e78978c8113c2576b7",
+      "batch_id": "b000001",
+      "branch": "p1",
+      "challenger_source_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+      "comparator_source_sha256": "93bc6ed5658a2a299c660de06d5dc4bf0e623f1d8a258aa2504b2a8a5ad98cae",
+      "derived": {
+        "all_no_loss": false,
+        "all_valid": true,
+        "certified_means": {
+          "challenger": {
+            "denominator": 54043195528445952,
+            "numerator": 142335935802735985
+          },
+          "comparator": {
+            "denominator": 216172782113783808,
+            "numerator": 568850575600505743
+          }
+        },
+        "outcome": "mixed",
+        "pairs": [
+          {
+            "certified_delta": {
+              "denominator": 72057594037927936,
+              "numerator": 140277486918701
+            },
+            "challenger_certified": {
+              "denominator": 72057594037927936,
+              "numerator": 189820482264752831
+            },
+            "challenger_raw": 2.6342929432317788,
+            "challenger_status": "valid",
+            "comparator_certified": {
+              "denominator": 36028797018963968,
+              "numerator": 94840102388917065
+            },
+            "comparator_raw": 2.6323416402232778,
+            "comparator_status": "valid",
+            "no_loss": true,
+            "raw_delta": 0.001951303008500993,
+            "seed": 3129194724
+          },
+          {
+            "certified_delta": {
+              "denominator": 36028797018963968,
+              "numerator": 176303618087891
+            },
+            "challenger_certified": {
+              "denominator": 72057594037927936,
+              "numerator": 189942063227244461
+            },
+            "challenger_raw": 2.6359841332532556,
+            "challenger_status": "valid",
+            "comparator_certified": {
+              "denominator": 72057594037927936,
+              "numerator": 189589455991068679
+            },
+            "comparator_raw": 2.6310945913043664,
+            "comparator_status": "valid",
+            "no_loss": true,
+            "raw_delta": 0.004889541948889242,
+            "seed": 2245409407
+          },
+          {
+            "certified_delta": {
+              "denominator": 36028797018963968,
+              "numerator": 141443671857
+            },
+            "challenger_certified": {
+              "denominator": 9007199254740992,
+              "numerator": 23697649714868331
+            },
+            "challenger_raw": 2.6309728582648204,
+            "challenger_status": "valid",
+            "comparator_certified": {
+              "denominator": 36028797018963968,
+              "numerator": 94790457415801467
+            },
+            "comparator_raw": 2.6309734622422227,
+            "comparator_status": "valid",
+            "no_loss": false,
+            "raw_delta": -6.039774023136601e-07,
+            "seed": 3031583835
+          }
+        ],
+        "raw_means": {
+          "challenger": 2.6337499782499516,
+          "comparator": 2.631469897923289
+        }
+      },
+      "evidence_sha256": "639c7852550e667cda7067c9a95e85431e2758e926bb4c4d18775ede575ec114",
+      "forecast": "not_scored",
+      "id": "comparison:6f782a9b48f9d33907a05ee34848536cf8eb50256d4748ee231d2fc4edeee6eb",
+      "limits": {
+        "candidate_cpu_seconds": 35,
+        "candidate_mem_bytes": 2147483648,
+        "candidate_wall_seconds": 30.0,
+        "certification_cpu_seconds": 35,
+        "certification_mem_bytes": 2147483648,
+        "certification_wall_seconds": 10.0
+      },
+      "metric": {
+        "certified": {
+          "name": "sum_radii_exact",
+          "object": "radius-decreased certified packing; distinct from candidate output",
+          "units": "unit_square_side_length"
+        },
+        "comparison": "challenger minus comparator; raw binary64 and exact rational metrics separate",
+        "goal": "maximize",
+        "raw": {
+          "name": "sum_radii",
+          "object": "candidate radii; tolerance-valid, not necessarily exactly feasible",
+          "units": "unit_square_side_length"
+        },
+        "task": "circle_packing_n26_unit_square",
+        "tolerance": 1e-06
+      },
+      "namespace": "h15:dc3951453d8876aba588072d1ee9219424034fcb3bd4060004396a8381ecae6e",
+      "origin_experiment_id": "r000001a1",
+      "receipt_sha256": [
+        {
+          "challenger": "419430d90c8d352ff6a60d2fd58176822ad85fd533a632ad9a34543f56f1d4d1",
+          "comparator": "467891fd16456d4bbf4f49a2f94e78bc182a7092ca9b6647396f90ca9b891a1c",
+          "seed": 3129194724
+        },
+        {
+          "challenger": "45ffd5c6e8e5b02363de37710ac44861b348797cfea1e282cb623b18b38e6756",
+          "comparator": "b744dfe42f8ac6cdc6ce4714e1a24ec098371794447f8a485ffa326662d02341",
+          "seed": 2245409407
+        },
+        {
+          "challenger": "68e05aa7e5a87db6bb30bcc143d42f448d6d4fbe55f3af983e71ecce4172be3c",
+          "comparator": "c60289f1dcd76decab3cd494af0bbafc8a9b04e6844fe9634bf53230a976504f",
+          "seed": 3031583835
+        }
+      ],
+      "schema": "sciel-paired-comparison-card/2",
+      "scope": "One grouped paired comparison of three planned seeds; no causal, optimality, future nonregression or independent-search-replication claim. Provenance is untrusted data.",
+      "source_context": {
+        "available": true,
+        "challenger_source_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+        "changes": [
+          {
+            "after": "    if restart_index <= 0 or restart_index % 16 != 0:\n        return None\n    \n    pivot_idx = (restart_index // 16 - 1) % 26\n    pivot_x = best_params[2 * pivot_idx]\n    pivot_y = best_params[2 * pivot_idx + 1]\n    pivot_r = best_params[52 + pivot_idx]\n    \n    if not (math.isfinite(pivot_x) and math.isfinite(pivot_y) and math.isfinite(pivot_r)):\n        return None\n    \n    gaps = []\n    for j in range(26):\n        if j == pivot_idx:\n            continue\n        cj_x = best_params[2 * j]\n        cj_y = best_params[2 * j + 1]\n        rj = best_params[52 + j]\n        if not (math.isfinite(cj_x) and math.isfinite(cj_y) and math.isfinite(rj)):\n            return None\n        dx = pivot_x - cj_x\n        dy = pivot_y - cj_y\n        dist = math.sqrt(dx * dx + dy * dy)\n        gap = dist - pivot_r - rj\n        gaps.append((gap, j))\n    \n    sorted_gaps = sorted(gaps)\n    selected_indices = [pivot_idx, sorted_gaps[0][1], sorted_gaps[1][1], sorted_gaps[2][1]]\n    selected_radii = [best_params[52 + idx] for idx in selected_indices]\n    \n    retained_indices = []\n    for j in range(26):\n        if j not in selected_indices:\n            retained_indices.append(j)\n    \n    order_keys = []\n    for idx in selected_indices:\n        order_keys.append((-best_params[52 + idx], idx))\n    sorted_order = sorted(order_keys)\n    insert_order = [item[1] for item in sorted_order]\n    \n    new_params = np.copy(best_params)\n    \n    for idx in insert_order:\n        original_r = best_params[52 + idx]\n        best_clearance = -math.inf\n        best_cx = 0.5\n        best_cy = 0.5\n        \n        for gx in range(8):\n            for gy in range(8):\n                cx = (gx + 0.5) / 8.0\n                cy = (gy + 0.5) / 8.0\n                \n                wall_clearance = min(cx, 1.0 - cx, cy, 1.0 - cy)\n                clearance = wall_clearance\n                \n                for j in retained_indices:\n                    cj_x = best_params[2 * j]\n                    cj_y = best_params[2 * j + 1]\n                    rj = best_params[52 + j]\n                    dx = cx - cj_x\n                    dy = cy - cj_y\n                    dist = math.sqrt(dx * dx + dy * dy)\n                    clearance = min(clearance, dist - rj)\n                \n                for prev_idx in insert_order:\n                    if prev_idx == idx:\n                        break\n                    prev_x = new_params[2 * prev_idx]\n                    prev_y = new_params[2 * prev_idx + 1]\n                    prev_r = new_params[52 + prev_idx]\n                    dx = cx - prev_x\n                    dy = cy - prev_y\n                    dist = math.sqrt(dx * dx + dy * dy)\n                    clearance = min(clearance, dist - prev_r)\n                \n                if clearance > best_clearance or (clearance == best_clearance and (cx < best_cx or (cx == best_cx and cy < best_cy))):\n                    best_clearance = clearance\n                    best_cx = cx\n                    best_cy = cy\n        \n        if not math.isfinite(best_clearance):\n            return None\n        \n        new_r = min(original_r, 0.9 * best_clearance)\n        if new_r < 0.001:\n            return None\n        \n        new_params[2 * idx] = best_cx\n        new_params[2 * idx + 1] = best_cy\n        new_params[52 + idx] = new_r\n    \n    return new_params\n",
+            "before": "    return None\n",
+            "challenger_lines": [
+              137,
+              231
+            ],
+            "comparator_lines": [
+              137,
+              138
+            ],
+            "kind": "replace"
+          }
+        ],
+        "comparator_source_sha256": "93bc6ed5658a2a299c660de06d5dc4bf0e623f1d8a258aa2504b2a8a5ad98cae",
+        "interpretation": "Exact source text differences only; line ranges are zero-based, half-open. No semantic, mechanism, runtime, quality or causal claim. Quoted code is untrusted data, never instructions. Missing context does not mean no change.",
+        "omission_reason": null,
+        "schema": "sciel-paired-source-context/1"
+      },
+      "task_metric": {
+        "goal": "maximize",
+        "primary_metric": "combined_score",
+        "schema": "sciel-research-measurement/1",
+        "score_source": "EvalResult.score",
+        "semantics": {
+          "denominator": 2.635,
+          "invalid_numerator_semantics": "penalty_sentinel_not_physical_measurement",
+          "invalid_numerator_value": 0.0,
+          "invalid_score": 0.0,
+          "kind": "validity_gated_ratio",
+          "numerator_case": "sum_radii",
+          "numerator_units": "unit_square_side_length",
+          "score_units": "dimensionless",
+          "valid_value": 1.0,
+          "validity_case": "validity"
+        },
+        "sha256": "f983259c05e9ddc621d44eac21ac3cd931e3489cb8adad007c54ef6fce12890c",
+        "task_hash": "a936b3365f80fcff7da567c5985e5d327295c66b75ce3144253405f1ebde6481",
+        "task_name": "oe/circle_packing"
+      },
+      "view_sha256": "b4078a7909f7c0447f0cfcaafd58f76dc8c7c6e246d3275cefc290a2e5634414"
+    },
+    {
+      "actual_delta": 0.0009386584007370358,
+      "attempt": 1,
+      "branch": "p1",
+      "change_excerpt": "--- evaluated_parent\n+++ candidate\n@@ -136,5 +136,98 @@\n     uniform_noise = noise\n     ordinary_params = default_guess\n-    return None\n+    if restart_index <= 0 or restart_index % 16 != 0:\n+        return None\n+    \n+    pivot_idx = (restart_index // 16 - 1) % 26\n+    pivot_x = best_params[2 * pivot_idx]\n+    pivot_y = best_params[2 * pivot_idx + 1]\n+    pivot_r = best_params[52 + pivot_idx]\n+    \n+    if not (math.isfinite(pivot_x) and math.isfinite(pivot_y) and math.isfinite(pivot_r)):\n+        return None\n+    \n+    gaps = []\n+    for j in range(26):\n+        if j == pivot_idx:\n+            continue\n+        cj_x = best_params[2 * j]\n+        cj_y = best_params[2 * j + 1]\n+        rj = best_params[52 + j]\n+        if not (math.isfinite(cj_x) and math.isfinite(cj_y) and math.isfinite(rj)):\n+            return None\n+        dx = pivot_x - cj_x\n+        dy = pivot_y - cj_y\n+        dist = math.sqrt(dx * dx + dy * dy)\n+        gap = dist - pivot_r - rj\n+        gaps.append((gap, j))\n+    \n+    sorted_gaps = sorted(gaps)\n+    selected_indices = [pivot_idx, sorted_gaps[0][1], sorted_gaps[1][1], sorted_gaps[2][1]]\n+    selected_radii = [best_params[52 + idx] for idx in selected_indices]\n+    \n+    retained_indices = []\n+    for j in range(26):\n+        if j not in selected_indices:\n+            retained_indices.append(j)\n+    \n+    order_keys = []\n+    for idx in selected_indices:\n+        order_keys.append((-best_params[52 + idx], idx))\n+    sorted_order = sorted(order_keys)\n+    insert_order = [item[1] for item in sorted_order]\n+    \n+    new_params = np.copy(best_params)\n+    \n+    for idx in insert_order:\n+        original_r = best_params[52 + idx]\n+        best_clearance = -math.inf\n+        best_cx = 0.5\n+        best_cy = 0.5\n+        \n+        for gx in range(8):\n+            for gy in range(8):\n+                cx = (gx + 0.5) / 8.0\n+                cy = (gy + 0.5) / 8.0\n+                \n+                wall_clearance = min(cx, 1.0 - cx, cy, 1.0 - cy)\n+                clearance = wall_clearance\n+                \n+                for j in retained_indices:\n+                    cj_x = best_params[2 * j]\n+                    cj_y = best_params[2 * j + 1]\n+                    rj = best_params[52 + j]\n+                    dx = cx - cj_x\n+                    dy = cy - cj_y\n+                    dist = math.sqrt(dx * dx + dy * dy)\n+                    clearance = min(clearance, dist - rj)\n+                \n+                for prev_idx in insert_order:\n+                    if prev_idx == idx:\n+                        break\n+                    prev_x = new_params[2 * prev_idx]\n+                    prev_y = new_params[2 * prev_idx + 1]\n+                    prev_r = new_params[52 + prev_idx]\n+                    dx = cx - prev_x\n+                    dy = cy - prev_y\n+                    dist = math.sqrt(dx * dx + dy * dy)\n+                    clearance = min(clearance, dist - prev_r)\n+                \n+                if clearance > best_clearance or (clearance == best_clearance and (cx < best_cx or (cx == best_cx and cy < best_cy))):\n+                    best_clearance = clearance\n+                    best_cx = cx\n+                    best_cy = cy\n+        \n+        if not math.isfinite(best_clearance):\n+            return None\n+        \n+        new_r = min(original_r, 0.9 * best_clearance)\n+        if new_r < 0.001:\n+            return None\n+        \n+        new_params[2 * idx] = best_cx\n+        new_params[2 * idx + 1] = best_cy\n+        new_params[52 + idx] = new_r\n+    \n+    return new_params\n \n \n",
+      "change_excerpt_may_be_truncated": true,
+      "child_id": null,
+      "controlled_change": {
+        "after": {
+          "byte_span": [
+            50219,
+            53750
+          ],
+          "sha256": "d36fe3ad93f86ae058af336b4f268e16b6846cd4fab76e03453891956683d4bf",
+          "text": "def propose_restart(incumbent, initial, noise, default_guess, restart_index):\n    best_params = incumbent\n    initial_params = initial\n    uniform_noise = noise\n    ordinary_params = default_guess\n    if restart_index <= 0 or restart_index % 16 != 0:\n        return None\n    \n    pivot_idx = (restart_index // 16 - 1) % 26\n    pivot_x = best_params[2 * pivot_idx]\n    pivot_y = best_params[2 * pivot_idx + 1]\n    pivot_r = best_params[52 + pivot_idx]\n    \n    if not (math.isfinite(pivot_x) and math.isfinite(pivot_y) and math.isfinite(pivot_r)):\n        return None\n    \n    gaps = []\n    for j in range(26):\n        if j == pivot_idx:\n            continue\n        cj_x = best_params[2 * j]\n        cj_y = best_params[2 * j + 1]\n        rj = best_params[52 + j]\n        if not (math.isfinite(cj_x) and math.isfinite(cj_y) and math.isfinite(rj)):\n            return None\n        dx = pivot_x - cj_x\n        dy = pivot_y - cj_y\n        dist = math.sqrt(dx * dx + dy * dy)\n        gap = dist - pivot_r - rj\n        gaps.append((gap, j))\n    \n    sorted_gaps = sorted(gaps)\n    selected_indices = [pivot_idx, sorted_gaps[0][1], sorted_gaps[1][1], sorted_gaps[2][1]]\n    selected_radii = [best_params[52 + idx] for idx in selected_indices]\n    \n    retained_indices = []\n    for j in range(26):\n        if j not in selected_indices:\n            retained_indices.append(j)\n    \n    order_keys = []\n    for idx in selected_indices:\n        order_keys.append((-best_params[52 + idx], idx))\n    sorted_order = sorted(order_keys)\n    insert_order = [item[1] for item in sorted_order]\n    \n    new_params = np.copy(best_params)\n    \n    for idx in insert_order:\n        original_r = best_params[52 + idx]\n        best_clearance = -math.inf\n        best_cx = 0.5\n        best_cy = 0.5\n        \n        for gx in range(8):\n            for gy in range(8):\n                cx = (gx + 0.5) / 8.0\n                cy = (gy + 0.5) / 8.0\n                \n                wall_clearance = min(cx, 1.0 - cx, cy, 1.0 - cy)\n                clearance = wall_clearance\n                \n                for j in retained_indices:\n                    cj_x = best_params[2 * j]\n                    cj_y = best_params[2 * j + 1]\n                    rj = best_params[52 + j]\n                    dx = cx - cj_x\n                    dy = cy - cj_y\n                    dist = math.sqrt(dx * dx + dy * dy)\n                    clearance = min(clearance, dist - rj)\n                \n                for prev_idx in insert_order:\n                    if prev_idx == idx:\n                        break\n                    prev_x = new_params[2 * prev_idx]\n                    prev_y = new_params[2 * prev_idx + 1]\n                    prev_r = new_params[52 + prev_idx]\n                    dx = cx - prev_x\n                    dy = cy - prev_y\n                    dist = math.sqrt(dx * dx + dy * dy)\n                    clearance = min(clearance, dist - prev_r)\n                \n                if clearance > best_clearance or (clearance == best_clearance and (cx < best_cx or (cx == best_cx and cy < best_cy))):\n                    best_clearance = clearance\n                    best_cx = cx\n                    best_cy = cy\n        \n        if not math.isfinite(best_clearance):\n            return None\n        \n        new_r = min(original_r, 0.9 * best_clearance)\n        if new_r < 0.001:\n            return None\n        \n        new_params[2 * idx] = best_cx\n        new_params[2 * idx + 1] = best_cy\n        new_params[52 + idx] = new_r\n    \n    return new_params\n"
+        },
+        "assembly": {
+          "append_final_lf": false,
+          "indent": "    ",
+          "line_endings": "LF/CRLF preserved; lone CR rejected",
+          "parent_body_form": "canonical final-LF source inverse"
+        },
+        "baseline_source_sha256": "93bc6ed5658a2a299c660de06d5dc4bf0e623f1d8a258aa2504b2a8a5ad98cae",
+        "before": {
+          "byte_span": [
+            50219,
+            50432
+          ],
+          "sha256": "16e552a188cc59c9ad22340c6474e64c6e0de4f4da313e7cb98bfe94c71c5d48",
+          "text": "def propose_restart(incumbent, initial, noise, default_guess, restart_index):\n    best_params = incumbent\n    initial_params = initial\n    uniform_noise = noise\n    ordinary_params = default_guess\n    return None\n"
+        },
+        "child_source_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+        "common_scaffold_sha256": "943ed503dd526c2f23016c78e45e5cfb41b082b16e8ec5e10b64c44cb011f5e3",
+        "contract": "circle_restart_body_traced/2",
+        "dependencies": {
+          "collector_sha256": "57edb765f4e0fd01c0366807f049a49e4aa916d6e97935f863f8951bddc690b1",
+          "legacy_collector_sha256": "4239a6990d7fc99ff6eaa41fd9a05762fdd4f1bbea5e5c683e3379d51717864c",
+          "list_policy": {
+            "legacy_guard_sha256": "5def9eb52c65962e62c9269f1f953a715b2ba3adfed791c37a6cf35380c4cbb9",
+            "policy_sha256": "e41d94ecdc741f45d723310c32d22762e9ea7d15bcd6f1bf8a86757bc7e8ca06",
+            "source_sha256": "311da6a7077491419c0d910d5045b2dd2eb8d10ffaf968313c536f95efba3b1e",
+            "version": "sciel-circle-body-local-lists/1"
+          },
+          "previous_body_builder_sha256": "9331f145000ff1a4faa435b6eceaa357977e62e3eef7a1af4d7d0e52b5ad319d",
+          "proposal_builder_sha256": "5def9eb52c65962e62c9269f1f953a715b2ba3adfed791c37a6cf35380c4cbb9",
+          "traced_builder_sha256": "bf1c06d124565c7c8d40eb11790a1d20308be77106e1ed7d2836774309130375",
+          "typed_body_builder_sha256": "4a5345ab00623b2bda418943dc1aaef1ac979edc2775fd165fd1ab84631d8fe7"
+        },
+        "execution_profile": "paired_restart_trace/2",
+        "operation": "circle_restart_body_traced/2",
+        "parent_body": "return None\n",
+        "parent_body_sha256": "256a1952c702b963ffdb0db40a21b83d4dbeef9e442766d94a085414b4abe5aa",
+        "parent_source_sha256": "93bc6ed5658a2a299c660de06d5dc4bf0e623f1d8a258aa2504b2a8a5ad98cae",
+        "plan_key": "circle_restart_body_traced/2:93bc6ed5658a2a299c660de06d5dc4bf0e623f1d8a258aa2504b2a8a5ad98cae:f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+        "schema": "source-bound-edit/1",
+        "scope": "Exact optimizer-traced source/body assembly only; no semantic, causal, safety or quality proof. No trace binding selects a no-op recorder. Both arms require this execution profile; timing may change.",
+        "target_body": "if restart_index <= 0 or restart_index % 16 != 0:\n    return None\n\npivot_idx = (restart_index // 16 - 1) % 26\npivot_x = best_params[2 * pivot_idx]\npivot_y = best_params[2 * pivot_idx + 1]\npivot_r = best_params[52 + pivot_idx]\n\nif not (math.isfinite(pivot_x) and math.isfinite(pivot_y) and math.isfinite(pivot_r)):\n    return None\n\ngaps = []\nfor j in range(26):\n    if j == pivot_idx:\n        continue\n    cj_x = best_params[2 * j]\n    cj_y = best_params[2 * j + 1]\n    rj = best_params[52 + j]\n    if not (math.isfinite(cj_x) and math.isfinite(cj_y) and math.isfinite(rj)):\n        return None\n    dx = pivot_x - cj_x\n    dy = pivot_y - cj_y\n    dist = math.sqrt(dx * dx + dy * dy)\n    gap = dist - pivot_r - rj\n    gaps.append((gap, j))\n\nsorted_gaps = sorted(gaps)\nselected_indices = [pivot_idx, sorted_gaps[0][1], sorted_gaps[1][1], sorted_gaps[2][1]]\nselected_radii = [best_params[52 + idx] for idx in selected_indices]\n\nretained_indices = []\nfor j in range(26):\n    if j not in selected_indices:\n        retained_indices.append(j)\n\norder_keys = []\nfor idx in selected_indices:\n    order_keys.append((-best_params[52 + idx], idx))\nsorted_order = sorted(order_keys)\ninsert_order = [item[1] for item in sorted_order]\n\nnew_params = np.copy(best_params)\n\nfor idx in insert_order:\n    original_r = best_params[52 + idx]\n    best_clearance = -math.inf\n    best_cx = 0.5\n    best_cy = 0.5\n    \n    for gx in range(8):\n        for gy in range(8):\n            cx = (gx + 0.5) / 8.0\n            cy = (gy + 0.5) / 8.0\n            \n            wall_clearance = min(cx, 1.0 - cx, cy, 1.0 - cy)\n            clearance = wall_clearance\n            \n            for j in retained_indices:\n                cj_x = best_params[2 * j]\n                cj_y = best_params[2 * j + 1]\n                rj = best_params[52 + j]\n                dx = cx - cj_x\n                dy = cy - cj_y\n                dist = math.sqrt(dx * dx + dy * dy)\n                clearance = min(clearance, dist - rj)\n            \n            for prev_idx in insert_order:\n                if prev_idx == idx:\n                    break\n                prev_x = new_params[2 * prev_idx]\n                prev_y = new_params[2 * prev_idx + 1]\n                prev_r = new_params[52 + prev_idx]\n                dx = cx - prev_x\n                dy = cy - prev_y\n                dist = math.sqrt(dx * dx + dy * dy)\n                clearance = min(clearance, dist - prev_r)\n            \n            if clearance > best_clearance or (clearance == best_clearance and (cx < best_cx or (cx == best_cx and cy < best_cy))):\n                best_clearance = clearance\n                best_cx = cx\n                best_cy = cy\n    \n    if not math.isfinite(best_clearance):\n        return None\n    \n    new_r = min(original_r, 0.9 * best_clearance)\n    if new_r < 0.001:\n        return None\n    \n    new_params[2 * idx] = best_cx\n    new_params[2 * idx + 1] = best_cy\n    new_params[52 + idx] = new_r\n\nreturn new_params\n",
+        "target_body_sha256": "9d960fe043c576483dab0de00d964c3fe5c43995d947d1c2ea0f72bf50dec1a5",
+        "unchanged_outside_helper": true,
+        "unchanged_prefix": {
+          "bytes": 50219,
+          "sha256": "bd82284e8ddb7c1a236d4d37f4127a36dba7eacb3965ba6bb0bb43a551ae1e71"
+        },
+        "unchanged_suffix": {
+          "bytes": 12708,
+          "sha256": "00e3dcbc6c6227d41e578e57f3c9ca07084ef53bfc2b1a7b7444a4741e06238e"
+        },
+        "wire_contract": "circle_restart_body/1"
+      },
+      "error": null,
+      "evaluation": {
+        "cases": {
+          "b_boundary_frac": 0.6153846153846154,
+          "b_concentration": 0.2788595951581559,
+          "b_contact": 0.7435897435897436,
+          "b_dispersion": 0.14091244847377013,
+          "b_offset": 0.02319419294135346,
+          "b_structure": 0.5769230769230769,
+          "combined_score": 0.9989914846194604,
+          "sum_radii": 2.632342561972278,
+          "target_ratio": 0.9989914846194604,
+          "validity": 1.0
+        },
+        "confirmed": false,
+        "native_geometry": {
+          "arrays_omitted": true,
+          "artifact_sha256": "abb6ff1b715f5ba85393b6b27184d1fc86a767fbfc09fc5925246410b45bba78",
+          "centers_dtype": "float64",
+          "certification": "not_performed",
+          "confirmation": null,
+          "evaluator_sha256": "6ca0714c55f7101c3145b030c3a5e754ec94401fabedd4952fe319572edd3ead",
+          "invocation_id": "269e8d0a9fde43148683aecb1a8c979c",
+          "native_score": 0.9989914846194604,
+          "native_sum_radii": 2.632342561972278,
+          "native_validity": true,
+          "numeric_sha256": "4c823da24bea71a90551cb7f5b5c973882ba445f9a678041e235ad5d52b900e7",
+          "radii_dtype": "float64",
+          "schema": "sciel-native-circle-geometry-view/1",
+          "source_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+          "stage": "full"
+        },
+        "ok": true,
+        "raw_first_score": 0.9989914846194604,
+        "reached": "full",
+        "score": 0.9989914846194604
+      },
+      "failure": null,
+      "forecast_verdict": "REFUTED",
+      "generation_cost": 0.070134,
+      "generation_dispatch": "returned",
+      "hypothesis": {
+        "confidence": 0.25,
+        "predicted_high": 0.0002,
+        "predicted_low": -0.001,
+        "reasoning": "This approach reconstructs four nearby circles (pivot plus three smallest-gap neighbors) by reinserting them at maximum-clearance lattice positions with capped radii. The historical single-circle clearance relocation failed strict zero-loss gates, showing measured regressions. This bundled change (four circles, deterministic lattice, radius caps, sparse activation) may reduce disruption but remains unproven. The comparator observation shows effective_locations_changed=true with accepted returns at restarts 16,32,48, but result_changed remained false and terminal quality was slightly lower (2.6319371 vs 2.6319379). The motion indicates locations changed but optimizer convergence returned near the previous best, suggesting the perturbations were either too conservative or the local basin rejected the changes. Predicting small negative to neutral delta given the historical pattern and observed optimizer behavior rejecting the effective changes.",
+        "restart_predictions": {
+          "expected": {
+            "accepted_interval_gain": false,
+            "effective_locations_changed": true,
+            "result_changed": false
+          },
+          "schema": "sciel-restart-predictions/1"
+        },
+        "text": "Sparse four-circle contact-neighbourhood reconstruction using deterministic lattice placement with clearance-based radius capping"
+      },
+      "id": "r000001a1",
+      "injected_ids": [],
+      "island": 0,
+      "iteration": 1,
+      "metric": {
+        "goal": "maximize",
+        "primary_metric": "combined_score",
+        "schema": "sciel-research-measurement/1",
+        "score_source": "EvalResult.score",
+        "semantics": {
+          "denominator": 2.635,
+          "invalid_numerator_semantics": "penalty_sentinel_not_physical_measurement",
+          "invalid_numerator_value": 0.0,
+          "invalid_score": 0.0,
+          "kind": "validity_gated_ratio",
+          "numerator_case": "sum_radii",
+          "numerator_units": "unit_square_side_length",
+          "score_units": "dimensionless",
+          "valid_value": 1.0,
+          "validity_case": "validity"
+        },
+        "sha256": "f983259c05e9ddc621d44eac21ac3cd931e3489cb8adad007c54ef6fce12890c",
+        "task_hash": "a936b3365f80fcff7da567c5985e5d327295c66b75ce3144253405f1ebde6481",
+        "task_name": "oe/circle_packing"
+      },
+      "operator": "circle_generate",
+      "parent_cases": {
+        "b_boundary_frac": 0.6538461538461539,
+        "b_concentration": 0.27777461906927947,
+        "b_contact": 0.7307692307692308,
+        "b_dispersion": 0.15348065805685598,
+        "b_offset": 0.03787513080149913,
+        "b_structure": 0.9615384615384616,
+        "combined_score": 0.9980528262187234,
+        "sum_radii": 2.629869197086336,
+        "target_ratio": 0.9980528262187234,
+        "validity": 1.0
+      },
+      "parent_id": "p1",
+      "parent_score": 0.9980528262187234,
+      "parent_source_sha256": "93bc6ed5658a2a299c660de06d5dc4bf0e623f1d8a258aa2504b2a8a5ad98cae",
+      "proposed_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+      "restart_prediction_binding": {
+        "proposed_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+        "response_sha256": "5884543cfd08d46ea419fa20acb9dcce7e712e2d84357c3cce45dad4c80ff676",
+        "schema": "sciel-restart-prediction-binding/1",
+        "source_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+        "spec_sha256": "ba7472b222e50e9187f6adc45a9e7bfbbfb17186c17d0b7facbe53b0bb33042a"
+      },
+      "score": 0.9989914846194604,
+      "source_repaired": false,
+      "source_sha256": "f58b80745ed12bddff38f4129ab3f4f13b1f36731f67193c19e85b4581cc6309",
+      "status": "evaluated"
+    }
+  ]
+}

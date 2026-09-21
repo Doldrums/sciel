@@ -1,0 +1,231 @@
+{
+  "diagnostics": {
+    "notes": [],
+    "stage_seconds": {
+      "population_best_lp": 0.0010746250045485795,
+      "selected_lp": 0.03400625000358559
+    }
+  },
+  "error": null,
+  "observations": {
+    "denominator": 2.635,
+    "interpretation_scope": "Measurements are offline recomputations from saved geometry artifacts; they are not evaluator runs and do not certify any candidate score.",
+    "probe_wall_seconds": 0.6634624589933082,
+    "roles": {
+      "population_best": {
+        "centers_dtype": "float64",
+        "eval_time_artifact": 22.0199,
+        "lp_at_saved_centers": {
+          "delta_in_score_units": 2.0142929281109297e-09,
+          "delta_vs_saved_sum": 5.3076618655722996e-09,
+          "min_boundary_slack": 5.4316273701005e-13,
+          "min_pair_slack": 2.0294876890147862e-13,
+          "strictly_feasible": true,
+          "sum_radii": 2.635983084898462
+        },
+        "native_score": 1.0003730852337003,
+        "native_sum_radii": 2.6359830795908,
+        "native_validity": true,
+        "polish": {
+          "baseline_sum_radii": 2.635983084898462,
+          "delta_in_score_units": 6.238484323267522e-12,
+          "delta_sum_radii": 1.6438406191809918e-11,
+          "final_min_boundary_slack": 8.083811398051921e-14,
+          "final_min_pair_slack": 1.6719958750854857e-13,
+          "final_strictly_feasible": true,
+          "final_sum_radii": 2.6359830849149004,
+          "implied_score_if_valid": 1.0003730872542318,
+          "rounds": [
+            {
+              "min_boundary_slack": 8.083811398051921e-14,
+              "min_pair_slack": 1.6719958750854857e-13,
+              "round": 1,
+              "seconds": 0.010941583022940904,
+              "slsqp": {
+                "message": "Optimization terminated successfully",
+                "nit": 3,
+                "status": 0
+              },
+              "strictly_feasible": true,
+              "sum_radii": 2.6359830849149004
+            },
+            {
+              "min_boundary_slack": 9.288403379770216e-14,
+              "min_pair_slack": 1.620370504440416e-13,
+              "round": 2,
+              "seconds": 0.05488574999617413,
+              "slsqp": {
+                "message": "Optimization terminated successfully",
+                "nit": 15,
+                "status": 0
+              },
+              "strictly_feasible": true,
+              "sum_radii": 2.6359830849144945
+            }
+          ],
+          "status": "measured"
+        },
+        "program_id": "p26",
+        "radii_dtype": "float64",
+        "recomputed_minus_reported_sum": 7.959080017272413e-08,
+        "reported_sum": 2.635983,
+        "role": "population_best",
+        "saved_metrics": {
+          "boundary_contacts_below_1e6": 16,
+          "max_radius": 0.13701042984726916,
+          "min_boundary_slack": 1.5972076439219052e-10,
+          "min_pair_slack": 3.27205373906736e-10,
+          "min_radius": 0.06918067621690155,
+          "n": 26,
+          "pair_contacts_below_1e6": 58,
+          "strictly_feasible": true,
+          "sum_radii": 2.6359830795908
+        },
+        "status": "measured"
+      },
+      "selected": {
+        "centers_dtype": "float64",
+        "eval_time_artifact": 24.0065,
+        "lp_at_saved_centers": {
+          "delta_in_score_units": 9.982316470367822e-13,
+          "delta_vs_saved_sum": 2.630340389941921e-12,
+          "min_boundary_slack": 3.403805015622652e-13,
+          "min_pair_slack": 1.705857677336553e-13,
+          "strictly_feasible": true,
+          "sum_radii": 2.6309722676390876
+        },
+        "native_score": 0.9984714488183899,
+        "native_sum_radii": 2.6309722676364573,
+        "native_validity": true,
+        "polish": {
+          "baseline_sum_radii": 2.6309722676390876,
+          "delta_in_score_units": 4.234774032600578e-12,
+          "delta_sum_radii": 1.1158629575902523e-11,
+          "final_min_boundary_slack": 7.481515407192774e-14,
+          "final_min_pair_slack": 1.6819878823071122e-13,
+          "final_strictly_feasible": true,
+          "final_sum_radii": 2.6309722676502463,
+          "implied_score_if_valid": 0.9984714488236229,
+          "rounds": [
+            {
+              "min_boundary_slack": 9.0427665355719e-14,
+              "min_pair_slack": 1.9584334154387761e-13,
+              "round": 1,
+              "seconds": 0.04522416600957513,
+              "slsqp": {
+                "message": "Optimization terminated successfully",
+                "nit": 10,
+                "status": 0
+              },
+              "strictly_feasible": true,
+              "sum_radii": 2.6309722676496388
+            },
+            {
+              "min_boundary_slack": 7.725764472610308e-14,
+              "min_pair_slack": 1.689481887723332e-13,
+              "round": 2,
+              "seconds": 0.004627916991012171,
+              "slsqp": {
+                "message": "Optimization terminated successfully",
+                "nit": 1,
+                "status": 0
+              },
+              "strictly_feasible": true,
+              "sum_radii": 2.6309722676502214
+            },
+            {
+              "min_boundary_slack": 7.481515407192774e-14,
+              "min_pair_slack": 1.6819878823071122e-13,
+              "round": 3,
+              "seconds": 0.04697087500244379,
+              "slsqp": {
+                "message": "Optimization terminated successfully",
+                "nit": 9,
+                "status": 0
+              },
+              "strictly_feasible": true,
+              "sum_radii": 2.6309722676502463
+            },
+            {
+              "min_boundary_slack": 7.703560012117805e-14,
+              "min_pair_slack": 1.7133516827527728e-13,
+              "round": 4,
+              "seconds": 0.0039439159736502916,
+              "slsqp": {
+                "message": "Optimization terminated successfully",
+                "nit": 1,
+                "status": 0
+              },
+              "strictly_feasible": true,
+              "sum_radii": 2.630972267650215
+            }
+          ],
+          "status": "measured"
+        },
+        "program_id": "p25",
+        "radii_dtype": "float64",
+        "recomputed_minus_reported_sum": 2.6763645744054543e-07,
+        "reported_sum": 2.630972,
+        "role": "selected",
+        "saved_metrics": {
+          "boundary_contacts_below_1e6": 16,
+          "max_radius": 0.13667742715367331,
+          "min_boundary_slack": 4.1389114358025836e-13,
+          "min_pair_slack": 3.411715354673106e-13,
+          "min_radius": 0.07004702551937177,
+          "n": 26,
+          "pair_contacts_below_1e6": 58,
+          "strictly_feasible": true,
+          "sum_radii": 2.6309722676364573
+        },
+        "status": "measured"
+      }
+    },
+    "schema": "circle-packing-slack-probe/1",
+    "scipy_available": true,
+    "static_source_guard": {
+      "parent_source": {
+        "available": true,
+        "chars": 6501,
+        "count_budget": 3,
+        "count_deadline": 0,
+        "count_elapsed": 0,
+        "count_for___in_range": 0,
+        "count_maxiter": 4,
+        "count_perf_counter": 0,
+        "count_time_monotonic": 0,
+        "count_time_time": 5,
+        "count_while": 1
+      },
+      "population_best": {
+        "available": true,
+        "chars": 8214,
+        "count_budget": 0,
+        "count_deadline": 3,
+        "count_elapsed": 0,
+        "count_for___in_range": 3,
+        "count_maxiter": 4,
+        "count_perf_counter": 0,
+        "count_time_monotonic": 0,
+        "count_time_time": 3,
+        "count_while": 1
+      },
+      "selected": {
+        "available": true,
+        "chars": 6501,
+        "count_budget": 3,
+        "count_deadline": 0,
+        "count_elapsed": 0,
+        "count_for___in_range": 0,
+        "count_maxiter": 4,
+        "count_perf_counter": 0,
+        "count_time_monotonic": 0,
+        "count_time_time": 5,
+        "count_while": 1
+      }
+    },
+    "time_budget_seconds_used_for_guard": 36.0
+  },
+  "schema": "sciel-tool-result/1",
+  "status": "success"
+}

@@ -1,0 +1,30 @@
+suite: oe
+name: circle_packing_seed
+origin: oe
+primary_metric: combined_score
+case_metrics:
+  - sum_radii
+  - target_ratio
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# the seed program draws from np.random with no fixed seed, so two smoke runs
+# of the same program disagree; declaring determinism made `sciel tasks
+# validate` fail for the suite and, worse, gated confirm off, so a lucky draw
+# was accepted as a record without ever being re-sampled
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 120.0
+confirm_timeout: 180.0
+known_best: 2.635
+license: "Apache-2.0 (openevolve examples)"

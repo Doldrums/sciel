@@ -1,0 +1,10 @@
+extends: func_min.yaml
+# Историческое stock-плечо (движок до espalier-дефолтов), выключено явно.
+# См. heilbronn_stock.yaml о сравнимости со старыми журналами.
+sh_min_fair_evals: 0
+log_population: false
+policy:
+  enabled: false
+  plateau_shift: false
+llm:
+  max_tokens: 16000

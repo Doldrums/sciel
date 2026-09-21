@@ -1,0 +1,187 @@
+{
+  "provenance": {
+    "run": "circle_gemini_research_cells_background_live_20260920_v4",
+    "scope": "Exact raw saved process receipts, no synthesized envelope or execution",
+    "copied_after_stop": true
+  },
+  "invocations": [
+    {
+      "artifact_id": "2b78665ff3fe4357c7a7a7eca9ef384bd633b36c48582ea42cf17b74c3f98f59",
+      "artifact_sha256": "2b78665ff3fe4357c7a7a7eca9ef384bd633b36c48582ea42cf17b74c3f98f59",
+      "tool_id": "800ee3959b907e097d1f15c090e2182358e6c7ed1db1b9bf62c36ae1d5c79557",
+      "stage": "research",
+      "island_id": 8,
+      "receipt": {
+        "container": {
+          "image_id": "sha256:ff59425be3cb209f0dfe6bb607d37ae8db1254f8e8a1173b1dde0e6c2e18cb29",
+          "name": "sciel-method-fd2736fc1f7e4699a609668228d2c8ba",
+          "removed": true
+        },
+        "dependency_ids": [],
+        "dependency_use_attested": false,
+        "dispatch_status": "invoked",
+        "input_sha256": "031209a9415550ea0194c83e027b3422621a90d9fbfe31979f39c23787d73475",
+        "invocation_id": "c0179f4d66c50b533e7ea1b6d1d890ad44d46f07ddb025f658f3fb19b4e52409",
+        "limits": {
+          "cpu_seconds": 10.0,
+          "max_output_bytes": 65536,
+          "max_stderr_bytes": 8192,
+          "memory_bytes": 536870912,
+          "pids": 64,
+          "wall_seconds": 15.0
+        },
+        "method_id": "800ee3959b907e097d1f15c090e2182358e6c7ed1db1b9bf62c36ae1d5c79557",
+        "output": {
+          "elapsed_time": 0.4123401641845703,
+          "expected_radii_1": [
+            0.5
+          ],
+          "expected_radii_2": [
+            0.25,
+            0.25
+          ],
+          "test_radii_1": [
+            0.5
+          ],
+          "test_radii_2": [
+            0.25,
+            0.25
+          ],
+          "test_radii_3": [
+            0.024999999999999994,
+            0.024999999999999994
+          ]
+        },
+        "output_sha256": "cea7db80eb25071c7285809666f4d46901e2305886bda7e68b84b0bdec5e57fa",
+        "plan_id": "70812ca8157f4f8b61729c073408af058898eb51188615134c35d124d3bd483b",
+        "reason": null,
+        "receipt_sha256": "8e912265f304c3fa1240948e6bea531ba55510894aa967c1f56fc2656f8aa9a4",
+        "request_sha256": "e76d2585ffea393c9eaa5b5a1652025a3933aad713e3c8f0247d217f95e3a79e",
+        "reservation_id": "c0179f4d66c50b533e7ea1b6d1d890ad44d46f07ddb025f658f3fb19b4e52409",
+        "resource_measurement": {
+          "cpu": "trusted_cgroup_observation",
+          "scope": "cgroup-v2 CPU observed before namespace exit; excludes Docker daemon",
+          "wall": "host_monotonic_total"
+        },
+        "resources": {
+          "cpu_seconds": 0.740428,
+          "memory_peak_bytes": 53936128,
+          "method_wall_seconds": 0.6374481249949895,
+          "output_bytes": 198,
+          "stderr_bytes": 0,
+          "wall_seconds": 1.4389651670062449
+        },
+        "runtime": {
+          "architecture": "arm64",
+          "docker_server": "27.5.1",
+          "image_id": "sha256:ff59425be3cb209f0dfe6bb607d37ae8db1254f8e8a1173b1dde0e6c2e18cb29",
+          "loader_sha256": "141e4224f72ff74bcd10916159d34ac55a4eb5e8ca04dc914fec1ed5d14f90f7",
+          "policy": {
+            "bundle_mounts_read_only": true,
+            "candidate_gid": 10001,
+            "candidate_uid": 10001,
+            "cpu_accounting": "cgroup-v2 CPU observed before namespace exit; excludes Docker daemon",
+            "cpu_limit_scope": "child phase cgroup delta; startup CPU is additionally measured",
+            "cpus": 1,
+            "credentials": "no host environment passed",
+            "dependency_invocations": "not independently attested; top-level resource accounting only",
+            "network": "none",
+            "rootfs_read_only": true,
+            "swap": "disabled",
+            "tmpfs_bytes": 33554432,
+            "wall_accounting": "host invocation total including staging/create/cleanup",
+            "watchdog": "root PID1 exits private PID namespace"
+          },
+          "runner_sha256": "cd2227a7de1082f5cb69e165ba7201b3e3d3eea3faaadd85e018433bcbea987c",
+          "schema": "sciel-method-executor/1"
+        },
+        "runtime_sha256": "0fee71cb53f448e5a0eeafceed5debd9693a0a304097cbcbc50ec17155c333c3",
+        "schema": "sciel-method-execution/1",
+        "source_sha256": "ab1be3bb28e3ac12d6416fa4581ce1033ce40e096e585157e838d6bb0e98aace",
+        "status": "ok",
+        "stderr": "",
+        "stderr_truncated": false
+      }
+    },
+    {
+      "artifact_id": "59f6ba0560f323fb939e6f1edff2c460169d866d927b0efebfd086b5589ad8ed",
+      "artifact_sha256": "59f6ba0560f323fb939e6f1edff2c460169d866d927b0efebfd086b5589ad8ed",
+      "tool_id": "ab57c909255ad06e87907127d8f365f040dfaec8012d10e8a3bd0fdf74632884",
+      "stage": "research",
+      "island_id": 9,
+      "receipt": {
+        "container": {
+          "image_id": "sha256:ff59425be3cb209f0dfe6bb607d37ae8db1254f8e8a1173b1dde0e6c2e18cb29",
+          "name": "sciel-method-d543fafc51bd44b8a44a29bf2f961836",
+          "removed": true
+        },
+        "dependency_ids": [],
+        "dependency_use_attested": false,
+        "dispatch_status": "invoked",
+        "input_sha256": "49ff32cac18b1875911eec74b1dfde41360dcc57c2c3d5a832403468e6a951de",
+        "invocation_id": "924a6726a1dd6f9b7f0e01fa7b3dc92bd834c6ad8146ab8a96539cb58abea685",
+        "limits": {
+          "cpu_seconds": 10.0,
+          "max_output_bytes": 65536,
+          "max_stderr_bytes": 8192,
+          "memory_bytes": 536870912,
+          "pids": 64,
+          "wall_seconds": 15.0
+        },
+        "method_id": "ab57c909255ad06e87907127d8f365f040dfaec8012d10e8a3bd0fdf74632884",
+        "output": {
+          "error": "Error calling construct_packing: name 'compute_max_radii' is not defined"
+        },
+        "output_sha256": "bb483be22a1a3ab8841e4bf6cd32c61fe5727fd77876fe7fdd0373f2ee714db2",
+        "plan_id": "350ba05dd836c79d487ed0303870418a69c460d1a335c2e3ddebdf6900dbce23",
+        "reason": null,
+        "receipt_sha256": "78017e278ca367852bd2f592ae00d4a4f13d68163f906f099eefad36bcff0d86",
+        "request_sha256": "9a95ec669fdc207fa5580ee9b1574e3452d6431cc453c5aee5ad1952acfd57c7",
+        "reservation_id": "924a6726a1dd6f9b7f0e01fa7b3dc92bd834c6ad8146ab8a96539cb58abea685",
+        "resource_measurement": {
+          "cpu": "trusted_cgroup_observation",
+          "scope": "cgroup-v2 CPU observed before namespace exit; excludes Docker daemon",
+          "wall": "host_monotonic_total"
+        },
+        "resources": {
+          "cpu_seconds": 0.091647,
+          "memory_peak_bytes": 25669632,
+          "method_wall_seconds": 0.06026004199520685,
+          "output_bytes": 84,
+          "stderr_bytes": 0,
+          "wall_seconds": 0.5950819580029929
+        },
+        "runtime": {
+          "architecture": "arm64",
+          "docker_server": "27.5.1",
+          "image_id": "sha256:ff59425be3cb209f0dfe6bb607d37ae8db1254f8e8a1173b1dde0e6c2e18cb29",
+          "loader_sha256": "141e4224f72ff74bcd10916159d34ac55a4eb5e8ca04dc914fec1ed5d14f90f7",
+          "policy": {
+            "bundle_mounts_read_only": true,
+            "candidate_gid": 10001,
+            "candidate_uid": 10001,
+            "cpu_accounting": "cgroup-v2 CPU observed before namespace exit; excludes Docker daemon",
+            "cpu_limit_scope": "child phase cgroup delta; startup CPU is additionally measured",
+            "cpus": 1,
+            "credentials": "no host environment passed",
+            "dependency_invocations": "not independently attested; top-level resource accounting only",
+            "network": "none",
+            "rootfs_read_only": true,
+            "swap": "disabled",
+            "tmpfs_bytes": 33554432,
+            "wall_accounting": "host invocation total including staging/create/cleanup",
+            "watchdog": "root PID1 exits private PID namespace"
+          },
+          "runner_sha256": "cd2227a7de1082f5cb69e165ba7201b3e3d3eea3faaadd85e018433bcbea987c",
+          "schema": "sciel-method-executor/1"
+        },
+        "runtime_sha256": "0fee71cb53f448e5a0eeafceed5debd9693a0a304097cbcbc50ec17155c333c3",
+        "schema": "sciel-method-execution/1",
+        "source_sha256": "8f970eec49b1cc6e6a4b5c4bc9bf6a1146f412b1f25d6905bafa863910206847",
+        "status": "ok",
+        "stderr": "",
+        "stderr_truncated": false
+      }
+    }
+  ]
+}

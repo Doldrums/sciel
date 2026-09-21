@@ -1,0 +1,7 @@
+extends: ../func_min.yaml
+selection_policy: stock_70_20_10
+# kernel-абляция селекции: espalier-policy требует tilt-способное ядро
+# (движок отказывает явно) -> policy выключена в этом плече.
+policy:
+  enabled: false
+  plateau_shift: false

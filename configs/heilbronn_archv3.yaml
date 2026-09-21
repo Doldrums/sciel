@@ -1,0 +1,6 @@
+extends: heilbronn.yaml
+# arch-v3 preview arm: all new gated mechanisms ON (vs espalier-3 OFF baseline).
+crossover: true
+portfolio_seed: true
+dynamic_islands: true
+max_islands: 6

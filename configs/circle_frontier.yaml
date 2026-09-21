@@ -1,0 +1,4 @@
+extends: circle.yaml
+llm:
+  models: [google/gemini-2.5-pro]
+  weights: [1.0]

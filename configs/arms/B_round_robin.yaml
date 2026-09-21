@@ -1,0 +1,2 @@
+extends: ../func_min.yaml
+schedule_policy: round_robin

@@ -1,0 +1,4 @@
+extends: heilbronn.yaml
+crossover: true
+portfolio_seed: true
+idea_island: true

@@ -1,0 +1,26 @@
+num_islands: 3
+budget: 100
+pop_cap: 50
+archive_size: 20
+grid_bins: 10
+inflight_cap: 4
+dup_cap: 4
+backstop_k: 10
+random_seed: 0
+schedule_policy: sh
+milestone_fracs: [0.5, 0.75]
+op_temperature: 0.5
+op_floor: 0.05
+op_window: 50
+selection_floor: 0.001
+tau_floor: 0.001
+reward_w_pop: 1.0
+reward_w_isl: 1.0
+base_temp: 0.7
+bet_enabled: false
+confirm_records: false
+checkpoint_on_milestone: true
+llm:
+  temperature: 0.7
+  # max_tokens: single source of truth is config.DEFAULTS (32000)
+  timeout: 120

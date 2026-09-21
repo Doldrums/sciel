@@ -1,0 +1,4 @@
+extends: heilbronn.yaml
+# A/B treatment arm: exploit-on-stall ON (engine default refine_stall=8), budget
+# matched to the heilbronn_norefine baseline arm.
+budget: 80

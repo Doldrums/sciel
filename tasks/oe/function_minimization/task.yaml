@@ -1,0 +1,29 @@
+suite: oe
+name: function_minimization
+origin: oe
+primary_metric: combined_score
+case_metrics:
+  - value_score
+  - distance_score
+  - reliability_score
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+stochastic: true
+confirm_n: 20
+smoke_timeout: 30.0
+# the evaluator caps EACH run_search() at 5s internally; the prompt's
+# compute-budget directive must quote that, not the stage timeout
+per_run_timeout: 5.0
+full_timeout: 90.0
+confirm_timeout: 180.0
+known_best: 1.5
+license: "Apache-2.0 (openevolve examples)"

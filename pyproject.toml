@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sciel"
+version = "0.2.0"
+description = "Evolutionary program search with an LLM mutator"
+requires-python = ">=3.11,<3.15"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "numpy>=1.24",
+    "tenacity>=8.2",
+    "openai>=1.30",
+    "greenlet>=3.1,<4",
+    "huggingface_hub>=0.23",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2", "build>=1.2", "jsonschema>=4"]
+tasks = ["scipy>=1.11"]
+learning = ["torch>=2.2"]
+board = ["wandb>=0.16"]
+analysis = ["duckdb>=0.10", "pandas>=2.0", "psutil>=7.2"]
+
+[project.scripts]
+sciel = "sciel.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"sciel.engine.prompt" = ["templates/*.txt"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["integration: real evaluator subprocess, installed-package, and resume contracts"]

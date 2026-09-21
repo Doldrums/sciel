@@ -1,0 +1,32 @@
+# Alternative exploratory feature bundle: online presets + v3 VQ niches.
+# Changes controller and representation together; not an isolated RL ablation.
+extends: circle_live_gemini_rl_full.yaml
+warm_start: null
+candidate_novelty:
+  enabled: true
+
+# VQ replaces the PCA grid descriptor for niche assignment. Explicit v3 avoids
+# the legacy VQ default's v2 embedder, which omits evaluator behavior features.
+embed_grid: false
+embed_niche: true
+embed_niche_path: ../sciel-artifacts/code_embed_v3.pt
+niche_d_min: 0.35
+niche_target_k: 6
+niche_k_max: 12
+niche_csc_rate: 0.08
+container:
+  kind: legacy
+
+# Online exponential weights over base / elite / uniform parent selection.
+# Reward is a binary population improvement, with clipped importance weighting.
+preset_selection: true
+preset_adaptive: true
+policy:
+  enabled: false
+  mode_bandit: false
+  mode_source: null
+  plateau_shift: false
+  plateau_shadow: true
+three_head: false
+idea_card_selection:
+  enabled: false

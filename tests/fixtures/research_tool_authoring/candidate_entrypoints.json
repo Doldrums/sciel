@@ -1,0 +1,43 @@
+{
+  "description": "Two authored inert replies for static tool-entrypoint and repair-budget regressions.",
+  "responses": [
+    {
+      "code_sha256": "db41c6a7a35a3f417e4c2bb30af16b634b3db2ee3ca66b372867a04140ea94f4",
+      "action": {
+        "action": "create",
+        "name": "Candidate interface mistaken for tool API",
+        "description": "Authored inert candidate-style response lacking the required run(payload).",
+        "code": "def construct_packing(seed=0):\n    return None\n\ndef run_packing():\n    return construct_packing()\n",
+        "parents": [],
+        "dependencies": [],
+        "arguments_json": "{}",
+        "replay_policy": "independent_execution",
+        "execution": "foreground",
+        "cpu_seconds": 20,
+        "wall_seconds": 30,
+        "reason": "Authored negative example: candidate task interfaces do not satisfy the tool API.",
+        "job_id": "",
+        "tool_id": ""
+      }
+    },
+    {
+      "code_sha256": "ee2a9ca60c54d7c2298097259e121d554db090249436502f07aa05bb3b978fe1",
+      "action": {
+        "action": "create",
+        "name": "Candidate interface mistaken for tool API",
+        "description": "Authored inert candidate-style response lacking the required run(payload).",
+        "code": "def construct_packing(seed=0):\n    return None\n\ndef run_packing():\n    return construct_packing(seed=7)\n",
+        "parents": [],
+        "dependencies": [],
+        "arguments_json": "{}",
+        "replay_policy": "independent_execution",
+        "execution": "foreground",
+        "cpu_seconds": 20,
+        "wall_seconds": 30,
+        "reason": "Authored negative example: candidate task interfaces do not satisfy the tool API.",
+        "job_id": "",
+        "tool_id": ""
+      }
+    }
+  ]
+}

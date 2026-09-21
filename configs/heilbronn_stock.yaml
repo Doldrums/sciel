@@ -1,0 +1,11 @@
+extends: heilbronn.yaml
+# Историческое stock-плечо (движок до espalier-дефолтов), выключено явно.
+# Контракт entry-points не отключается (поведение движка): сравнение со
+# старыми журналами легально только при одинаковом engine_contract в run_start.
+sh_min_fair_evals: 0
+log_population: false
+policy:
+  enabled: false
+  plateau_shift: false
+llm:
+  max_tokens: 16000

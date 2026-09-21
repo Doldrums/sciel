@@ -1,0 +1,50 @@
+suite: oe
+name: circle_packing
+origin: oe
+primary_metric: combined_score
+task_prompt: >-
+  Maximize sum_radii for 26 non-overlapping circles inside [0,1]^2.
+  Implement module-level run_packing() returning (centers, radii, reported_sum):
+  finite real arrays of shapes (26,2) and (26,), with radii>=0.
+  Boundaries and pair separation use binary64 checks with tolerance 1e-6;
+  satisfy the mathematical constraints rather than exploit tolerance.
+  The evaluator recomputes sum_radii (floating radii retain their reduction dtype);
+  reported_sum is not trusted for scoring. For valid packing,
+  combined_score=sum_radii/2.635; invalid packing scores 0.
+  2.635 is a fixed normalization reference, not a current record or proven bound.
+  Candidate environment has Python stdlib, NumPy and SciPy, not sklearn/cma/GPy/skopt.
+  Every candidate must pass smoke within 30 wall seconds; full allows 120 seconds,
+  including execution overhead. Optional confirm uses 3 repeats within 180 seconds
+  and retains the first failure, otherwise the worst score.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: sum_radii
+  numerator_units: unit_square_side_length
+  denominator: 2.635
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+case_metrics:
+  - sum_radii
+  - target_ratio
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+resources: cpu
+stochastic: false
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 120.0
+confirm_timeout: 180.0
+known_best: 2.635
+license: "Apache-2.0 (openevolve examples)"

@@ -1,0 +1,54 @@
+suite: oe
+name: function_minimization_oracle
+origin: oe
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level run_search(oracle); the canonical seed calls editable
+  search_algorithm(oracle). Minimize an unknown function on [-1,1]^2 with at most
+  50 oracle.query(x,y) observations per fresh instance. Repeated queries also cost
+  budget; excess/malformed requests fail. Candidate Docker environment: Python
+  stdlib only, no NumPy/SciPy/network/host mounts. Each run has 5 wall seconds
+  including imports/work, with a separate 10-second startup allowance.
+  Return value is ignored: only actually queried points count, with no extra
+  final query. Per-trial score=1/(1+best observed value); failures contribute 0.
+  Smoke/full/confirm use 1/5/20 independent fresh trials. Smoke/full require at
+  least one success and no infrastructure failure; confirm requires all 20
+  successes or aggregate score 0. combined_score=mean_best_query_score;
+  1 is the analytic upper bound, not an algorithm record. Stage wall limits are
+  30/120/360 seconds. Local surrogate computations are allowed; no reset/private
+  instance parameters or seeds. Public algorithm seeds do not choose instances.
+  Candidate restrictions differ from the research tool API.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: mean_best_query_score
+  numerator_units: dimensionless_best_query_score
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+case_metrics:
+  - mean_best_query_score
+  - validity
+  - reliability_score
+  - objective_queries
+tiers: [smoke, full, confirm]
+resources: docker
+stochastic: true
+confirm_n: 20
+smoke_timeout: 30.0
+per_run_timeout: 5.0
+full_timeout: 120.0
+confirm_timeout: 360.0
+known_best: 1.0
+license: MIT
+oracle_protocol: sciel-hidden-oracle/1
+oracle_query_budget: 50
+oracle_startup_timeout: 10.0
+oracle_domain: [-1.0, 1.0]
+oracle_trial_counts: {smoke: 1, full: 5, confirm: 20}
+oracle_primary: mean_of_1_over_1_plus_best_observed_value_failures_zero
+oracle_base_image: python@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
+oracle_isolation: private_PID_namespace_root_watchdog_unprivileged_candidate_no_network_no_host_mounts

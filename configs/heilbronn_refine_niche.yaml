@@ -1,0 +1,4 @@
+extends: heilbronn.yaml
+# A/B arm C: exploit-on-stall (default) + VQ-Elites niche map (4b).
+budget: 80
+embed_niche: true

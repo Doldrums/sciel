@@ -1,0 +1,25 @@
+You are improving a Python program for the following task.
+
+TASK:
+{task_prompt}
+
+CURRENT PROGRAM (score {parent_score}):
+```python
+{parent_code}
+```
+
+INSPIRATIONS FROM OTHER SOLUTIONS:
+{inspirations}
+
+DIRECTIVE:
+{directive}
+
+LESSONS:
+{lessons}
+
+Follow the requested search scope in DIRECTIVE when improving the algorithm.
+Keep the program's entry-point function
+name(s) and their return interface EXACTLY as in the current program above; do not rename
+functions or change what they return. Output the COMPLETE improved program in a single
+```python code block.
+{bet_block}

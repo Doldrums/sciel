@@ -1,0 +1,26 @@
+You are combining two approaches to a Python program for the following task.
+
+TASK:
+{task_prompt}
+
+CURRENT PROGRAM (score {parent_score}):
+```python
+{parent_code}
+```
+
+INSPIRATIONS FROM OTHER SOLUTIONS:
+{inspirations}
+
+DIRECTIVE:
+{directive}
+
+LESSONS:
+{lessons}
+
+COMBINE the strategy of the current program with the strongest ideas of the
+inspirations above into ONE coherent program -- take the structural idea of one
+and the refinement machinery of the other, do not just concatenate. Keep the
+program's entry-point function name(s) and their return interface EXACTLY as in
+the current program above. Output the COMPLETE program in a single ```python
+code block.
+{bet_block}

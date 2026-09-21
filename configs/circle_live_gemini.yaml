@@ -1,0 +1,55 @@
+# Full current search stack + G/C/R. No total evaluation, iteration or LLM-call cap.
+extends: circle.yaml
+budget: null
+max_iterations: null
+# Keep the ordinary Circle SH milestones at 40/60 evaluations. Search continues
+# after them; this finite horizon is only for scheduling and progress features.
+schedule_horizon: 80
+checkpoint_interval: 10
+# Preserve generated-source history across population eviction and checkpoints.
+candidate_novelty:
+  enabled: true
+  max_resamples: 2
+  neighbors: 3
+num_islands: 3
+max_islands: 6
+portfolio_seed: true
+dynamic_islands: true
+crossover: true
+idea_island: true
+selection_policy: novelty_chain
+container:
+  kind: legacy
+embed_grid: true
+embed_grid_path: ../sciel-artifacts/code_embed_v3.pt
+embed_axis_path: ../sciel-artifacts/behavior_axis/oe_circle_packing_v3.npz
+embed_niche: false
+three_head: false
+policy:
+  enabled: true
+research:
+  enabled: true
+  compact_lesson_memory: true
+  conclusion_source_refs: true
+  conclusion_repair_attempts: 1
+  conclusion_max_tokens: 4096
+  reflection_interval: 10
+  max_aux_calls: null
+  max_lessons: 50
+  max_experiments: 200
+  max_fragments: 20
+  retrieve_k: 3
+  inject_lessons: true
+  structured_auxiliary: true
+  incomplete_auxiliary: skip
+wandb:
+  enabled: false
+llm:
+  mock: false
+  models: [google/gemini-2.5-flash]
+  weights: [1.0]
+  api_base: https://openrouter.ai/api/v1
+  api_key_env: OPENROUTER_API_KEY
+  max_tokens: 32000
+  max_retries: 1
+  timeout: 180

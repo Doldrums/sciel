@@ -1,0 +1,41 @@
+# Native SCiEL Engine + existing RL/G/C/R, with dynamic research cells.
+# Fresh experiment example; does not import the best Program of an earlier run.
+extends: circle_parallel_gemini_rl_full.yaml
+warm_start: null
+
+# No total evaluation/iteration cap; all individual actions remain bounded.
+budget: null
+max_iterations: null
+
+candidate_novelty:
+  enabled: true
+llm:
+  max_retries: 1  # Durable receipts own recovery; no hidden provider redispatch.
+
+research_tools:
+  enabled: true
+  # First eligible cell is immediate; later episodes wait four selected-island
+  # opportunities after their last actual plan. Stagnation or pending evidence
+  # is still required; fresh collected results can bypass this interval.
+  interval: 4
+  trigger_sources: [population_stall, search_attempt_stall, controller_plateau]
+  attempt_stall_threshold: 8  # Completed attempts also expose failure/duplicate stalls.
+  allow_shadow_triggers: false
+  max_active_cells: 4  # Active work only; retained cell/tool history is not capped.
+  max_requests: 2
+  model: google/gemini-2.5-flash
+  temperature: 0.4
+  share_between_islands: true
+  max_visible_tools: 8
+  max_source_chars: 32000
+  max_context_chars: 10000  # Reserved before ordinary Lesson memory selection.
+  max_prompt_chars: 64000
+  max_response_chars: 80000
+  image_id: sha256:ff59425be3cb209f0dfe6bb607d37ae8db1254f8e8a1173b1dde0e6c2e18cb29
+  limits:
+    wall_seconds: 30.0
+    cpu_seconds: 20.0
+    memory_bytes: 536870912
+    pids: 64
+    max_output_bytes: 65536
+    max_stderr_bytes: 8192

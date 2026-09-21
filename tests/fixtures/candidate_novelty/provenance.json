@@ -1,0 +1,14 @@
+{
+  "checkpoint": "outputs/circle_live_gemini_20260919_rl_presets_vq_fresh/checkpoint.json",
+  "checkpoint_sha256": "493ba260b3d9add6a217c8548aa86d9a57ea2f074153ffefc7b8a4e25c223582",
+  "programs": {
+    "p143": {
+      "parent_id": "p102",
+      "source_sha256": "aa1366843e156d22456a5cb2adf8c8552cab45c79adcaf9d9d76779433ca0ca8"
+    },
+    "p175": {
+      "parent_id": "p143",
+      "source_sha256": "4340992793985c351bed719032df4fd011654c729a837306484ec59f76576d74"
+    }
+  }
+}

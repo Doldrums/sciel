@@ -1,0 +1,3 @@
+extends: heilbronn.yaml
+three_head: true
+three_head_path: ../sciel-artifacts/three_head_v1.pt

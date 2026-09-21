@@ -1,0 +1,23 @@
+The previous program failed to evaluate. Fix it.
+
+TASK:
+{task_prompt}
+
+FAILED PROGRAM (score {parent_score}):
+```python
+{parent_code}
+```
+
+ERROR:
+{artifacts}
+
+DIRECTIVE:
+{directive}
+
+LESSONS:
+{lessons}
+
+Repair the program so it runs. Keep the program's entry-point function name(s) and their
+return interface EXACTLY as in the current program above; do not rename functions or change
+what they return. Output the COMPLETE fixed program in a single ```python code block.
+{bet_block}

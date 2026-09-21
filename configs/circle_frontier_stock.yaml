@@ -1,0 +1,10 @@
+extends: circle_frontier.yaml
+# Историческое stock-плечо на frontier (ex circle_frontier_off, 2.5786 на seed 42),
+# выключено явно. Контракт entry-points не отключается (поведение движка).
+sh_min_fair_evals: 0
+log_population: false
+policy:
+  enabled: false
+  plateau_shift: false
+llm:
+  max_tokens: 16000

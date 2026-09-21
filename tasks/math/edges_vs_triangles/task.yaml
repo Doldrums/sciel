@@ -1,0 +1,23 @@
+suite: math
+name: edges_vs_triangles
+origin: math
+primary_metric: combined_score
+case_metrics:
+  - num_edges
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+resources: cpu
+stochastic: false
+confirm_n: 1
+smoke_timeout: 30.0
+full_timeout: 60.0
+confirm_timeout: 60.0
+known_best: 1.0
+license: "Apache-2.0 (openevolve examples)"
