@@ -25,28 +25,57 @@ can survive that candidate and later be used on another branch.
 
 ## Architecture
 
-The ordinary search loop and research loop share measured evidence. Independent
-research continuations can be enabled so an open question progresses without
-waiting for its island to be selected for another mutation.
+The architecture builds outward from an **Engine + Tree Search** core.
+**Knowledge Base + Hypothesis** form the scientific search loop around it.
+**Research Units + Tools** extend that loop with persistent investigations and
+reusable methods.
 
 ```mermaid
-flowchart TB
-    P["Program populations"] -->|"Propose and repair"| E["Validation, evaluation<br/>and admission"]
-    E -->|"Selection"| P
-    E --> K["Research memory"]
-    K -->|"Evidence for the next proposal"| P
-    K -->|"Questions and prior results"| C["Persistent research cells"]
-    C -->|"Author, test and share"| T["Tools and saved state"]
-    T -->|"Measured observations"| K
-    T -->|"Exact candidate submission"| E
+flowchart RL
+    subgraph SCIEL["SCiEL"]
+        direction RL
+        subgraph CORE["Scientific search"]
+            direction TB
+            subgraph SEARCH["Search core"]
+                direction LR
+                ENGINE["Engine"]
+                TREE["Tree Search"]
+                ENGINE <--> TREE
+            end
+            KB["Knowledge Base"]
+            HYP["Hypothesis"]
+            KB -->|"Evidence"| HYP
+            HYP -->|"Testable changes"| SEARCH
+            SEARCH -->|"Measurements"| KB
+        end
+        UNITS["Research Units"]
+        TOOLS["Tools"]
+        CORE -->|"Questions and artifacts"| UNITS
+        UNITS -->|"Research experiments"| TOOLS
+        TOOLS -->|"Evidence and artifacts"| CORE
+    end
 
+    style SCIEL fill:#ffffff,stroke:#a5a9b0,color:#222;
+    style CORE fill:#f7f8fa,stroke:#c3c7cd,color:#222;
+    style SEARCH fill:#fff9e6,stroke:#c89c22,color:#222;
     classDef search fill:#fff7d6,stroke:#c89c22,color:#222;
+    classDef memory fill:#eef4ff,stroke:#7f9bc4,color:#222;
     classDef research fill:#f0edff,stroke:#8b79c6,color:#222;
-    classDef evidence fill:#f6f7f8,stroke:#a5a9b0,color:#222;
-    class P,E search;
-    class C,T research;
-    class K evidence;
+    class ENGINE,TREE search;
+    class KB,HYP memory;
+    class UNITS,TOOLS research;
 ```
+
+**Tree Search** denotes evolutionary branching and selection over program
+lineages and island populations. **Research Units** are persistent research cells.
+Evaluations feed the knowledge base; evidence informs hypotheses and subsequent
+search proposals. Units create, run and revise tools, returning observations and
+saved artifacts to the scientific loop. Tool-produced candidates pass through the
+engine's source validation and ordinary task evaluation.
+
+Independent research continuations can be enabled so an open question progresses
+without waiting for its island to be selected for another mutation.
+
 
 | Capability | What it controls |
 | --- | --- |
