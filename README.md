@@ -31,9 +31,9 @@ The architecture builds outward from an **Engine + Tree Search** core.
 reusable methods.
 
 ```mermaid
-flowchart RL
+flowchart TB
     subgraph SCIEL["SCiEL"]
-        direction RL
+        direction TB
         subgraph CORE["Scientific search"]
             direction TB
             subgraph SEARCH["Search core"]
@@ -41,6 +41,11 @@ flowchart RL
                 ENGINE["Engine"]
                 TREE["Tree Search"]
                 ENGINE <--> TREE
+                CONTROL["Search control<br/>Bandits · RL<br/>Progress monitors"]
+                STORE["Island populations<br/>MAP-Elites · VQ<br/>Learned grids"]
+                CONTROL -->|"Decisions"| TREE
+                TREE <-->|"Retain / sample"| STORE
+                ENGINE -->|"Feedback"| CONTROL
             end
             KB["Knowledge Base"]
             HYP["Hypothesis"]
@@ -61,8 +66,10 @@ flowchart RL
     classDef search fill:#fff7d6,stroke:#c89c22,color:#222;
     classDef memory fill:#eef4ff,stroke:#7f9bc4,color:#222;
     classDef research fill:#f0edff,stroke:#8b79c6,color:#222;
+    classDef control fill:#e7f5ee,stroke:#6a9b81,color:#222;
     class ENGINE,TREE search;
-    class KB,HYP memory;
+    class CONTROL control;
+    class KB,HYP,STORE memory;
     class UNITS,TOOLS research;
 ```
 
@@ -76,6 +83,44 @@ engine's source validation and ordinary task evaluation.
 Independent research continuations can be enabled so an open question progresses
 without waiting for its island to be selected for another mutation.
 
+**Bandits, RL and progress monitors** control how the search uses its population.
+Profiles select compatible combinations of these control paths:
+
+```mermaid
+flowchart LR
+    FEEDBACK["Evaluation and<br/>population state"]
+    BANDITS["Online bandits"]
+    LEARNED["RL / learned policies<br/>Frozen model weights"]
+    MONITORS["Progress monitors"]
+    DECISIONS["Parent and operator<br/>selection"]
+    UNITS["Research Units"]
+
+    FEEDBACK -->|"Rewards"| BANDITS
+    BANDITS -->|"Modes · presets · operators"| DECISIONS
+    FEEDBACK -->|"State features"| LEARNED
+    LEARNED -->|"Mode mix · parent preference"| DECISIONS
+    FEEDBACK -->|"Improvement history"| MONITORS
+    MONITORS -->|"Configured interventions"| DECISIONS
+    MONITORS -->|"Research opportunities"| UNITS
+
+    classDef state fill:#f6f7f8,stroke:#a5a9b0,color:#222;
+    classDef control fill:#e7f5ee,stroke:#6a9b81,color:#222;
+    classDef search fill:#fff7d6,stroke:#c89c22,color:#222;
+    classDef research fill:#f0edff,stroke:#8b79c6,color:#222;
+    class FEEDBACK state;
+    class BANDITS,LEARNED,MONITORS control;
+    class DECISIONS search;
+    class UNITS research;
+```
+
+The **operator bandit** selects a diff, rewrite, eligible repair or crossover.
+**Mode and preset bandits** adjust parent-selection preferences; presets are an
+alternative to the mode-controller path. **Learned policies** supply mode
+probabilities through a mode MLP or parent preferences through the three-head
+policy's promise head.
+**Progress monitors** detect stagnation and, when enabled, intervene in search or
+trigger research work. Population storage determines niches and candidate
+retention separately from these policies.
 
 | Capability | What it controls |
 | --- | --- |
