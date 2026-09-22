@@ -112,6 +112,19 @@ def _identity(engine) -> dict:
         identity["evaluation_backend"] = deepcopy(backend.identity)
     llm_cfg = cfg.get('llm', {}) or {}
     provider = getattr(engine, 'llm', None)
+    if llm_cfg.get('backend') == 'local_openai' and getattr(provider, 'local_inference', False) is not True:
+        raise IdentityMismatch('local inference config requires the pinned local provider')
+    if getattr(provider, 'local_inference', False) is True:
+        from ..adaptation.deployment import configuration
+        if llm_cfg.get('backend') != 'local_openai' or provider.inference_identity['config'] != llm_cfg.get('local_inference'):
+            raise IdentityMismatch('local inference provider differs from configured identity')
+        identity['local_inference'] = deepcopy(provider.inference_identity)
+        managed = provider.managed_deployment_identity
+        pins = configuration(llm_cfg)
+        if (managed is None) != (pins is None) or (managed is not None and managed['pins'] != pins):
+            raise IdentityMismatch('managed deployment differs from trusted launch pins')
+        if managed is not None:
+            identity['managed_deployment'] = deepcopy(managed)
     capabilities = getattr(provider, 'model_capabilities', {})
     configured_capabilities = llm_cfg.get('model_capabilities', {})
     transport = getattr(provider, 'transport_identity', None)
@@ -248,7 +261,7 @@ def check_identity(engine, state: dict) -> list[str]:
     for key in ("task", "task_hash", "engine_contract"):
         if want.get(key) and want.get(key) != have.get(key):
             out.append(f"{key}: checkpoint {want.get(key)!r} != now {have.get(key)!r}")
-    for key in ("llm_transport", "warm_start", "unlimited_search", "parallel_search", "candidate_novelty", "output_novelty", "observed_changes", "container", "presets", "frozen_policies", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation"):
+    for key in ("local_inference", "managed_deployment", "llm_transport", "warm_start", "unlimited_search", "parallel_search", "candidate_novelty", "output_novelty", "observed_changes", "container", "presets", "frozen_policies", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation"):
         if want.get(key) != have.get(key):
             out.append(f"{key}: checkpoint configuration differs from current configuration")
     a = (want.get("descriptor") or {}).get("kind")

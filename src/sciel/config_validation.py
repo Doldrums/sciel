@@ -51,6 +51,8 @@ def _validate_parallel_search(cfg, defaults):
 
 
 def validate_experiments(cfg, defaults):
+    from .engine.llm.local_config import validate as validate_local
+    validate_local(cfg)
     if "evaluation" in cfg:
         from .eval.candidate_config import validate_policy
         cfg["evaluation"] = validate_policy(cfg["evaluation"])

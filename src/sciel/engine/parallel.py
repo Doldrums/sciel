@@ -69,12 +69,15 @@ class WaveLLM:
         context.update(parallel_job=self.io.current,
                        parallel_wave=getattr(self.engine, '_parallel_wave', 0))
         provider = self.original._provider if isinstance(self.original, TracedLLM) else self.original
+        from .llm.local import bind_inference_options
+        options = bind_inference_options(provider, model, options, context)
         trace = TracedLLM(provider, self.engine.run_dir, lambda _: dict(context))
         request = {'prompt': prompt, 'model': model, 'temperature': temperature, 'options': options,
                    'trace_context': {key: context.get(key) for key in
                                      ('role', 'reference', 'experiment_id')}}
         from .llm.client import transport_parameters
-        parameters = transport_parameters(provider, model, temperature)
+        parameters = transport_parameters(provider, model, temperature,
+            inference_deployment=options.get('inference_deployment'))
         if parameters is not None:
             request['transport_parameters'] = parameters
         prepare_metadata = getattr(provider, 'request_metadata', None)
@@ -95,6 +98,9 @@ def _snapshot(snapshot):
         value.pop('research_cells_context', None)
     if value.get('research_targets') is None:
         value.pop('research_targets', None)
+    for key in ('inference_spec', 'inference_route', 'inference_deployment'):
+        if value.get(key) is None:
+            value.pop(key, None)
     value['code_hashes'] = sorted(value['code_hashes'])
     return value
 

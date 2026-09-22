@@ -88,6 +88,24 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
         if provenance.get("counters") != expected:
             raise IdentityMismatch("checkpoint provenance counters disagree with state")
     problems = _public.check_identity(engine, state)
+    # Old paid/adoption state cannot be dropped by an engine-contract override.
+    saved_identity = state.get('identity') or {}
+    saved_cfg = state.get('config') or {}
+    saved_llm = saved_cfg.get('llm') or {}
+    if (any(key in state for key in ('continuous_routes', 'online_adaptation',
+            'online_execution', 'online_execution_context', 'online_continuation'))
+            or any(key in saved_identity for key in ('online_adaptation', 'continuous_routing', 'oracle_evaluation'))
+            or 'online_adaptation' in saved_cfg or 'oracle_evaluation' in saved_cfg
+            or 'continuous_routing' in saved_llm):
+        raise IdentityMismatch('upstream v0.2 adaptation checkpoint port is not enabled')
+    current_local = getattr(getattr(engine, 'llm', None), 'local_inference', False) is True
+    local_bound = (current_local or saved_llm.get('backend') == 'local_openai'
+        or 'managed_deployment' in saved_llm or 'local_inference' in saved_identity
+        or 'managed_deployment' in saved_identity)
+    if local_bound:
+        if (not current_local or saved_llm.get('backend') != 'local_openai'
+                or not saved_identity.get('local_inference') or problems):
+            raise IdentityMismatch('cannot force local inference or signed deployment identity; start a new run')
     saved_backend=(state.get('identity') or {}).get('evaluation_backend')
     current_backend=getattr(engine, 'evaluation_backend', None)
     if saved_backend is not None or current_backend is not None:

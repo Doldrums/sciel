@@ -97,6 +97,10 @@ def _encode(kind, value):
         result['resolved_model'] = resolved
     if getattr(value, 'response_error', None) is not None:
         result['response_error'] = value.response_error
+    for key in ('inference_spec', 'call_id', 'served_model', 'adaptation_visibility',
+                'inference_route', 'inference_deployment', 'deployment_response'):
+        if getattr(value, key, None) is not None:
+            result[key] = getattr(value, key)
     for key, item in result.items():
         try:
             canonical(item)

@@ -40,9 +40,26 @@ def resolve_tasks_root(cfg: dict, default_root: str) -> str:
 
 
 def build_llm(cfg: dict):
+    from .llm.local_config import validate as validate_local
+    validate_local(cfg)
     lcfg = cfg.get("llm", {}) or {}
     if lcfg.get("mock", False):
         return MockLLM()
+    from ..adaptation.deployment import configuration as managed_configuration
+    backend = lcfg.get('backend', 'openai')
+    if backend == 'local_openai':
+        from .llm.local import LocalOpenAILLM
+        local = lcfg.get('local_inference') or {}
+        models = lcfg.get('models') or [local.get('base_alias')]
+        return LocalOpenAILLM(local_inference=local, models=models,
+            generation_seed=lcfg.get('generation_seed'),
+            managed_deployment=managed_configuration(lcfg),
+            weights=lcfg.get('weights') or [1.0] * len(models),
+            api_base=lcfg.get('api_base', 'http://127.0.0.1:8000/v1'),
+            temperature=lcfg.get('temperature', .7),
+            max_tokens=lcfg.get('max_tokens', DEFAULTS['llm']['max_tokens']),
+            timeout=lcfg.get('timeout', 120.0), max_retries=lcfg.get('max_retries', 1),
+            model_capabilities=lcfg.get('model_capabilities', {}))
     if lcfg.get('provider') == 'codex_responses':
         from .llm.codex import CodexResponsesLLM, validate_config
         lcfg = validate_config(lcfg)

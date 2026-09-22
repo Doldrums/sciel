@@ -217,6 +217,8 @@ class EngineStepCycle:
             task_prompt=self.task_prompt, bet_enabled=self.bet_on,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
+        from .llm.local import freeze_snapshot_inference
+        freeze_snapshot_inference(self.llm, snap)
         if research_context is not None:
             snap.research_context = research_context
         if self.idea is not None:

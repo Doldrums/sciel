@@ -14,6 +14,13 @@ from .errors import (LLMError as LLMError, llm_error_metadata as llm_error_metad
                      _retry_after as _retry_after)
 
 
+def validate_generation_seed(value):
+    """An explicit local sampling seed; booleans and numeric coercion are invalid."""
+    if type(value) is not int or not 0 <= value < 2**31:
+        raise ValueError('llm.generation_seed must be an integer in [0, 2**31)')
+    return value
+
+
 def validate_model_capabilities(value, models):
     """Explicit per-model transport exceptions; unspecified models stay unchanged."""
     if type(value) is not dict:
@@ -35,21 +42,33 @@ def validate_model_capabilities(value, models):
 def temperature_parameters(provider, model, requested):
     """Exact SDK temperature kwargs, shared with durable request projections."""
     capabilities = getattr(provider, 'model_capabilities', {})
+    if getattr(provider, 'local_inference', False) is True:
+        model = provider.base_alias
     if capabilities.get(model, {}).get('temperature', True) is False:
         return {}
     return {'temperature': provider.temperature if requested is None else requested}
 
 
-def transport_parameters(provider, model, requested):
+def transport_parameters(provider, model, requested, *, inference_deployment=None):
     """Additive trace/WAL evidence; absence preserves the legacy request shape."""
     capabilities = getattr(provider, 'model_capabilities', {})
-    if not capabilities:
+    local = getattr(provider, 'local_inference', False) is True
+    if local:
+        model = provider.base_alias
+    if not capabilities and not local:
         return None
     effective = temperature_parameters(provider, model, requested)
+    deployment = {}
+    if inference_deployment is not None:
+        from ...adaptation.deployment import request_headers
+        deployment['deployment_headers'] = request_headers(inference_deployment)
     return {'schema': 'sciel-llm-transport-parameters/1',
             'temperature': {'enabled': capabilities.get(model, {}).get('temperature', True),
                             'sent': 'temperature' in effective,
-                            'value': effective.get('temperature')}}
+                            'value': effective.get('temperature')},
+            **({'chat_template_kwargs': dict(provider.chat_template_kwargs)} if local else {}),
+            **({'seed': provider.generation_seed}
+               if local and getattr(provider, 'generation_seed', None) is not None else {}), **deployment}
 
 
 @dataclass
@@ -67,6 +86,14 @@ class LLMResponse:
     # Provider-reported identity only. `model` remains the requested selection
     # key; this optional observation never changes pricing or bandit semantics.
     resolved_model: str | None = None
+    # Immutable local routing and the exact transcript are additive to old receipts.
+    inference_spec: dict | None = None
+    call_id: str | None = None
+    served_model: str | None = None
+    adaptation_visibility: dict | None = None
+    inference_route: dict | None = None
+    inference_deployment: dict | None = None
+    deployment_response: dict | None = None
 
 
 def validate_resolved_model(value):
@@ -243,6 +270,15 @@ def response_cost_provenance(response):
                     or not math.isfinite(amount) or amount < 0 or cost is None or amount != cost):
                 return None
             return {**base, 'reported_cost': amount}
+        if source == 'local_node_accounted':
+            if (set(value) != {*base, 'node_ledger_id', 'external_api_usd', 'scope'}
+                    or type(value['node_ledger_id']) is not str
+                    or not value['node_ledger_id'].strip()
+                    or type(value['external_api_usd']) not in (int, float)
+                    or value['external_api_usd'] != 0.0 or cost != 0.0
+                    or value['scope'] != 'external_api_only'):
+                return None
+            return dict(value)
         if source != 'token_estimate' or set(value) != {
                 *base, 'pricing_key', 'prompt_usd_per_1k', 'completion_usd_per_1k'}:
             return None
@@ -306,8 +342,31 @@ class EnsembleLLM:
     def choose_model(self, rng) -> str:
         return rng.choices(self.models, weights=self.weights, k=1)[0]
 
+    def _wire_options(self, options):
+        """Backend-specific body controls, also represented in durable identity."""
+        return options
+
+    def _usage_cost(self, model, usage, pt, ct):
+        try:
+            cost = known_cost(usage)
+            provenance = dict(schema=COST_PROVENANCE_SCHEMA,
+                              source='provider_reported', reported_cost=cost)
+        except Exception:
+            cost = _cost(model, pt, ct) if pt is not None and ct is not None else None
+            provenance = dict(schema=COST_PROVENANCE_SCHEMA, source='unavailable')
+            if cost is not None:
+                key, pin, pout = _price(model)
+                provenance = dict(schema=COST_PROVENANCE_SCHEMA, source='token_estimate',
+                    pricing_key=key, prompt_usd_per_1k=pin, completion_usd_per_1k=pout)
+        return cost, provenance
+
+    def _dispatch_completion(self, request, transport_context=None):
+        if transport_context is not None:
+            raise ValueError('deployment transport requires the managed local provider')
+        return self._client.chat.completions.create(**request), None
+
     def generate(self, prompt: str, model: str, temperature: float | None = None,
-                 *, response_format=None, max_tokens=None) -> LLMResponse:
+                 *, response_format=None, max_tokens=None, _transport_context=None) -> LLMResponse:
         sampling = temperature_parameters(self, model, temperature)
         output_tokens = self.max_tokens if max_tokens is None else max_tokens
         if type(output_tokens) is not int or output_tokens <= 0:
@@ -322,14 +381,15 @@ class EnsembleLLM:
             options['extra_body'] = {'provider': {
                 'require_parameters': True, 'allow_fallbacks': False}}
 
+        options = self._wire_options(options)
         try:
-            resp = self._client.chat.completions.create(
+            resp, deployment_response = self._dispatch_completion(dict(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=output_tokens,
                 **sampling,
                 **options,
-            )
+            ), _transport_context)
 
         except Exception as e:
             raise LLMError(cause=e) from e
@@ -344,17 +404,10 @@ class EnsembleLLM:
         resolved_model = validate_resolved_model(field(resp, 'model'))
         pt = _tokens(field(usage, 'prompt_tokens'))
         ct = _tokens(field(usage, 'completion_tokens'))
-        try:
-            cost = known_cost(usage)
-            provenance = dict(schema=COST_PROVENANCE_SCHEMA,
-                              source='provider_reported', reported_cost=cost)
-        except Exception:
-            cost = _cost(model, pt, ct) if pt is not None and ct is not None else None
-            provenance = dict(schema=COST_PROVENANCE_SCHEMA, source='unavailable')
-            if cost is not None:
-                key, pin, pout = _price(model)
-                provenance = dict(schema=COST_PROVENANCE_SCHEMA, source='token_estimate',
-                    pricing_key=key, prompt_usd_per_1k=pin, completion_usd_per_1k=pout)
+        cost, provenance = self._usage_cost(model, usage, pt, ct)
+        served_model = field(resp, 'model') if getattr(self, 'local_inference', False) is True else None
+        if type(served_model) is not str:
+            served_model = None
         error = None
         try:
             choices = resp.choices or []
@@ -377,11 +430,13 @@ class EnsembleLLM:
             return LLMResponse(text='', model=model, cost=cost,
                                prompt_tokens=pt, completion_tokens=ct,
                                response_error=llm_error_metadata(error), cost_provenance=provenance,
-                               resolved_model=resolved_model)
+                               resolved_model=resolved_model, served_model=served_model,
+                               deployment_response=deployment_response)
         return LLMResponse(text=text, model=model, cost=cost,
                            prompt_tokens=pt, completion_tokens=ct,
                            cost_provenance=provenance,
-                           resolved_model=resolved_model,
+                           resolved_model=resolved_model, served_model=served_model,
+                           deployment_response=deployment_response,
                            **_response_metadata(choices[0]))
 
 

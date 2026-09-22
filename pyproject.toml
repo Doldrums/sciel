@@ -26,6 +26,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+managed-deployment = ["cryptography==46.0.5"]
+local-tokenizer = ["transformers==4.57.6", "jinja2==3.1.6"]
 dev = ["pytest>=8.2", "build>=1.2", "jsonschema>=4"]
 tasks = ["scipy>=1.11"]
 learning = ["torch>=2.2"]

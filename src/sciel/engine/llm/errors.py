@@ -20,6 +20,7 @@ _ERROR_CAUSES = frozenset({
 _ERROR_REASONS = frozenset({
     'timeout', 'connection_error', 'http_error', 'request_failed',
     'empty_choices', 'malformed_response',
+    'inference_identity_mismatch', 'deployment_identity_mismatch',
 })
 MAX_RETRY_AFTER_SECONDS = 3600.0
 

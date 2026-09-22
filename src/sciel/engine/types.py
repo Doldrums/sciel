@@ -45,6 +45,9 @@ class Snapshot:
     research_targets: dict | None = None
     research_search_evidence: dict | None = None
     operator_decision: dict | None = None
+    inference_spec: dict | None = None
+    inference_route: dict | None = None
+    inference_deployment: dict | None = None
 
 
 @dataclass

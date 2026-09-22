@@ -144,7 +144,9 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
                 exc.validation_trace = validation_trace
             raise
         try:
-            resp = llm.generate(prompt, snapshot.model, temp)
+            from .llm.local import generation_options
+            resp = llm.generate(prompt, snapshot.model, temp,
+                **generation_options(llm, snapshot, repair=op_cur == 'error_repair'))
         except AbandonedProviderRequest as exc:
             # Recovery has authenticated and preserved the failed physical
             # request. Resolve this attempt without pretending it returned a
