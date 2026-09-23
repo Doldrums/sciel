@@ -147,6 +147,11 @@ class EngineBootstrap:
         novelty_check = self._candidate_novelty_callback(island)
         if novelty_check is not None:
             options['novelty_check'] = novelty_check
+        from .llm.local import freeze_snapshot_inference
+        from ..adaptation.visibility import freeze_context
+        freeze_snapshot_inference(self.llm, snap)
+        if parent is not None:
+            freeze_context(self, snap, parent)
         result = _public.run_worker('full_rewrite', snap, self.llm, self._evaluation_callback(island),
                             dup_cap=1, base_temp=0.9, **options)
         self.cost_total += result.cost
@@ -180,6 +185,11 @@ class EngineBootstrap:
                        + compose_directive(self._per_run_budget(), None, plateau=False)
                        + self.observed_changes.block(base_code)),
             task_prompt=self.task_prompt, required_entrypoints=self.required_entrypoints)
+        from .llm.local import freeze_snapshot_inference
+        from ..adaptation.visibility import freeze_context
+        freeze_snapshot_inference(self.llm, snap)
+        if parent is not None:
+            freeze_context(self, snap, parent)
         result = _public.run_worker('full_rewrite', snap, self.llm, self._evaluation_callback(island),
             dup_cap=1, base_temp=0.9, novelty_check=self._candidate_novelty_callback(island))
         self.cost_total += result.cost

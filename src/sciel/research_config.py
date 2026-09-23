@@ -7,9 +7,20 @@ def validate_research(cfg):
                     'max_lessons': 50, 'max_experiments': 200, 'max_fragments': 20,
                     'retrieve_k': 3, 'model': None, 'inject_lessons': True}
         supplied = cfg['research']
-        if not isinstance(supplied, dict) or set(supplied) - (set(defaults) | {'compact_lesson_memory', 'conclusion_source_refs', 'conclusion_repair_attempts', 'conclusion_max_tokens', 'lesson_selection', 'initializer_witness', 'initializer_witness_profile', 'batch_only_lessons', 'restart_predictions', 'structured_auxiliary', 'incomplete_auxiliary', 'comparison_reviews', 'comparison_review_text', 'comparison_review_version', 'comparison_review_text_policy', 'external_history_sha256', 'external_component_sha256', 'external_component_review_sha256', 'generated_paired_review_version', 'external_evaluated_study_sha256', 'external_evaluated_study_authority_sha256', 'external_evaluated_review_sha256', 'source_reflection_config_sha256'}):
+        if not isinstance(supplied, dict) or set(supplied) - (set(defaults) | {'generation_context_tokens', 'reflection_context_tokens', 'compact_lesson_memory', 'conclusion_source_refs', 'conclusion_repair_attempts', 'conclusion_max_tokens', 'lesson_selection', 'initializer_witness', 'initializer_witness_profile', 'batch_only_lessons', 'restart_predictions', 'structured_auxiliary', 'incomplete_auxiliary', 'comparison_reviews', 'comparison_review_text', 'comparison_review_version', 'comparison_review_text_policy', 'external_history_sha256', 'external_component_sha256', 'external_component_review_sha256', 'generated_paired_review_version', 'external_evaluated_study_sha256', 'external_evaluated_study_authority_sha256', 'external_evaluated_review_sha256', 'source_reflection_config_sha256'}):
             raise ValueError('invalid or unknown research configuration')
         research = {**defaults, **supplied}
+        from .engine.reflection_budget import validate_context_tokens
+        if validate_context_tokens(research) is not None and cfg['llm'].get('backend') != 'local_openai':
+            raise ValueError('reflection_context_tokens requires the local_openai backend')
+        from .engine.generation_budget import validate_config as validate_generation_budget, OPS
+        if validate_generation_budget(research) is not None:
+            if (cfg['llm'].get('backend') != 'local_openai' or cfg.get('op_fixed') not in OPS
+                    or cfg.get('idea_island', False)
+                    or any((cfg.get(key) or {}).get('enabled') for key in
+                        ('idea_two_stage', 'circle_generation', 'circle_intervention',
+                         'repeat_population', 'repeat_promotion'))):
+                raise ValueError('generation_context_tokens requires local ordinary fixed G operators')
         # Preserve omitted legacy settings exactly for existing /8 checkpoints.
         # Explicit experiments retain their normalized settings in identity.
         if 'lesson_selection' in research:

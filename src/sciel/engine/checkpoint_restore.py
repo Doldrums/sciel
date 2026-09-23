@@ -94,10 +94,20 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
     saved_llm = saved_cfg.get('llm') or {}
     if (any(key in state for key in ('continuous_routes', 'online_adaptation',
             'online_execution', 'online_execution_context', 'online_continuation'))
-            or any(key in saved_identity for key in ('online_adaptation', 'continuous_routing', 'oracle_evaluation'))
-            or 'online_adaptation' in saved_cfg or 'oracle_evaluation' in saved_cfg
+            or any(key in saved_identity for key in ('online_adaptation', 'continuous_routing'))
+            or 'online_adaptation' in saved_cfg
             or 'continuous_routing' in saved_llm):
         raise IdentityMismatch('upstream v0.2 adaptation checkpoint port is not enabled')
+    current_oracle = getattr(engine, 'oracle_evaluation', None)
+    oracle_bound = (current_oracle is not None or 'oracle_evaluation' in saved_identity
+        or 'oracle_evaluation' in saved_cfg or 'oracle_evaluation' in engine.cfg
+        or saved_identity.get('task') == 'oe/function_minimization_oracle_fixed_panel_v1')
+    if oracle_bound and (current_oracle is None
+            or 'oracle_evaluation' not in saved_cfg or 'oracle_evaluation' not in engine.cfg
+            or saved_cfg['oracle_evaluation'] != engine.cfg['oracle_evaluation']
+            or saved_identity.get('oracle_evaluation') != current_oracle
+            or any(problem.startswith('oracle_evaluation:') for problem in problems)):
+        raise IdentityMismatch('cannot add, drop or change the frozen oracle launch identity on resume')
     current_local = getattr(getattr(engine, 'llm', None), 'local_inference', False) is True
     local_bound = (current_local or saved_llm.get('backend') == 'local_openai'
         or 'managed_deployment' in saved_llm or 'local_inference' in saved_identity

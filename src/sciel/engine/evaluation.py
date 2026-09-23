@@ -55,7 +55,14 @@ class EngineEvaluation:
                 source_sha256 = hashlib.sha256(source.read()).hexdigest()
             task, record_candidate, python = self.task, self.cfg.get("confirm_records", False), self.python
             io = getattr(self, '_parallel_io', None)
+            oracle = None
+            if getattr(self, 'oracle_evaluation', None) is not None:
+                from ..eval.oracle_evidence import context as oracle_context
+                oracle = oracle_context(self, evaluation_id, source_sha256)
+            oracle_options = {'oracle_context': oracle} if oracle is not None else {}
             backend = self.evaluation_backend
+            if backend is not None and oracle is not None:
+                raise EvaluationInfrastructureError('oracle evidence cannot use candidate-only evaluation')
             if backend is not None:
                 try:
                     backend.assert_compatible(self.cfg, task)
@@ -70,18 +77,24 @@ class EngineEvaluation:
                 outcome = io.call('evaluation', request, lambda: backend.evaluate(code.encode('utf-8'),
                     evaluation_id=evaluation_id, confirm=record_candidate))
             elif io is None:
-                outcome = _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python)
+                outcome = _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python, **oracle_options)
             else:
                 outcome = io.call('evaluation', {'source': code, 'task_hash': task.task_hash,
+                    **({'oracle_invocation': {k: v for k, v in oracle.items()
+                        if k not in ('run_root', 'study_root')}} if oracle is not None else {}),
                     'confirm_records': record_candidate,
                     'output_resolution': self.cfg.get('candidate_novelty', {}).get('output_resolution')},
-                    lambda: _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python))
+                    lambda: _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python, **oracle_options))
             if registry is not None:
                 registry.register(code, evaluation_id, evaluation_ok=bool(outcome.result.ok))
                 measurement_returned = True
             outcome.evaluation_id = evaluation_id
             from .research_artifacts import capture_evaluation
             outcome.saved_evaluation_reference = capture_evaluation(self, code, outcome, evaluation_id)
+            oracle_evidence_sha256 = None
+            if oracle is not None or getattr(outcome, "oracle_evidence", None) is not None:
+                from ..eval.oracle_evidence import capture as capture_oracle
+                oracle_evidence_sha256 = capture_oracle(self, outcome, outcome.saved_evaluation_reference)
             # Preserve the returned cascade result before admission/seed handling.
             # This is not a trace of every intermediate smoke/full/confirm stage.
             # No truncation: task diagnostics may contain nested JSON and long text.
@@ -91,6 +104,8 @@ class EngineEvaluation:
                 evaluation_id=evaluation_id,
                 **({'remeasurement': novelty['remeasurement']} if registry is not None else {}),
                 B_evals_before=self.B_evals, **outcome.result.to_json(),
+                **({"oracle_evidence_sha256": oracle_evidence_sha256}
+                    if oracle_evidence_sha256 is not None else {}),
                 raw_first_score=outcome.raw_first_score, reached=outcome.reached,
                 confirmed=outcome.confirmed,
                 **({'execution': outcome.execution} if getattr(outcome, 'execution', None) is not None else {}))

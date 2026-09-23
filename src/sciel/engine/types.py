@@ -48,6 +48,9 @@ class Snapshot:
     inference_spec: dict | None = None
     inference_route: dict | None = None
     inference_deployment: dict | None = None
+    adaptation_visible_episode_ids: list | None = None
+    adaptation_context: dict | None = None
+    adaptation_delivery: dict | None = None
 
 
 @dataclass

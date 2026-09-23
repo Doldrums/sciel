@@ -195,7 +195,15 @@ def run_stage(
     cpu_seconds: int | None = None,
     mem_bytes: int | None = None,
     python: str | None = None,
+    oracle_environment: dict | None = None,
 ) -> EvalResult:
+    if oracle_environment is not None:
+        from .oracle_evidence import need
+        need(type(oracle_environment) is dict and set(oracle_environment) == {
+            'SCIEL_ORACLE_FIXED_STUDY', 'SCIEL_ORACLE_FIXED_MANIFEST_SHA256',
+            'SCIEL_ORACLE_FIXED_PANEL', 'SCIEL_ORACLE_FIXED_PANEL_SHA256',
+            'SCIEL_ORACLE_IMAGE', 'SCIEL_ORACLE_FIXED_RECEIPTS', 'SCIEL_ORACLE_FIXED_INVOCATION'}
+            and all(type(v) is str for v in oracle_environment.values()), 'invalid oracle subprocess environment')
     validate_stage_limits(timeout, n, cpu_seconds, mem_bytes)
     if os.name != "posix" and (cpu_seconds is not None or mem_bytes is not None):
         raise EvaluationSetupError(setup_failure("unsupported_platform", "platform",
@@ -222,7 +230,7 @@ def run_stage(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             bufsize=0,
-            env=_evaluation_env(),
+            env={**_evaluation_env(), **(oracle_environment or {})},
             # No Python preexec_fn: run_stage is also called from thread pools.
             # The runner applies rlimits after exec, before importing task code.
             start_new_session=(os.name == "posix"),

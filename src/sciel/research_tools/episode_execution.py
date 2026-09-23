@@ -77,6 +77,10 @@ def _execute_single(tools, plan, snapshot, llm, *, io):
     provider_abandonment = None
     for attempt in range(tools.config['max_requests']):
         prompt = tools._prompt(plan, snapshot, available, feedback, attempt)
+        skipped = tools._planner_budget(plan, prompt, llm, attempt)
+        if skipped is not None:
+            feedback.append(skipped)
+            return tools._finish_episode(plan, registered, invocations, feedback, known_cost, attempt)
         charge_id = content_hash({'action_id': plan['action_id'], 'attempt': attempt, 'kind': 'llm'})
         tools._event(plan, 'llm_start', attempt=attempt, charge_id=charge_id,
                     prompt_sha256=_sha(prompt), model=tools.config['model'] or snapshot.model)
@@ -85,7 +89,8 @@ def _execute_single(tools, plan, snapshot, llm, *, io):
         try:
             response = llm.generate(prompt, tools.config['model'] or snapshot.model,
                 tools.config['temperature'], response_format=response_format(tools.background_enabled,
-                    visible_tool_ids=available))
+                    visible_tool_ids=available),
+                **({'max_tokens': tools.config['max_tokens']} if 'max_tokens' in tools.config else {}))
         except AbandonedProviderRequest as error:
             # Only authenticated wave recovery can authorize this typed
             # transition. The paid unknown is neither a response nor an

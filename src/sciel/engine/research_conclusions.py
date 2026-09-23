@@ -112,9 +112,11 @@ class ResearchConclusions:
             structured = self.config.get('structured_auxiliary', False)
             pair = self._conclusion_sources.pop(record['id'], None)
             source_binding = None
+            token_candidates = []
+            last_token_candidate = None
 
             def prepare_view(projection=None):
-                from . import research as _public
+                nonlocal last_token_candidate
                 view = dict(evidence)
                 if projection is not None:
                     view['conclusion_source'] = projection
@@ -130,7 +132,18 @@ class ResearchConclusions:
                     return None
                 prompt = conclusion_prompt(view, initializer_context=initializer,
                     structured=structured, source_refs=references)
-                return view, initializer, prompt
+                candidate = (view, initializer, prompt)
+                if self._generation_token_budget is not None:
+                    from .auxiliary_budget import measure
+                    facts = measure(self.llm, prompt,
+                        context_tokens=self._generation_token_budget['context_tokens'],
+                        output_tokens=self.config.get('conclusion_max_tokens') or self.llm.max_tokens,
+                        role='conclusion', tokenizer=self._generation_token_budget['tokenizer'])
+                    token_candidates.append(facts)
+                    last_token_candidate = candidate
+                    if not facts['fits']:
+                        return None
+                return candidate
 
             if pair is None:
                 prepared = prepare_view()
@@ -150,11 +163,24 @@ class ResearchConclusions:
                     elif count > 1:
                         count = max(1, count//2)
                     else:
-                        raise ValueError('research evidence cannot fit source projection metadata')
+                        if last_token_candidate is None:
+                            raise ValueError('research evidence cannot fit source projection metadata')
+                        # Even minimal exact source metadata cannot fit. Retain
+                        # that complete view; prepare_aux will skip before any
+                        # reservation, preserving the measurement and binding.
+                        prepared = last_token_candidate
+                        projection = prepared[0]['conclusion_source']
+                        break
                 source_binding = conclusion_source.bind(record, *pair, projection)
+            if prepared is None:
+                prepared = last_token_candidate
             if prepared is None:
                 raise ValueError('research evidence exceeds context character limit')
             evidence, initializer, prompt = prepared
+            if token_candidates:
+                self.emit('conclusion_token_projection', experiment_id=record['id'],
+                    candidates=token_candidates, selected_prompt_sha256=digest(prompt),
+                    scope='Exact source projection only; mandatory evaluated record unchanged.')
             self._initializer_presentation('conclusion', [record['id']], initializer, prompt)
             if self.config.get('conclusion_source_refs', False):
                 from ..hypothesis import conclusion_refs
@@ -216,9 +242,17 @@ class ResearchConclusions:
         self._feedback_delivery = None
         interval = self.config['reflection_interval']
         if reflect and interval and self.outcomes - self.reflected_through >= interval:
-            preparation = prepare_reflection_context(self.knowledge, self.conclusions,
-                config=self.config, interval=interval, through=self.outcomes,
-                selection_epoch=self.reflection_attempts)
+            from .reflection_budget import ReflectionBudgetExceeded
+            try:
+                preparation = prepare_reflection_context(self.knowledge, self.conclusions,
+                    config=self.config, interval=interval, through=self.outcomes,
+                    selection_epoch=self.reflection_attempts,
+                    **({'token_budget': self._reflection_token_budget,
+                        'count_prompt_tokens': self.llm.count_prompt_tokens}
+                       if self._reflection_token_budget is not None else {}))
+            except ReflectionBudgetExceeded as exc:
+                self.emit('reflection_budget_rejected', **exc.diagnostic)
+                raise
             records, lessons = preparation['records'], preparation['lessons']
             comparison_review_groups = preparation['comparison_review_groups']
             prompt = preparation['prompt']
@@ -229,7 +263,13 @@ class ResearchConclusions:
             # responses. Outcome cadence and accepted proposals cannot skip turns.
             self.reflection_attempts += 1
             self.emit('reflection_context', **preparation['context_event'])
-            text = self._aux('reflection', prompt, self.outcomes)
+            if preparation.get('skip_reason'):
+                self.emit('aux_skipped', kind='reflection', reference=self.outcomes,
+                    reason=preparation['skip_reason'], generation_dispatch='not_dispatched',
+                    cost=0.0, current_call_cost_unknown=False)
+                text = None
+            else:
+                text = self._aux('reflection', prompt, self.outcomes)
             result = parse_reflection(text, comparison_reviews=self.config.get('comparison_reviews', False),
                 comparison_review_version=self.config.get('comparison_review_version', 1)) if text is not None else None
             applied, error, error_detail, changed = None, None, None, False

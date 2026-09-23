@@ -106,6 +106,8 @@ def _identity(engine) -> dict:
         "engine_contract": ENGINE_CONTRACT,
         "descriptor": getattr(engine, "descriptor_info", {}) or {},
     }
+    if getattr(engine, "oracle_evaluation", None) is not None:
+        identity["oracle_evaluation"] = deepcopy(engine.oracle_evaluation)
     cfg = getattr(engine, "cfg", {})
     backend = getattr(engine, "evaluation_backend", None)
     if backend is not None:
@@ -261,7 +263,7 @@ def check_identity(engine, state: dict) -> list[str]:
     for key in ("task", "task_hash", "engine_contract"):
         if want.get(key) and want.get(key) != have.get(key):
             out.append(f"{key}: checkpoint {want.get(key)!r} != now {have.get(key)!r}")
-    for key in ("local_inference", "managed_deployment", "llm_transport", "warm_start", "unlimited_search", "parallel_search", "candidate_novelty", "output_novelty", "observed_changes", "container", "presets", "frozen_policies", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation"):
+    for key in ("oracle_evaluation", "local_inference", "managed_deployment", "llm_transport", "warm_start", "unlimited_search", "parallel_search", "candidate_novelty", "output_novelty", "observed_changes", "container", "presets", "frozen_policies", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation"):
         if want.get(key) != have.get(key):
             out.append(f"{key}: checkpoint configuration differs from current configuration")
     a = (want.get("descriptor") or {}).get("kind")

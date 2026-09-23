@@ -219,6 +219,8 @@ class EngineStepCycle:
             operator_decision=operator_decision)
         from .llm.local import freeze_snapshot_inference
         freeze_snapshot_inference(self.llm, snap)
+        from ..adaptation.visibility import freeze_context
+        freeze_context(self, snap, parent)
         if research_context is not None:
             snap.research_context = research_context
         if self.idea is not None:
@@ -311,6 +313,9 @@ class EngineStepCycle:
                     formatted = self.research_tools.format_context(cards['cards'])
                 if cards['cards']:
                     snapshot.directive += formatted
+                    if snapshot.inference_spec is not None:
+                        from ..adaptation.visibility import card_refs
+                        snapshot.adaptation_delivery = dict(text=formatted, delivered_refs=card_refs(cards))
                     delivered_chars = len(formatted)
             # Untyped episode.context is audit prose, not an authenticated
             # observation channel. Only retained/provenance-bound cards enter G.

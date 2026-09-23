@@ -332,3 +332,11 @@ the complete checkout suite on Linux.
 Maintained files have a **500-line limit**, enforced by the repository check.
 Experiment outputs, model weights and working notes live outside the source tree.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for implementation and verification rules.
+
+The experimental local-inference extension records final G/repair delivery and
+host-owned fixed-panel oracle TRAIN evidence, including full research-tool
+exports. Optional G/C/R context limits reserve output tokens and omit only whole
+optional inputs; the default renderer is unchanged. Oracle launch identity is
+part of checkpoint compatibility. Adapter training, route adoption and online
+continuation remain disabled in this upstream port. Focused tests use synthetic
+external execution and numerical leaves and do not establish model quality.

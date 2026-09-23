@@ -1,0 +1,12 @@
+{
+  "schema": "sciel-upstream-native-nocap-golden/1",
+  "trusted_commit": "3a8f556e865546cf6e10e1dae8daba44ffede325",
+  "trusted_sources": {
+    "engine/research_episodes": "465c35bb4b1f54d936cbeaab6c1c5c53bdbe5ebed79ef0c26c71525defc38c94",
+    "knowledge_base/reflection_selection": "69281b774253479019b3faa055aa804be794fc0ab91b9bbb040acf07393430d4",
+    "hypothesis/conclusion_feedback": "4ba57ff4a571515623b2b86ae624def4aef720fe04ade432d8fc9054d3a4daaf"
+  },
+  "generation_sha256": "fe4590de783dee7b969f7b07db5a66a16af06927ffb7c37ab6a3dfbeae669766",
+  "selection_sha256": "b1bf4529320deded1dca10b64b84259450ee0ba125a4b698c3b61fb4faa1b349",
+  "reviews_sha256": "382af03a593533cad4ced0502cb550c1bc6cfe53a70d331b6aa8f22918be21dc"
+}

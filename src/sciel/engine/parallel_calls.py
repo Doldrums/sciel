@@ -75,6 +75,22 @@ def durable_json(path, value, *, ensure_ascii=False):
         os.close(descriptor)
 
 
+def bind_visibility(prompt, options):
+    """Seal the same final G delivery before durable intent and transport."""
+    options = dict(options)
+    spec = options.get('inference_spec')
+    if spec is not None and spec['role'] in ('G', 'repair'):
+        from ..adaptation.visibility import unknown_capsule, validate_capsule
+        try:
+            visibility = options.get('adaptation_visibility')
+            options['adaptation_visibility'] = validate_capsule(
+                visibility if visibility is not None else unknown_capsule(prompt, spec),
+                prompt=prompt, inference_spec=spec)
+        except (ValueError, TypeError) as exc:
+            raise RequestNotDispatched('Cannot bind adaptation visibility') from exc
+    return options
+
+
 def _encode(kind, value):
     if kind == 'tool_execution' or kind in JSON_CONTROL_KINDS:
         if type(value) is not dict:
@@ -82,6 +98,8 @@ def _encode(kind, value):
         return json.loads(canonical(value))
     if kind == 'evaluation':
         encoded=asdict(value)
+        if getattr(value, 'oracle_evidence', None) is not None:
+            encoded['oracle_evidence'] = value.oracle_evidence
         if getattr(value,'execution',None) is not None:
             encoded['execution']=value.execution
         return encoded
@@ -118,7 +136,8 @@ def _decode(kind, value):
         try:
             outcome = CascadeOutcome(result=EvalResult(**value['result']),
                 raw_first_score=value['raw_first_score'], reached=value['reached'],
-                confirmed=value['confirmed'])
+                confirmed=value['confirmed'],
+                **({'oracle_evidence': value['oracle_evidence']} if 'oracle_evidence' in value else {}))
             if 'execution' in value:
                 from ..eval.candidate_backend import validate_execution
                 outcome.execution = validate_execution(value['execution'])

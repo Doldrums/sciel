@@ -310,6 +310,12 @@ def trace_attempt(validation: ValidationResult, *, extracted_code: str, response
         value = getattr(response, field, None)
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
             trace[field] = value
+    for key in ("call_id", "inference_spec", "adaptation_visibility", "inference_route",
+                "inference_deployment", "deployment_response"):
+        value = getattr(response, key, None)
+        if value is not None:
+            from copy import deepcopy
+            trace[key] = deepcopy(value)
     return trace
 
 

@@ -293,7 +293,8 @@ def validate_conclusion_feedback(value, conclusions, ordinary_evidence, branch, 
 
 
 def reflection_review_context(conclusions, ordinary_evidence, selected_ids, *,
-                              max_chars=REFLECTION_REVIEW_MAX_CHARS, batch_only_lessons=False):
+                              max_chars=REFLECTION_REVIEW_MAX_CHARS, batch_only_lessons=False,
+                              accepts=None):
     """Present current reviews only for the already selected ordinary evidence.
 
     This is an independent, bounded interpretation channel. Its provenance hashes
@@ -310,6 +311,7 @@ def reflection_review_context(conclusions, ordinary_evidence, selected_ids, *,
              "reflection reviews require unique selected ordinary IDs")
     _require(type(max_chars) is int and max_chars >= 0,
              "invalid reflection review character limit")
+    _require(accepts is None or callable(accepts), 'invalid reflection review acceptance predicate')
     selected = {i: ordinary_evidence[i] for i in selected_ids}
     for ident, record in selected.items():
         _require(type(record) is dict and record.get('id') == ident
@@ -329,7 +331,7 @@ def reflection_review_context(conclusions, ordinary_evidence, selected_ids, *,
              "omission_details_omitted_count": count, "max_chars": max_chars}
     if any(_typed_result(result) for result in reviews.values()):
         block['schema'] = TYPED_REFLECTION_REVIEW_SCHEMA
-    if len(canonical_json(block)) > max_chars:
+    if len(canonical_json(block)) > max_chars or (accepts is not None and not accepts(block)):
         return None
     omissions = []
     for ident in reversed(selected_ids):
@@ -367,15 +369,18 @@ def reflection_review_context(conclusions, ordinary_evidence, selected_ids, *,
             trial['omitted_count'] -= 1
             trial['omission_details_omitted_count'] -= 1
             if len(canonical_json(trial)) <= max_chars:
-                block = trial
-                continue
-            reason = 'memory_char_limit'
+                if accepts is None or accepts(trial):
+                    block = trial
+                    continue
+                reason = 'token_budget'
+            else:
+                reason = 'memory_char_limit'
         omissions.append({'experiment_id': ident, 'reason': reason,
                           'card_chars': chars, 'card_sha256': canonical_sha(card)})
     for detail in omissions:
         trial = copy.deepcopy(block)
         trial['omitted'].append(detail)
         trial['omission_details_omitted_count'] -= 1
-        if len(canonical_json(trial)) <= max_chars:
+        if len(canonical_json(trial)) <= max_chars and (accepts is None or accepts(trial)):
             block = trial
     return block

@@ -203,8 +203,8 @@ class KnowledgeBase:
     def proposal_group_context(self, branch, *, max_items=3, max_chars=12000):
         return reflection_selection.proposal_group_context(self, branch, max_items=max_items, max_chars=max_chars)
 
-    def reflection_context(self, recent_limit, *, max_experiments=64, max_lessons=8, max_chars=90000, selection_epoch=None):
-        return reflection_selection.reflection_context(self, recent_limit, max_experiments=max_experiments, max_lessons=max_lessons, max_chars=max_chars, selection_epoch=selection_epoch)
+    def reflection_context(self, recent_limit, *, max_experiments=64, max_lessons=8, max_chars=90000, selection_epoch=None, accepts=None):
+        return reflection_selection.reflection_context(self, recent_limit, max_experiments=max_experiments, max_lessons=max_lessons, max_chars=max_chars, selection_epoch=selection_epoch, accepts=accepts)
 
     def legacy_reflection_context(self, recent_limit, *, max_experiments=64, max_lessons=8, max_chars=90000):
         return reflection_selection.legacy_reflection_context(self, recent_limit, max_experiments=max_experiments, max_lessons=max_lessons, max_chars=max_chars)

@@ -154,6 +154,11 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
     while not transfer_only and repairs < tools.config['max_requests']:
         prompt = tools._prompt(plan,snapshot,available,feedback,attempt,
                               research_state=state,scientific_step=scientific)
+        skipped = tools._planner_budget(plan, prompt, llm, attempt)
+        if skipped is not None:
+            feedback.append(skipped)
+            state['status'] = 'open'
+            break
         # A durable returned/abandoned planner attempt consumes the review
         # opportunity. A STOP rolls this transient flag back with the wave.
         state['transfer_review_pending'] = False
@@ -164,7 +169,8 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
             response = llm.generate(prompt,tools.config['model'] or snapshot.model,tools.config['temperature'],
                 response_format=response_format(tools.background_enabled,visible_tool_ids=available,sequential=True,
                     experimental_protocol=tools.config.get('experimental_protocol',False),
-                    independent_research=tools.config.get('independent_research',False)))
+                    independent_research=tools.config.get('independent_research',False)),
+                **({'max_tokens': tools.config['max_tokens']} if 'max_tokens' in tools.config else {}))
         except AbandonedProviderRequest as error:
             provider_abandonment = deepcopy(error.receipt)
             artifact = tools._artifact('proposal_abandonment',{'action_id':plan['action_id'],'attempt':attempt,
