@@ -77,10 +77,32 @@ class ResearchAuxiliary:
         # its one permitted format repair) gets this optional output budget.
         if kind == 'conclusion' and self.config.get('conclusion_max_tokens') is not None:
             options['max_tokens'] = self.config['conclusion_max_tokens']
+        budget_facts = None
+        if kind == 'conclusion' and self._generation_token_budget is not None:
+            from .auxiliary_budget import measure
+            budget_facts = measure(self.llm, prompt,
+                context_tokens=self._generation_token_budget['context_tokens'],
+                output_tokens=options.get('max_tokens', self.llm.max_tokens), role='conclusion',
+                tokenizer=self._generation_token_budget['tokenizer'])
+            if not budget_facts['fits']:
+                self.emit('aux_skipped', kind=kind, reference=reference, reason='context_token_limit',
+                    token_budget=budget_facts, generation_dispatch='not_dispatched',
+                    generation_returned=False, current_call_cost_unknown=False)
+                return None
+        if kind == 'reflection' and self._reflection_token_budget is not None:
+            from .reflection_budget import PromptBudget
+            bound = PromptBudget(self._reflection_token_budget, self.llm.count_prompt_tokens)
+            if self.llm.prompt_tokenizer_identity != self._reflection_token_budget['tokenizer']:
+                raise ValueError('reflection tokenizer identity changed before dispatch')
+            bound.require_framing(prompt)
+            budget_facts = bound.measure(prompt)
+            # Explicitly bind the exact reservation into the durable request.
+            options['max_tokens'] = self._reflection_token_budget['reserved_output_tokens']
         self.aux_calls += 1
         self.emit('aux_start', kind=kind, reference=reference, model=model,
                   call_index=self.aux_calls, prompt_sha256=digest(prompt),
                   **({'max_tokens': options['max_tokens']} if 'max_tokens' in options else {}),
+                  **({'token_budget': budget_facts} if budget_facts is not None else {}),
                   **({'response_format': copy.deepcopy(options['response_format']),
                       'auxiliary_schema': copy.deepcopy(self._auxiliary_schema_identity)}
                      if 'response_format' in options else {}))

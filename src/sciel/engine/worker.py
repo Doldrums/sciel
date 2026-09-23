@@ -12,6 +12,7 @@ from .provider_abandonment import AbandonedProviderRequest
 from .prompt.build import build
 from .prompt.parse import extract_code, parse_bet
 from .types import NoChild, Result
+from .generation_budget import GenerationBudgetExceeded
 from .operators import usable_inspirations
 from .validation import TRACE_SCHEMA, trace_attempt, validate_candidate, source_sha256
 from .validation import candidate_attempt_limit, candidate_registry_enabled
@@ -25,17 +26,26 @@ from .viability import _docstring_repair, pre_eval_gate  # noqa: F401 (back comp
 def run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
                base_temp: float = 0.7, novelty_check=None, research=None, idea=None,
                intervention=None, circle_generation=None) -> Result | NoChild:
+    from .llm.local import freeze_snapshot_inference
+    freeze_snapshot_inference(llm, snapshot)
     options = dict(dup_cap=dup_cap, base_temp=base_temp, novelty_check=novelty_check,
                    research=research, idea=idea, intervention=intervention,
                    circle_generation=circle_generation)
+    def adapted_result(result):
+        if getattr(llm, 'local_inference', False) is True:
+            result.meta['adaptation_parent'] = {
+                'program_id': snapshot.parent_id,
+                'source_sha256': source_sha256(snapshot.parent_code), 'score': snapshot.parent_score}
+            result.meta['adaptation_visible_episode_ids'] = deepcopy(snapshot.adaptation_visible_episode_ids)
+        return result
     if research is None:
-        return _run_worker(op, snapshot, llm, evaluate_fn, **options)
+        return adapted_result(_run_worker(op, snapshot, llm, evaluate_fn, **options))
     with research.capture_outcomes() as captured:
         result = _run_worker(op, snapshot, llm, evaluate_fn, **options)
     result.meta['research_outcome_ids'] = list(captured['ids'])
     if captured['method_followup_records']:
         result.meta['method_followup_records'] = captured['method_followup_records']
-    return result
+    return adapted_result(result)
 
 
 def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
@@ -90,7 +100,7 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
     validation_trace = {"schema": TRACE_SCHEMA, "profile": "worker", "attempts": []}
     spent = 0.0          # every call costs, not only the one that produced a child
     rejected_total, recent_rejections = 0, []
-    previous_response = previous_validation = previous_reason = None
+    previous_response = previous_validation = previous_reason = previous_call_id = None
 
     def stop_unknown(exc):
         stopped = unknown_request_stop(exc, spent)
@@ -117,6 +127,7 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
     for attempt in range(dup_cap):
         research_id = None
         try:
+            delivery_snapshot = snapshot
             prompt = build(op_cur, snapshot)
             if registry_enabled and previous_response is not None:
                 prompt = candidate_retry_prompt(prompt, previous_response, previous_validation,
@@ -129,7 +140,21 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
                         "total_rejections": rejected_total,
                         "omitted_count": rejected_total - len(recent_rejections),
                         "rejections": [dict(row) for row in recent_rejections]}
-                research_id, prompt = research.begin(snapshot, attempt, op_cur, prompt, **options)
+                if research._generation_token_budget is not None:
+                    research_id, prompt, delivery_snapshot = research.begin(
+                        snapshot, attempt, op_cur, prompt, generation_budget=True, **options)
+                else:
+                    research_id, prompt = research.begin(snapshot, attempt, op_cur, prompt, **options)
+        except GenerationBudgetExceeded as exc:
+            diagnostic = deepcopy(exc.receipt)
+            research.emit('generation_budget_rejected', generation_token_budget=diagnostic,
+                generation_dispatch='not_dispatched', generation_returned=False,
+                iteration=snapshot.iteration_no + 1, island=snapshot.island)
+            return NoChild(island=snapshot.island, reason='generation_context_limit', cost=spent,
+                meta={**operator_metadata(), **evaluation_metadata(evaluations), 'op_used': op_cur,
+                      'dup_attempts': attempt, 'generation_returned': False,
+                      'generation_dispatch': 'not_dispatched', 'current_call_cost_unknown': False,
+                      'generation_token_budget': diagnostic, 'validation_trace': validation_trace})
         except Exception as exc:
             if spent:
                 # Preparation makes no provider request and never charges the
@@ -146,7 +171,9 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
         try:
             from .llm.local import generation_options
             resp = llm.generate(prompt, snapshot.model, temp,
-                **generation_options(llm, snapshot, repair=op_cur == 'error_repair'))
+                **generation_options(llm, delivery_snapshot, repair=attempt > 0, prompt=prompt, op=op_cur,
+                    previous_response=previous_response if registry_enabled else None,
+                    previous_call_id=previous_call_id))
         except AbandonedProviderRequest as exc:
             # Recovery has authenticated and preserved the failed physical
             # request. Resolve this attempt without pretending it returned a
@@ -239,7 +266,11 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
                     'attempt': attempt + 1, 'operator': op_cur, 'temperature': temp,
                     'disposition': 'llm_failed', 'generation_returned': True,
                     'generation_dispatch': 'returned', 'cost': response_cost,
-                    'response_error': resp.response_error, 'decisions': []})
+                    'response_error': resp.response_error, 'decisions': [],
+                    **{key: deepcopy(getattr(resp, key)) for key in (
+                        'call_id', 'inference_spec', 'adaptation_visibility', 'inference_route',
+                        'inference_deployment', 'deployment_response', 'prompt_tokens', 'completion_tokens')
+                        if getattr(resp, key, None) is not None}})
                 if research is not None:
                     pending = research.pending[research_id]
                     pending['generation_dispatch'] = 'returned'
@@ -266,6 +297,7 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
             validation_trace["attempts"].append(attempt_trace)
             if registry_enabled:
                 previous_response, previous_validation, previous_reason = resp.text, validation, None
+                previous_call_id = getattr(resp, 'call_id', None)
                 measured_repeat = None
             if research is not None and not research.proposal(research_id, resp, child, validation):
                 failure = _bounded_failure("hypothesis_invalid", "missing or malformed pre-evaluation hypothesis")

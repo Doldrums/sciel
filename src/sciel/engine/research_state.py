@@ -51,6 +51,10 @@ class ResearchState:
             summary['external_component_review_identity'] = copy.deepcopy(self._external_component_review_identity)
         if self._review_text_policy_identity is not None:
             summary['review_text_policy'] = copy.deepcopy(self._review_text_policy_identity)
+        if self._reflection_token_budget is not None:
+            summary['reflection_token_budget'] = copy.deepcopy(self._reflection_token_budget)
+        if self._generation_token_budget is not None:
+            summary['generation_token_budget'] = copy.deepcopy(self._generation_token_budget)
         selection = selection_identity(self.config)
         if selection is not None:
             summary['lesson_selection'] = selection
@@ -80,6 +84,12 @@ class ResearchState:
         self._review_text_options()
         if state.get('schema') != CONTRACT or state.get('config') != self.config:
             raise ValueError('research checkpoint contract/configuration mismatch')
+        if (canonical_json(state.get('reflection_token_budget')) != canonical_json(self._reflection_token_budget)
+                or (self._reflection_token_budget is None and 'reflection_token_budget' in state)):
+            raise ValueError('research checkpoint reflection token budget mismatch')
+        if (state.get('generation_token_budget') != self._generation_token_budget
+                or (self._generation_token_budget is None and 'generation_token_budget' in state)):
+            raise ValueError('research checkpoint generation token budget mismatch')
         # Pre-policy research snapshots remain inspectable only before any R.
         # Historical nonzero watermarks cannot reveal failed/skipped attempts.
         if 'reflection_allocation' not in state and 'reflection_attempts' not in state:

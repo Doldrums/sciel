@@ -2,8 +2,13 @@
 
 def validate(cfg):
     llm = cfg.get('llm') or {}
-    if 'online_adaptation' in cfg or 'oracle_evaluation' in cfg or 'continuous_routing' in llm:
+    if 'online_adaptation' in cfg or 'continuous_routing' in llm:
         raise ValueError('upstream v0.2 online adaptation/qualification port is not enabled')
+    if "oracle_evaluation" in cfg:
+        from ...eval.oracle_evidence import validate_config
+        cfg["oracle_evaluation"] = validate_config(cfg["oracle_evaluation"])
+        if 'evaluation' in cfg:
+            raise ValueError('oracle_evaluation cannot use the candidate-only evaluation backend')
     backend = llm.get('backend', 'openai')
     if backend not in ('openai', 'local_openai'):
         raise ValueError('unknown llm.backend')

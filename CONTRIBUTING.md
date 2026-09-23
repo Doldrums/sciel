@@ -55,3 +55,45 @@ report skips separately from passing checks.
 Use concise Conventional Commit messages, for example
 `fix: retain unknown provider charges` or `refactor: separate tool execution`.
 Describe the resulting behavior and relevant verification in pull requests.
+
+## Local inference and adaptation
+
+The local provider port starts from upstream v0.2 (`espalier-3.64`). Its LoRA
+reference used `espalier-3.44` with unrelated Git history. Preserve the new
+engine's lifecycle, evaluator backend, resolved-model fields, subscription
+accounting and durable call journal when porting individual capabilities.
+Existing experiments retain their original frozen sources and controls.
+
+Local requests bind a base identity, sampling seed, chat-template behavior and
+signed deployment receipt. A generation snapshot must freeze its specification
+before queueing; the worker, transcript and call journal must preserve the same
+binding. Replaying a returned durable call must not send another request. A zero
+external API charge does not imply zero GPU, elapsed-time or rental cost.
+
+Checkpoint restore must reject a changed local/deployment or oracle identity
+even when forced. The port supports fresh 3.64 runs and same-identity restarts;
+it does not migrate a 3.44 checkpoint by clearing routes, pending requests or
+paid outcomes. Continuous adaptation and configured adapters remain disabled
+until their route, publication, owned execution and continuation hooks have
+been ported and verified together.
+
+TRAIN export must bind the final delivered prompt, selected memory and tool
+cards to native calls and full/confirmation evaluation evidence. The current
+tool protocol is `/34`: verify the complete installed renderer and engine source
+maps, including extracted modules. Retained source bytes are evidence, never
+executable renderers. Keep the finite legacy `/24`–`/26` readers separate. A
+changed or missing prompt, card, invocation, owner or source binding must prevent
+an unsupported eligibility claim.
+
+Context limits are explicit opt-in controls. Count the complete prompt and its
+reserved output before dispatch; omit only whole optional inputs with retained
+selection evidence. Keep default upstream rendering unchanged when limits are
+absent. Exercise generation, repair, planner, conclusion and reflection paths
+separately; a successful ordinary generation does not cover them all.
+
+Use a real native engine and journal in integration fixtures, with any synthetic
+model, tokenizer, tool or numerical leaves clearly identified. Verify export
+reopening without additional calls and reject tampered evidence. These tests
+establish software behavior, not model quality, GPU speed or continuous LoRA
+compatibility. Record actual experiment results and validation logs outside the
+maintained source tree.

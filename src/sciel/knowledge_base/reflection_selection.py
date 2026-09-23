@@ -44,7 +44,7 @@ def proposal_group_context(knowledge, branch, *, max_items=3, max_chars=12000):
 
 
 def reflection_context(knowledge, recent_limit, *, max_experiments=64,
-                       max_lessons=8, max_chars=90000, selection_epoch=None):
+                       max_lessons=8, max_chars=90000, selection_epoch=None, accepts=None):
     """Select whole observations and evidence-complete lesson summaries.
 
         Older retained source measurements travel with a lesson, so consolidation
@@ -71,6 +71,8 @@ def reflection_context(knowledge, recent_limit, *, max_experiments=64,
     _require(selection_epoch is None or (type(selection_epoch) is int and selection_epoch >= 0),
              "invalid reflection selection epoch")
 
+    _require(accepts is None or callable(accepts), 'invalid reflection acceptance predicate')
+
     def project(record):
         if _is_comparison(record):
             from .presentation import comparison_card
@@ -83,7 +85,8 @@ def reflection_context(knowledge, recent_limit, *, max_experiments=64,
 
     def fits(records, lessons):
         return (len(records) <= max_experiments and len(lessons) <= max_lessons and
-                len(serialize_reflection(list(records.values()), lessons)) <= max_chars)
+                len(serialize_reflection(list(records.values()), lessons)) <= max_chars
+                and (accepts is None or accepts(list(records.values()), lessons)))
 
     unit_cache = {}
     def unit(lesson, *, focus=False):
@@ -195,7 +198,7 @@ def reflection_context(knowledge, recent_limit, *, max_experiments=64,
     # Preserve chronological order for the selected recent observations.
     records.update((e["id"], admitted_recent[e["id"]]) for e in recent
                    if e["id"] in admitted_recent)
-    if not records and recent:
+    if not records and recent and accepts is None:
         raise ValueError("single research observation exceeds reflection context")
 
     offset = epoch % len(knowledge._lessons) if knowledge._lessons else 0

@@ -52,8 +52,11 @@ DEFAULTS = {
 def validate_config(value=None):
     if value is None:
         value = {}
-    if type(value) is not dict or set(value) - set(DEFAULTS):
+    if type(value) is not dict or set(value) - (set(DEFAULTS) | {'max_tokens', 'context_tokens'}):
         raise ValueError('research_tools contains unsupported configuration fields')
+    for key in ('max_tokens', 'context_tokens'):
+        if key in value and (type(value[key]) is not int or value[key] <= 0):
+            raise ValueError('research_tools.' + key + ' must be a positive integer')
     cfg = {**deepcopy(DEFAULTS), **deepcopy(value)}
     jobs = value.get('jobs', {})
     if type(jobs) is not dict or set(jobs) - set(DEFAULTS['jobs']):

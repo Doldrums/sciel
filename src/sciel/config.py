@@ -26,7 +26,7 @@ KNOWN_KEYS = {
     "embed_niche", "embed_niche_path", "niche_d_min", "niche_target_k",
     "niche_k_max", "niche_csc_rate",
     "three_head", "three_head_path", "three_head_beta", "log_evictions",
-    "container", "max_iterations", "preset_selection", "preset_adaptive",
+    "container", "max_iterations", "preset_selection", "preset_adaptive", "oracle_evaluation",
     "schedule_horizon", "checkpoint_interval", "warm_start", "candidate_novelty", "parallel_search",
     "evaluation", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation",
 }

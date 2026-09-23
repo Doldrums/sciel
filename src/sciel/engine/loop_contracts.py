@@ -73,6 +73,10 @@ def _paradigm_prompt(task_prompt: str, base_code: str, paradigm: str) -> str:
 
 def _preflight_task(cfg, task):
     """Pure task/source checks precede even creation of the run lock file."""
+    if ("oracle_evaluation" in cfg or getattr(task, "qualified_name", None)
+            == "oe/function_minimization_oracle_fixed_panel_v1"):
+        from ..eval.oracle_evidence import launch
+        launch(cfg.get("oracle_evaluation"), task)
     if any(cfg.get(name, {}).get('enabled') for name in
            ('circle_generation', 'repeat_population', 'repeat_promotion')):
         from .repeat_support import validate_circle_task, circle_initial_source_policy

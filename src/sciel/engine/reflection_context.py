@@ -121,7 +121,7 @@ def _evaluated_review_context(knowledge, config, study):
 
 
 def prepare_reflection_context(knowledge, conclusions, *, config, interval, through,
-                               selection_epoch=None):
+                               selection_epoch=None, token_budget=None, count_prompt_tokens=None):
     """Return detached prompt and journal projections for one reflection.
 
     ``through`` identifies the caller's evidence watermark. External jobs must
@@ -135,6 +135,17 @@ def prepare_reflection_context(knowledge, conclusions, *, config, interval, thro
         raise ValueError('reflection watermark must be a positive integer')
     if selection_epoch is not None and (type(selection_epoch) is not int or selection_epoch < 0):
         raise ValueError('reflection selection epoch must be a nonnegative integer')
+    from .reflection_budget import PromptBudget, validate_context_tokens
+    context_tokens = validate_context_tokens(config)
+    budget = None
+    if context_tokens is not None:
+        budget = PromptBudget(token_budget, count_prompt_tokens)
+        if budget.identity['context_tokens'] != context_tokens:
+            raise ValueError('reflection budget differs from configured context')
+        if selection_epoch is None:
+            raise ValueError('token-budgeted reflection requires a live allocation epoch')
+    elif token_budget is not None or count_prompt_tokens is not None:
+        raise ValueError('reflection token budget was not explicitly configured')
     from .external_research_v2 import _review_text_policy
     review_only = _review_text_policy(config) is not None
     effects_instruction = REVIEW_ONLY_INSTRUCTION if review_only else ''
@@ -164,10 +175,30 @@ def prepare_reflection_context(knowledge, conclusions, *, config, interval, thro
     from ..knowledge_base.generated_paired_review_context import block as component_review_block
     component_review_text = component_review_block(component_reviews)
     component_review_reserve = component_reviews['reserved_chars'] if component_reviews is not None else 0
+
+    def rendered(records, lessons, *, review=None, initializer=None, restart=None, predictions=None):
+        # This is the complete wire prompt, including record-dependent paired
+        # source blocks and fixed framing. Source records themselves stay whole.
+        retained = knowledge._evidence()
+        groups = ([retained[r['id']] for r in records
+            if r['id'] in retained and retained[r['id']].get('schema') == PAIRED_SCHEMA][-4:]
+            if config.get('comparison_reviews', False) else None)
+        return (effects_instruction + study_text + study_review_text + component_text + component_review_text
+            + reflection_prompt(records, lessons, review_context=review,
+                initializer_context=initializer, restart_context=restart, prediction_context=predictions,
+                structured=config.get('structured_auxiliary', False),
+                comparison_reviews=config.get('comparison_reviews', False), comparison_review_groups=groups,
+                comparison_review_version=config.get('comparison_review_version', 1),
+                comparison_review_records=retained if config.get('comparison_reviews', False) else None,
+                comparison_review_seen=knowledge._seen if config.get('comparison_reviews', False) else None))
+
+    if budget is not None:
+        budget.require_framing(rendered([], []))
     selector = (knowledge.legacy_reflection_context if selection_epoch is None
                 else knowledge.reflection_context)
     records, lessons = selector(interval,
         **({"selection_epoch": selection_epoch} if selection_epoch is not None else {}),
+        **({'accepts': lambda rows, cards: budget.fits(rendered(rows, cards))} if budget is not None else {}),
         max_chars=90000 - len(component_text) - component_review_reserve - len(study_text) - study_review_reserve)
     data = serialize_reflection(records, lessons)
     comparison_review_groups, review_source_chars = None, 0
@@ -186,21 +217,42 @@ def prepare_reflection_context(knowledge, conclusions, *, config, interval, thro
     allowance = max(0, min(REFLECTION_REVIEW_MAX_CHARS,
         MAX_CONTEXT_CHARS - len(data) - len(REFLECTION_REVIEW_RULES)
         - len(REFLECTION_REVIEW_PREFIX) - 1 - review_source_chars))
+    review_token_rejected = False
+    def accepts_review(review):
+        nonlocal review_token_rejected
+        fits = budget.fits(rendered(records, lessons, review=review))
+        review_token_rejected |= not fits
+        return fits
     review_context = reflection_review_context(conclusions, ordinary,
         selected_ids, max_chars=allowance,
-        batch_only_lessons=config.get('batch_only_lessons', False))
+        batch_only_lessons=config.get('batch_only_lessons', False),
+        **({'accepts': accepts_review}
+           if budget is not None else {}))
     review_chars = (len(REFLECTION_REVIEW_RULES) + len(REFLECTION_REVIEW_PREFIX)
         + len(canonical_json(review_context)) + 1 if review_context is not None else 0)
     initializer = initializer_context(knowledge, config, selected_ids,
         MAX_CONTEXT_CHARS - len(data) - review_chars - review_source_chars)
+    omitted_blocks = []
+    if budget is not None and initializer is not None and not budget.fits(
+            rendered(records, lessons, review=review_context, initializer=initializer)):
+        initializer = None
+        omitted_blocks.append('initializer')
     retained = knowledge._evidence()
     trace_groups = [retained[r['id']] for r in records
         if r['id'] in retained and retained[r['id']].get('schema') == PAIRED_SCHEMA]
     restart, restart_ids = restart_context(trace_groups,
         MAX_CONTEXT_CHARS - len(data) - review_chars - review_source_chars - len(initializer_block(initializer)))
+    if budget is not None and restart is not None and not budget.fits(
+            rendered(records, lessons, review=review_context, initializer=initializer, restart=restart)):
+        restart = None
+        omitted_blocks.append('restart')
     predictions = prediction_context(knowledge, config, trace_groups,
         MAX_CONTEXT_CHARS - len(data) - review_chars - review_source_chars - len(initializer_block(initializer))
         - len(restart_block(restart)))
+    if budget is not None and predictions is not None and not budget.fits(rendered(records, lessons,
+            review=review_context, initializer=initializer, restart=restart, predictions=predictions)):
+        predictions = None
+        omitted_blocks.append('predictions')
     prompt = reflection_prompt(records, lessons, review_context=review_context,
         initializer_context=initializer, restart_context=restart, prediction_context=predictions,
         structured=config.get('structured_auxiliary', False),
@@ -239,6 +291,7 @@ def prepare_reflection_context(knowledge, conclusions, *, config, interval, thro
         review_context_sha256=(_digest(canonical_json(review_context)) if review_context is not None else None),
         review_selected_experiment_ids=selected_ids, review_context_max_chars=allowance,
         review_context_omission=('no_selected_ordinary' if not selected_ids else
+                                'token_budget' if review_context is None and review_token_rejected else
                                 'memory_char_limit' if review_context is None else None),
         review_presented_count=(review_context['presented_count'] if review_context else 0),
         review_omitted_count=(review_context['omitted_count'] if review_context else len(selected_ids)),
@@ -247,6 +300,24 @@ def prepare_reflection_context(knowledge, conclusions, *, config, interval, thro
                 if g['id'] not in {r['id'] for r in comparison_review_groups}]}
            if comparison_review_groups is not None else {}),
         **({'restart_predictions': copy.deepcopy(predictions)} if predictions is not None else {}))
+    skip_reason = None
+    if budget is not None:
+        if not budget.fits(prompt):
+            raise ValueError('assembled reflection exceeds its exact token budget')
+        selected = {row['id'] for row in records}
+        retained = knowledge._evidence()
+        retained.update((row['id'], row) for row in knowledge.experiments)
+        if selected_ids and review_context is None:
+            omitted_blocks.append('conclusion_reviews')
+        context_event['token_budget'] = dict(budget.measure(prompt),
+            retained_observation_ids=sorted(retained),
+            omitted_observation_ids=sorted(set(retained) - selected),
+            omitted_lesson_ids=sorted({row['id'] for row in knowledge.lessons} - {row['id'] for row in lessons}),
+            omitted_blocks=omitted_blocks,
+            omission_scope='Not selected under the allocation and token budgets; retained evidence is unchanged.')
+        if not records:
+            skip_reason = 'no_evidence_fits_token_budget'
+            context_event['token_budget']['skip_reason'] = skip_reason
     wire, schema = None, None
     if config.get('structured_auxiliary', False):
         from ..hypothesis.auxiliary_schema import identity, response_format
@@ -256,4 +327,5 @@ def prepare_reflection_context(knowledge, conclusions, *, config, interval, thro
             comparison_review_version=config.get('comparison_review_version', 1))
     return copy.deepcopy(dict(prompt=prompt, response_format=wire, auxiliary_schema=schema,
         context_event=context_event, presentation_events=presentation_events,
-        records=records, lessons=lessons, comparison_review_groups=comparison_review_groups))
+        records=records, lessons=lessons, comparison_review_groups=comparison_review_groups,
+        **({'skip_reason': skip_reason} if budget is not None else {})))

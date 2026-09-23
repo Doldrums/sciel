@@ -182,6 +182,24 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         return self._execute_sequential(plan, snapshot, llm, io=io,
                                         candidate_evaluator=candidate_evaluator)
 
+    def _planner_budget(self, plan, prompt, llm, attempt):
+        if 'context_tokens' not in self.config:
+            return None
+        from ..engine.auxiliary_budget import measure
+        facts = measure(llm, prompt, context_tokens=self.config['context_tokens'],
+            output_tokens=self.config.get('max_tokens', llm.max_tokens), role='research_tool')
+        self._event(plan, 'prompt_budget', attempt=attempt, token_budget=facts)
+        if facts['fits']:
+            return None
+        artifact = self._artifact('proposal_budget', {'action_id': plan['action_id'],
+            'attempt': attempt, 'prompt': prompt, 'token_budget': facts,
+            'generation_dispatch': 'not_dispatched', 'generation_returned': False,
+            'current_call_cost_unknown': False})
+        self._event(plan, 'llm_skipped', attempt=attempt, receipt_id=artifact,
+            reason='context_token_limit', token_budget=facts, generation_dispatch='not_dispatched')
+        return {'status': 'context_token_limit', 'receipt_id': artifact,
+                'reason': 'Exact complete planner prompt plus output allowance exceeds context; no request sent.'}
+
     def _execute_single(self, plan, snapshot, llm, *, io):
         return episode_execution._execute_single(self, plan, snapshot, llm, io=io)
 

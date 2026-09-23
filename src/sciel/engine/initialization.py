@@ -51,6 +51,11 @@ class EngineInitialization:
                               if cfg.get('circle_generation', {}).get('enabled') else {})
             self.repeat_promotion = create(cfg['repeat_promotion'], task, run_dir, python, **repeat_options)
         os.makedirs(run_dir, exist_ok=True)
+        self.oracle_evaluation = None
+        if ("oracle_evaluation" in cfg or getattr(task, "qualified_name", None)
+                == "oe/function_minimization_oracle_fixed_panel_v1"):
+            from ..eval.oracle_evidence import launch
+            self.oracle_evaluation = launch(cfg.get("oracle_evaluation"), task)
         # Construction for resume is read-only with respect to recorded config.
         # New starts in an existing journal are rejected before runtime or calls.
         self._existing_run = any(os.path.exists(os.path.join(run_dir, name))

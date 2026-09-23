@@ -13,7 +13,7 @@ from ..campaign.budget import CampaignStopped
 from . import checkpoint, portfolio_allocation, research_queue
 from .capacity import HostCapacity
 from .llm.trace import TracedLLM
-from .parallel_calls import CallLedger, CooperativeIO, ParallelPause, ParallelAborted, durable_json, digest
+from .parallel_calls import CallLedger, CooperativeIO, ParallelPause, ParallelAborted, durable_json, digest, bind_visibility
 from .prompt.build import compose_directive
 from .schedule import Saturated
 from .types import NoChild, Snapshot
@@ -71,6 +71,7 @@ class WaveLLM:
         provider = self.original._provider if isinstance(self.original, TracedLLM) else self.original
         from .llm.local import bind_inference_options
         options = bind_inference_options(provider, model, options, context)
+        options = bind_visibility(prompt, options)
         trace = TracedLLM(provider, self.engine.run_dir, lambda _: dict(context))
         request = {'prompt': prompt, 'model': model, 'temperature': temperature, 'options': options,
                    'trace_context': {key: context.get(key) for key in
@@ -98,7 +99,8 @@ def _snapshot(snapshot):
         value.pop('research_cells_context', None)
     if value.get('research_targets') is None:
         value.pop('research_targets', None)
-    for key in ('inference_spec', 'inference_route', 'inference_deployment'):
+    for key in ('inference_spec', 'inference_route', 'inference_deployment',
+                'adaptation_visible_episode_ids', 'adaptation_context', 'adaptation_delivery'):
         if value.get(key) is None:
             value.pop(key, None)
     value['code_hashes'] = sorted(value['code_hashes'])
@@ -146,6 +148,10 @@ def _prepare_seed(engine, island):
                    + engine.observed_changes.block(code)),
         kb_lessons=context['lesson_texts'] if context else [], task_prompt=engine.task_prompt,
         required_entrypoints=engine.required_entrypoints, research_context=context)
+    from .llm.local import freeze_snapshot_inference
+    from ..adaptation.visibility import freeze_context
+    freeze_snapshot_inference(engine.llm, snap)
+    freeze_context(engine, snap, parent)
     return {'snap': snap, 'op': 'full_rewrite', 'parent': parent, 'model': model}
 
 
