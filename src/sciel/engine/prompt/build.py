@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import os
 
 from .sources import source_bundle, source_catalog_block, source_reference
@@ -23,6 +24,7 @@ EDIT_CONTRACT = (
     "replacement lines\n"
     ">>>>>>> REPLACE\n"
     "Each SEARCH must match the current program exactly and occur once. "
+    "Prefer several small edits that copy only the lines you change. "
     "Do not output the whole program.")
 
 _FIX_CONTEXT = 8
@@ -51,6 +53,35 @@ def _format_inspirations(inspirations: list) -> str:
         parts.append(f"# inspiration {i + 1} (score {insp['score']:.4f}){card}\n"
                      f"{insp['code']}")
     return "\n\n".join(parts)
+
+
+def _code_outline(code: str) -> str:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return ""
+    doc = (ast.get_docstring(tree) or "").strip().split("\n")[0][:160]
+    imports = sorted({a.name.split(".")[0] for n in tree.body if isinstance(n, ast.Import) for a in n.names}
+                     | {(n.module or "").split(".")[0] for n in tree.body if isinstance(n, ast.ImportFrom)} - {""})
+    defs = [n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+    parts = [doc] if doc else []
+    if imports:
+        parts.append("uses " + ", ".join(imports))
+    if defs:
+        parts.append("defines " + ", ".join(defs[:12]))
+    return "; ".join(parts)
+
+
+def _summarize_inspirations(inspirations: list) -> str:
+    if not inspirations:
+        return "(none)"
+    lines = []
+    for i, insp in enumerate(inspirations):
+        card = (insp.get("card") or "").strip()
+        outline = _code_outline(insp["code"])
+        lines.append(f"- inspiration {i + 1} (score {insp['score']:.4f}): "
+                     + (" | ".join(part for part in (card, outline) if part) or "no description"))
+    return "\n".join(lines)
 
 
 def _time_share(frac: float) -> str:
@@ -166,7 +197,8 @@ def build(op: str, snapshot, *, edits: bool = False) -> str:
         task_prompt=snapshot.task_prompt,
         parent_code=parent_code,
         parent_score=f"{snapshot.parent_score:.4f}",
-        inspirations=_format_inspirations(inspirations),
+        inspirations=(_summarize_inspirations(inspirations) if bundle is None and op != "cross"
+                      else _format_inspirations(inspirations)),
         directive=snapshot.directive or "(none)",
         lessons=lessons,
         artifacts=artifacts,
