@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from ..causal import context_of
 from ..components.policy.mode_features import mode_features
 from .operators import usable_inspirations
 from .prompt.build import compose_directive
@@ -41,8 +42,10 @@ class EngineStepCycle:
             # pre-step, feature-parity context for the return-conditioned MLP.
             features = mode_features(phase, decision_context['progress'],
                                      decision_context['pop_best'], decision_context['island_best'])
+        context = context_of(decision_context)
         mode, mode_prop, tilt, mix = self.controller.pick_mode(
-            island, iteration_no, self.rng.stream("policy"), view, phase, features)
+            island, iteration_no, self.rng.stream("policy"), view, phase, features,
+            adjust=lambda m: self.theory.tilt("mode", context, m))
         # Capture the action's source before the worker advances iteration_no or
         # result handling changes the plateau window.
         mode_on_policy = (self.controller.enabled
@@ -154,7 +157,8 @@ class EngineStepCycle:
         else:
             op, op_prop, op_stat = self.op_bandit.pick(
                 fresh_failure, self.rng.stream("op"), intensify=refine,
-                cross_available=bool(inspirations))
+                cross_available=bool(inspirations),
+                adjust=lambda p: self.theory.tilt("operator", context, p))
             op_selection = 'bandit'
         self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
                                else {op: 1.0}, op)
@@ -185,10 +189,10 @@ class EngineStepCycle:
         self.decisions.observe("model", {m: w / sum(weights) for m, w in zip(models, weights)}
                                if models and weights and model in models else {model: 1.0}, model)
         decision_context["decisions"] = self.decisions.drain()
-        lessons, injected_ids = [], []
+        lessons, injected_ids = self.theory.cards(context), []
         if self.kb_on:
             picked = self.kb.retrieve(parent.score)
-            lessons = [l.text for l in picked]
+            lessons += [l.text for l in picked]
             injected_ids = [l.id for l in picked]
         research_context = None
         if self.research is not None:

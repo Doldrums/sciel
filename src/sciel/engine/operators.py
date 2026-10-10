@@ -66,7 +66,7 @@ class OpBandit:
         return max(buf) if buf else 0.0
 
     def pick(self, fresh_failure: bool, rng, intensify: bool = False,
-             *, cross_available: bool = True) -> tuple:
+             *, cross_available: bool = True, adjust=None) -> tuple:
         arms = self._available(fresh_failure, cross_available)
         if not arms:
             raise ValueError('no eligible mutation operators')
@@ -80,6 +80,8 @@ class OpBandit:
             stat = dict(raw)
             stat["diff"] = max(raw.values()) + self.intensify_boost
         p = floor_clip(boltzmann(stat, self.temperature), self.floor)
+        if adjust is not None:
+            p = adjust(p)
         op = rng.choices(arms, weights=[p[a] for a in arms], k=1)[0]
         self.last_distribution = {a: p[a] for a in arms}
         # report the true window-max reward, never the synthetic intensify boost

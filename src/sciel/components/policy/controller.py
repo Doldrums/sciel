@@ -92,7 +92,7 @@ class Controller:
         return self.plateau_until.get(island, -1) > t
 
     def pick_mode(self, island: int, t: int, rng, view=None, phase=None,
-                  features=None) -> tuple:
+                  features=None, adjust=None) -> tuple:
         """Returns (mode, propensity, tilt, mix) -- mix is the floor-clipped
         distribution actually sampled from (for honest observability)."""
         if not self.enabled:
@@ -111,6 +111,8 @@ class Controller:
         else:
             mix = self.base_mix                          # step 1: static mix
         mix = floor_clip(mix, self.floor)
+        if adjust is not None:
+            mix = adjust(mix)
         mode = sample(mix, rng)
         tilt = self._tilt_for(mode)
         # Warmup gate: exploit tilts parent selection toward the island's top-k,

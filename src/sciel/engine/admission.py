@@ -5,6 +5,8 @@ from ..components.tail import extract_lesson
 from .types import NoChild
 from .loop_contracts import (_changed_region, _trunc)
 
+THEORY_INTERVAL = 10
+
 
 class EngineAdmission:
 
@@ -93,6 +95,7 @@ class EngineAdmission:
                                op_propensity=op_prop, op_stat=op_stat,
                                cost=getattr(res, "cost", 0.0),
                                **({"decision_context": decision_context} if decision_context else {}))
+            self._record_decisions(res.island, decision_context, None, None, False)
             # an attempt that produced nothing is still an attempt under this mode
             self.controller.observe(
                 obs_phase, eff_mode, None,
@@ -154,6 +157,7 @@ class EngineAdmission:
                                cost=res.cost, timing=res.timing,
                                artifacts=_trunc(res.artifacts),
                                **({"decision_context": decision_context} if decision_context else {}))
+            self._record_decisions(res.island, decision_context, None, None, False)
             self.controller.observe(
                 obs_phase, eff_mode, None,
                 on_policy=mode_on_policy)
@@ -234,7 +238,19 @@ class EngineAdmission:
                             model_prop, mode, mode_prop, branch_brier,
                             pre=pre, phase_pre=obs_phase, effective_mode=eff_mode,
                             decision_context=decision_context)
+        self._record_decisions(res.island, decision_context, child_prog.id, res.parent_id,
+                               ev.is_island_event)
         return child_prog.id
+
+    def _record_decisions(self, island, decision_context, child, parent, event):
+        if not decision_context:
+            return
+        self.ledger.add(iteration=self.iteration_no, island=island, decision_context=decision_context,
+                        child=child, parent=parent, event=event)
+        if self.iteration_no % THEORY_INTERVAL == 0:
+            decided = self.theory.update(self.ledger)
+            self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,
+                              claims=[c.card() for c in decided])
 
     def _run_tail(self, res, ev, injected_ids, brier, child_prog):
         island, phase = res.island, self.schedule.phase_code()
