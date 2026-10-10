@@ -10,7 +10,7 @@ import yaml
 from .config_validation import validate_experiments
 
 KNOWN_KEYS = {
-    "extends", "task", "budget", "num_islands", "pop_cap", "archive_size",
+    "extends", "task", "budget", "decision_epsilon", "num_islands", "pop_cap", "archive_size",
     "grid_bins", "inflight_cap", "dup_cap", "backstop_k", "random_seed",
     "schedule_policy", "milestone_fracs", "op_temperature", "op_floor",
     "op_window", "selection_floor", "tau_floor", "reward_w_pop", "reward_w_isl",
@@ -37,6 +37,7 @@ DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval"}
 DEFAULTS = {
     "num_islands": 3,
     "budget": 100,
+    "decision_epsilon": 0.0,
     "random_seed": 0,
     "dup_cap": 4,
     "candidate_novelty": {"enabled": False, "max_resamples": 2, "neighbors": 3,

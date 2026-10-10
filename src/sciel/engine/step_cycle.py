@@ -29,6 +29,7 @@ class EngineStepCycle:
         if excluded_parents:
             view.ids[:] = [pid for pid in view.ids if pid not in excluded_parents]
             if not view.ids:
+                self.decisions.pending.clear()
                 raise Saturated()
         phase = self.schedule.phase_code()
         decision_context = dict(schema='sciel-mode-decision/1', phase=phase,
@@ -92,6 +93,7 @@ class EngineStepCycle:
         # Effective mode for reward attribution: a warmup-gated exploit (tilt dropped)
         # actually executed base selection, so its reward belongs to base.
         eff_mode = mode if tilt is not None else "base"
+        self.decisions.observe("mode", mix if isinstance(mix, dict) and mode in mix else {mode: 1.0}, mode)
         if self.controller.enabled:
             # mix is the distribution actually sampled from this iteration (learned,
             # plateau, or static) -- not the bandit's estimate when plateau overrode it.
@@ -113,6 +115,10 @@ class EngineStepCycle:
             else:
                 selected = self.selection.select(view, tilt=tilt, rng=self.rng.stream("parent"),
                                                  before_visit=card_before_visit)
+        parent_distribution = (None if self.cfg.get("container", {}).get("selection") == "centres"
+                               else getattr(self.selection, "last_distribution", None))
+        if parent_distribution is not None and selected.parent_id in parent_distribution:
+            self.decisions.observe("parent", parent_distribution, selected.parent_id)
         parent = self.db.get(selected.parent_id)
         fresh_failure = selected.parent_id in self.lineage_fail
         # Freeze usable donor inputs before choosing the operator. Scan the
@@ -135,7 +141,7 @@ class EngineStepCycle:
         refine_eligible = (not forced_op) and stalled and parent.score >= (
             float(self.cfg.get("refine_elite_frac", 0.9)) * max(self.db.pop_best, 1e-9))
         exploring = eff_mode in {"explore", "card_diversity"}
-        refine = refine_eligible and not exploring
+        refine = self.decisions.flag("refine", refine_eligible and not exploring)
         if self.cfg.get("op_fixed"):
             op, op_prop, op_stat = self.cfg["op_fixed"], 1.0, {"fixed": self.cfg["op_fixed"]}
             op_selection = 'fixed'
@@ -150,6 +156,8 @@ class EngineStepCycle:
                 fresh_failure, self.rng.stream("op"), intensify=refine,
                 cross_available=bool(inspirations))
             op_selection = 'bandit'
+        self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
+                               else {op: 1.0}, op)
         operator_decision = dict(requested=op, effective=op, selection=op_selection,
                                  fallback_reason=None, on_policy=op_selection == 'bandit')
         if op == 'cross' and not inspirations:
@@ -173,6 +181,10 @@ class EngineStepCycle:
                               reason="exploration_mode")
         model = self.llm.choose_model(self.rng.stream("prompt"))
         model_prop = self._model_propensity(model)
+        models, weights = getattr(self.llm, "models", None), getattr(self.llm, "weights", None)
+        self.decisions.observe("model", {m: w / sum(weights) for m, w in zip(models, weights)}
+                               if models and weights and model in models else {model: 1.0}, model)
+        decision_context["decisions"] = self.decisions.drain(strict=self.decisions.enabled)
         lessons, injected_ids = [], []
         if self.kb_on:
             picked = self.kb.retrieve(parent.score)

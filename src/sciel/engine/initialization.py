@@ -11,6 +11,7 @@ from ..components.policy.controller import Controller
 from ..components.kb.kb import KnowledgeBase
 from ..components.tail import BaseRate, BranchCalibration
 from .db import Database
+from .decisions import DecisionPolicy
 from .operators import OpBandit
 from .schedule import Schedule
 from .loop_contracts import (
@@ -169,6 +170,8 @@ class EngineInitialization:
                                  if cfg['parallel_search']['enabled'] else cfg["inflight_cap"],
                                  cfg["sh_min_fair_evals"],
                                  fair_dispatch=cfg['parallel_search']['enabled'])
+        self.decisions = DecisionPolicy(cfg.get("decision_epsilon", 0.0), self.rng.stream("decision"))
+        self.schedule.decisions = self.decisions
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import random
 
-STREAMS = ("parent", "op", "escalation", "policy", "prompt", "preset")
+STREAMS = ("parent", "op", "escalation", "policy", "prompt", "preset", "decision")
 
 
 def _seed_for(master: int, name: str) -> int:

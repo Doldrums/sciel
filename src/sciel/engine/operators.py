@@ -81,6 +81,7 @@ class OpBandit:
             stat["diff"] = max(raw.values()) + self.intensify_boost
         p = floor_clip(boltzmann(stat, self.temperature), self.floor)
         op = rng.choices(arms, weights=[p[a] for a in arms], k=1)[0]
+        self.last_distribution = {a: p[a] for a in arms}
         # report the true window-max reward, never the synthetic intensify boost
         return op, p[op], {a: raw[a] for a in arms}
 

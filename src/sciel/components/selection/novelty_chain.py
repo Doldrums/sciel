@@ -57,6 +57,7 @@ class NoveltyChainKernel:
             rho = {i: (1 - tilt.beta) * rho[i] + tilt.beta * t.get(i, 0.0) for i in ids}
         rho = floor_clip(rho, self.floor)
         pid = rng.choices(ids, weights=[rho[i] for i in ids], k=1)[0]
+        self.last_distribution = dict(rho)
         if before_visit is not None:
             # Experimental diagnostics see the exact sampled distribution and
             # pre-decision visits. Copies prevent a logger from changing policy.

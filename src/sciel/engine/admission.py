@@ -91,7 +91,8 @@ class EngineAdmission:
                                mode=mode, mode_propensity=mode_prop,
                                parent_propensity=selected.propensity,
                                op_propensity=op_prop, op_stat=op_stat,
-                               cost=getattr(res, "cost", 0.0))
+                               cost=getattr(res, "cost", 0.0),
+                               **({"decision_context": decision_context} if decision_context else {}))
             # an attempt that produced nothing is still an attempt under this mode
             self.controller.observe(
                 obs_phase, eff_mode, None,
@@ -126,7 +127,8 @@ class EngineAdmission:
                 meta=res.meta, parent_id=res.parent_id,
                 model_used=model, cost=res.cost, timing=res.timing,
                 prompt=res.prompt, response=res.response,
-                artifacts=_trunc(res.artifacts))
+                artifacts=_trunc(res.artifacts),
+                **({"decision_context": decision_context} if decision_context else {}))
             return program.id if program else None
         if not res.ok:
             # Keep the CHILD's source, not just its error. The repair prompt used to
@@ -150,7 +152,8 @@ class EngineAdmission:
                                op_propensity=op_prop, op_stat=op_stat,
                                prompt=res.prompt, response=res.response,
                                cost=res.cost, timing=res.timing,
-                               artifacts=_trunc(res.artifacts))
+                               artifacts=_trunc(res.artifacts),
+                               **({"decision_context": decision_context} if decision_context else {}))
             self.controller.observe(
                 obs_phase, eff_mode, None,
                 on_policy=mode_on_policy)
