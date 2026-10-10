@@ -65,7 +65,8 @@ def build_llm(cfg: dict):
         max_tokens=lcfg.get("max_tokens", DEFAULTS["llm"]["max_tokens"]),
         timeout=lcfg.get("timeout", 120.0),
         max_retries=lcfg.get("max_retries", 1),
-        model_capabilities=lcfg.get("model_capabilities", {}))
+        model_capabilities=lcfg.get("model_capabilities", {}),
+        reasoning_effort=lcfg.get("reasoning_effort"))
 
 
 def build_engine(cfg: dict, tasks_root: str, run_dir: str, python: str | None = None,

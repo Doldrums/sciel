@@ -286,7 +286,8 @@ def accounted_cost(response):
 class EnsembleLLM:
     def __init__(self, models: list, weights: list, api_base: str, api_key: str,
                  temperature: float = 0.7, max_tokens: int = 16000,
-                 timeout: float = 120.0, max_retries: int = 1, model_capabilities=None):
+                 timeout: float = 120.0, max_retries: int = 1, model_capabilities=None,
+                 reasoning_effort: str | None = None):
         if type(max_retries) is not int or max_retries != 1:
             raise ValueError('max_retries must be 1: unknown provider outcomes cannot be replayed implicitly')
         self.models = models
@@ -298,6 +299,9 @@ class EnsembleLLM:
         self.max_tokens = max_tokens
         self.timeout = timeout
         self.max_retries = max_retries
+        if reasoning_effort not in (None, 'low', 'medium', 'high'):
+            raise ValueError('llm.reasoning_effort must be low, medium, high or null')
+        self.reasoning_effort = reasoning_effort
         from openai import OpenAI
         # Recovery belongs to the durable caller; SDK retries hide paid attempts.
         self._client = OpenAI(base_url=api_base, api_key=api_key, timeout=timeout,
@@ -314,6 +318,8 @@ class EnsembleLLM:
             raise ValueError('max_tokens must be a positive integer or null')
         format_value = validate_response_format(response_format)
         options = {} if format_value is None else {'response_format': format_value}
+        if getattr(self, 'reasoning_effort', None) is not None:
+            options['reasoning_effort'] = self.reasoning_effort
         endpoint = getattr(self, 'api_base', None)
         if (format_value is not None and type(endpoint) is str
                 and endpoint.rstrip('/') == 'https://openrouter.ai/api/v1'):
