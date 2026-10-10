@@ -50,6 +50,7 @@ class Database:
         # arch-v4 #4c: evicted programs buffer for the eviction head's label
         # collection (drained + logged by the engine when log_evictions is on)
         self.evictions: list = []
+        self.decisions = None
 
     def new_id(self) -> str:
         self._counter += 1
@@ -138,13 +139,19 @@ class Database:
         removable = [p for p in isl.programs.values() if p.id not in protected]
         removable.sort(key=lambda p: p.score)
         while len(isl.programs) > self.pop_cap and removable:
-            victim = removable.pop(0)
+            victim, record = removable[0], None
+            if self.decisions is not None:
+                victim_id, record = self.decisions.draw("eviction", [p.id for p in removable], victim.id)
+                victim = next(p for p in removable if p.id == victim_id)
+            removable.remove(victim)
             # eviction label: the current score-min policy dropped this member while
             # a protected/higher set stayed -- the target signal for the 4c head
             self.evictions.append({"island": isl.idx, "victim_id": victim.id,
                                    "victim_score": round(victim.score, 6),
                                    "victim_gen": victim.gen, "victim_origin": victim.origin,
-                                   "n_kept": len(isl.programs) - 1})
+                                   "n_kept": len(isl.programs) - 1,
+                                   **({"propensity": record["propensity"],
+                                       "distribution": record["distribution"]} if record else {})})
             del isl.programs[victim.id]
 
     def inspirations(self, island: int, parent_id: str, k: int = 3) -> list[Program]:

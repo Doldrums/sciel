@@ -172,6 +172,7 @@ class EngineInitialization:
                                  fair_dispatch=cfg['parallel_search']['enabled'])
         self.decisions = DecisionPolicy(cfg.get("decision_epsilon", 0.0), self.rng.stream("decision"))
         self.schedule.decisions = self.decisions
+        self.db.decisions = self.decisions
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),

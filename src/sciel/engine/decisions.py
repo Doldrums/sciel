@@ -37,15 +37,18 @@ class DecisionPolicy:
         n = len(distribution)
         return {k: (1.0 - self.epsilon) * p + self.epsilon / n for k, p in distribution.items()}
 
-    def choose(self, name: str, options: list, rule_choice):
-        """A deterministic rule becomes the (1-epsilon) mode of a logged distribution."""
+    def draw(self, name: str, options: list, rule_choice):
+        """A deterministic rule becomes the (1-epsilon) mode of a recorded distribution."""
         base = {o: float(o == rule_choice) for o in options}
         if not self.enabled or len(options) < 2:
-            self.pending.append(_record(name, base, rule_choice))
-            return rule_choice
+            return rule_choice, _record(name, base, rule_choice)
         distribution = self._mix(base)
         choice = self.rng.choices(options, weights=[distribution[o] for o in options], k=1)[0]
-        self.pending.append(_record(name, distribution, choice))
+        return choice, _record(name, distribution, choice)
+
+    def choose(self, name: str, options: list, rule_choice):
+        choice, record = self.draw(name, options, rule_choice)
+        self.pending.append(record)
         return choice
 
     def flag(self, name: str, rule: bool) -> bool:

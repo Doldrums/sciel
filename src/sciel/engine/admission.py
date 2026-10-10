@@ -200,7 +200,7 @@ class EngineAdmission:
         # from wall timing. _observe_program records its stage-inclusive scope.
         from .evaluation_timing import trial_count
         self._observed_trials = trial_count((res.cases or {}).get('n_trials')) or 1
-        if self._log_evictions and self.db.evictions:
+        if (self._log_evictions or self.decisions.enabled) and self.db.evictions:
             for e in self.db.evictions:
                 self.log.decision(policy="eviction", action="drop",
                                   iteration_no=self.iteration_no, **e)
