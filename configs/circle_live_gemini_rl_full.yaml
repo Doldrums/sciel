@@ -34,7 +34,6 @@ research:
     diversity_weight: 0.5
 
 plateau_shadow: true
-log_evictions: true
 log_population: true
 
 # Full G/C/R already replaces these legacy knowledge and prediction routes.

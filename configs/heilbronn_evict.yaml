@@ -2,6 +2,5 @@ extends: heilbronn.yaml
 # three-head #4c data-gen: log eviction decisions as labels. pop_cap lowered so
 # islands overflow and the score-min eviction policy actually fires (same semantics,
 # just more events); log_population (default on) carries per-member code for embedding.
-log_evictions: true
 pop_cap: 20
 budget: 100

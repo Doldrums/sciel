@@ -170,7 +170,7 @@ class EngineInitialization:
                                  if cfg['parallel_search']['enabled'] else cfg["inflight_cap"],
                                  cfg["sh_min_fair_evals"],
                                  fair_dispatch=cfg['parallel_search']['enabled'])
-        self.decisions = DecisionPolicy(cfg.get("decision_epsilon", 0.0), self.rng.stream("decision"))
+        self.decisions = DecisionPolicy(cfg.get("decision_epsilon", 0.1), self.rng.stream("decision"))
         self.schedule.decisions = self.decisions
         self.db.decisions = self.decisions
         _arms = ["diff", "full_rewrite", "error_repair"] + \
@@ -244,10 +244,6 @@ class EngineInitialization:
         self.health = 0
         self._stop_at = None
         self.log_population = bool(cfg["log_population"])
-        # arch-v4 #4c: emit an eviction event per dropped program so the eviction
-        # head can be trained later; off by default (keeps default journals clean)
-        self._log_evictions = bool(cfg.get("log_evictions", False)
-                                   or container.get("kind", "legacy") != "legacy")
         self.plateau_shadow = bool(cfg.get("plateau_shadow", False))
         self.plateau_monitors = ({i: PlateauMonitor() for i in range(cfg["num_islands"])}
                                  if self.plateau_shadow else None)

@@ -184,7 +184,7 @@ class EngineStepCycle:
         models, weights = getattr(self.llm, "models", None), getattr(self.llm, "weights", None)
         self.decisions.observe("model", {m: w / sum(weights) for m, w in zip(models, weights)}
                                if models and weights and model in models else {model: 1.0}, model)
-        decision_context["decisions"] = self.decisions.drain(strict=self.decisions.enabled)
+        decision_context["decisions"] = self.decisions.drain()
         lessons, injected_ids = [], []
         if self.kb_on:
             picked = self.kb.retrieve(parent.score)

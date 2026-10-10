@@ -23,15 +23,11 @@ def _record(name: str, distribution: dict, choice) -> dict:
 
 class DecisionPolicy:
     def __init__(self, epsilon: float, rng):
-        if type(epsilon) not in (int, float) or not 0.0 <= epsilon <= 0.5:
-            raise ValueError("decision_epsilon must be in [0, 0.5]")
+        if type(epsilon) not in (int, float) or not 0.0 < epsilon <= 0.5:
+            raise ValueError("decision_epsilon must be in (0, 0.5]")
         self.epsilon = float(epsilon)
         self.rng = rng
         self.pending: list[dict] = []
-
-    @property
-    def enabled(self) -> bool:
-        return self.epsilon > 0.0
 
     def _mix(self, distribution: dict) -> dict:
         n = len(distribution)
@@ -40,7 +36,7 @@ class DecisionPolicy:
     def draw(self, name: str, options: list, rule_choice):
         """A deterministic rule becomes the (1-epsilon) mode of a recorded distribution."""
         base = {o: float(o == rule_choice) for o in options}
-        if not self.enabled or len(options) < 2:
+        if len(options) < 2:
             return rule_choice, _record(name, base, rule_choice)
         distribution = self._mix(base)
         choice = self.rng.choices(options, weights=[distribution[o] for o in options], k=1)[0]
@@ -58,10 +54,9 @@ class DecisionPolicy:
         """A choice already sampled by a stochastic component from this distribution."""
         self.pending.append(_record(name, distribution, choice))
 
-    def drain(self, *, strict: bool) -> list[dict]:
+    def drain(self) -> list[dict]:
         records, self.pending = self.pending, []
-        if strict:
-            missing = set(REQUIRED) - {r["decision"] for r in records}
-            if missing:
-                raise ValueError("decisions without a logged distribution: " + ", ".join(sorted(missing)))
+        missing = set(REQUIRED) - {r["decision"] for r in records}
+        if missing:
+            raise ValueError("decisions without a logged distribution: " + ", ".join(sorted(missing)))
         return records

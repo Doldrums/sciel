@@ -48,7 +48,7 @@ class Database:
         self._counter = 0
         self.pop_best_id: str | None = None
         # arch-v4 #4c: evicted programs buffer for the eviction head's label
-        # collection (drained + logged by the engine when log_evictions is on)
+        # collection (drained and logged by the engine)
         self.evictions: list = []
         self.decisions = None
 

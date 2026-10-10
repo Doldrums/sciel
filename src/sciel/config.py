@@ -25,19 +25,19 @@ KNOWN_KEYS = {
     "refine_stall", "refine_elite_frac", "op_intensify_boost",
     "embed_niche", "embed_niche_path", "niche_d_min", "niche_target_k",
     "niche_k_max", "niche_csc_rate",
-    "three_head", "three_head_path", "three_head_beta", "log_evictions",
+    "three_head", "three_head_path", "three_head_beta",
     "container", "max_iterations", "preset_selection", "preset_adaptive",
     "schedule_horizon", "checkpoint_interval", "warm_start", "candidate_novelty", "parallel_search",
     "evaluation", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation",
 }
 
 # Accepted in old checkpoints, but no longer used.
-DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval"}
+DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval", "log_evictions"}
 
 DEFAULTS = {
     "num_islands": 3,
     "budget": 100,
-    "decision_epsilon": 0.0,
+    "decision_epsilon": 0.1,
     "random_seed": 0,
     "dup_cap": 4,
     "candidate_novelty": {"enabled": False, "max_resamples": 2, "neighbors": 3,
