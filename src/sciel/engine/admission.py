@@ -1,6 +1,7 @@
 """Candidate admission, population credit and post-result learning."""
 from __future__ import annotations
 
+from ..causal import context_of
 from ..components.tail import extract_lesson
 from .types import NoChild
 from .loop_contracts import (_changed_region, _trunc)
@@ -251,6 +252,17 @@ class EngineAdmission:
             decided = self.theory.update(self.ledger)
             self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,
                               claims=[c.card() for c in decided])
+        finished = self.experiments.tick(self.iteration_no, self.theory, self.ledger)
+        if finished is not None:
+            self.log.decision(policy="experiment", action="finish", iteration_no=self.iteration_no,
+                              hypothesis=finished.hypothesis, outcome=finished.outcome)
+        remaining = (self.budget - self.B_evals) if self.budget is not None else 10 ** 6
+        started = self.experiments.propose(self.theory, self.iteration_no, remaining,
+                                           context_of(decision_context))
+        if started is not None:
+            self.log.decision(policy="experiment", action="start", iteration_no=self.iteration_no,
+                              hypothesis=started.hypothesis, length=started.length,
+                              required=started.required)
 
     def _run_tail(self, res, ev, injected_ids, brier, child_prog):
         island, phase = res.island, self.schedule.phase_code()

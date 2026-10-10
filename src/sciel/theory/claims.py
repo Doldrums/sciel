@@ -11,6 +11,7 @@ from ..causal.ledger import HORIZON
 
 DECISIONS = ("operator", "mode")
 MIN_ROWS = 12
+MIN_TAKEN = 8
 SHIFT = 4.0
 MIX = 0.3
 
@@ -25,10 +26,11 @@ class Claim:
     high: float
     n: int
     taken: int
+    se: float = 0.0
 
     @property
     def decided(self) -> bool:
-        return self.low > 0.0 or self.high < 0.0
+        return self.taken >= MIN_TAKEN and (self.low > 0.0 or self.high < 0.0)
 
     def card(self) -> str:
         verb = "raises" if self.effect > 0 else "lowers"
@@ -44,7 +46,7 @@ class Theory:
     def update(self, ledger) -> list[Claim]:
         tested = []
         for decision in DECISIONS:
-            rows = ledger.labeled(decision)
+            rows = [r for r in ledger.labeled(decision) if len(r.distribution) > 1]
             for context in sorted({r.context for r in rows}):
                 local = [r for r in rows if r.context == context]
                 if len(local) < MIN_ROWS:
@@ -55,7 +57,7 @@ class Theory:
                         tested.append((decision, context, action, e))
         z = NormalDist().inv_cdf(1 - 0.025 / max(len(tested), 1))
         self.claims = [Claim(d, c, a, e["effect"], e["effect"] - z * e["se"], e["effect"] + z * e["se"],
-                             e["n"], e["taken"]) for d, c, a, e in tested]
+                             e["n"], e["taken"], e["se"]) for d, c, a, e in tested]
         return [c for c in self.claims if c.decided]
 
     def tilt(self, decision: str, context: str, distribution: dict) -> dict:

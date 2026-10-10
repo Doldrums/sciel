@@ -45,7 +45,7 @@ class EngineStepCycle:
         context = context_of(decision_context)
         mode, mode_prop, tilt, mix = self.controller.pick_mode(
             island, iteration_no, self.rng.stream("policy"), view, phase, features,
-            adjust=lambda m: self.theory.tilt("mode", context, m))
+            adjust=lambda m: self.experiments.allocate("mode", context, self.theory.tilt("mode", context, m)))
         # Capture the action's source before the worker advances iteration_no or
         # result handling changes the plateau window.
         mode_on_policy = (self.controller.enabled
@@ -158,7 +158,8 @@ class EngineStepCycle:
             op, op_prop, op_stat = self.op_bandit.pick(
                 fresh_failure, self.rng.stream("op"), intensify=refine,
                 cross_available=bool(inspirations),
-                adjust=lambda p: self.theory.tilt("operator", context, p))
+                adjust=lambda p: self.experiments.allocate("operator", context,
+                                                           self.theory.tilt("operator", context, p)))
             op_selection = 'bandit'
         self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
                                else {op: 1.0}, op)
