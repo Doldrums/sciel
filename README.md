@@ -2,10 +2,9 @@
 
 **Evolutionary program search that develops its own research methods.**
 
-[![Release 0.2.0](https://img.shields.io/badge/release-0.2.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.2.0)
+[![Release 0.3.0](https://img.shields.io/badge/release-0.3.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.3.0)
 [![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
 [![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
-[![Runtime and installation](https://github.com/Doldrums/sciel/actions/workflows/runtime.yml/badge.svg?branch=main)](https://github.com/Doldrums/sciel/actions/workflows/runtime.yml)
 
 SCiEL — **Scientific Closed-Loop Evolution** — studies a specific question:
 **can a search system improve the methods it uses to make further progress?**
@@ -244,7 +243,7 @@ invocations.
 
 ## Tasks
 
-The **v0.2.0** task bundle contains **11 packages**: ten research-task packages and
+The **v0.3.0** task bundle contains **11 packages**: ten research-task packages and
 one internal test fixture. Each task defines its candidate interface, evaluator,
 metrics and execution limits.
 
@@ -284,7 +283,7 @@ compute should be inspected together when assessing how a result was obtained.
 
 ## Releases
 
-[SCiEL 0.2.0](https://github.com/Doldrums/sciel/releases/tag/v0.2.0) provides a wheel,
+[SCiEL 0.3.0](https://github.com/Doldrums/sciel/releases/tag/v0.3.0) provides a wheel,
 source distribution, separate task bundle, release manifest and SHA-256 checksums.
 The wheel and source distribution contain the Python package; task packages and
 configuration profiles are distributed separately through the task bundle and
@@ -294,9 +293,9 @@ After downloading the release assets:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install './sciel-0.2.0-py3-none-any.whl[tasks]'
-tar -xzf sciel-0.2.0-tasks.tar.gz
-.venv/bin/sciel tasks list --tasks-root ./sciel-0.2.0-tasks/tasks
+.venv/bin/python -m pip install './sciel-0.3.0-py3-none-any.whl[tasks]'
+tar -xzf sciel-0.3.0-tasks.tar.gz
+.venv/bin/sciel tasks list --tasks-root ./sciel-0.3.0-tasks/tasks
 ```
 
 Use a checked-out profile or your own YAML configuration for `sciel run`, and pass
@@ -313,11 +312,8 @@ by the deployment environment.
 git diff --check
 ```
 
-The v0.2.0 checkout was verified across **11,091 collected tests**: **11,054 passed**
-and **37 required explicitly selected Docker images** and were skipped. A fresh
-wheel installation passed **69 integration tests**, with **8 Docker tests skipped**.
-CI checks wheel installation on Linux and macOS with Python 3.11–3.14, and runs
-the complete checkout suite on Linux.
+Releases are built from tagged commits by the release workflow: wheel, source
+distribution, task bundle and checksums.
 
 | Path | Responsibility |
 | --- | --- |

@@ -48,10 +48,6 @@ merging a refactor:
 git diff --check
 ```
 
-CI also installs the wheel in a separate environment and verifies task and resume
-contracts on supported Python versions. Docker-specific tests require Docker;
-report skips separately from passing checks.
-
 Use concise Conventional Commit messages, for example
 `fix: retain unknown provider charges` or `refactor: separate tool execution`.
 Describe the resulting behavior and relevant verification in pull requests.
