@@ -115,6 +115,8 @@ class TracedLLM:
                 prompt_tokens=getattr(response, 'prompt_tokens', None),
                 completion_tokens=getattr(response, 'completion_tokens', None),
                 finish_reason=getattr(response, 'finish_reason', None),
+                **({'token_stats': response.token_stats}
+                   if getattr(response, 'token_stats', None) is not None else {}),
                 **({'cost_provenance': provenance} if provenance is not None else {}),
                 **({'resolved_model': resolved} if resolved is not None else {}),
                 **({'response_error': response.response_error}

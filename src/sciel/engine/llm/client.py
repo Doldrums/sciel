@@ -67,6 +67,21 @@ class LLMResponse:
     # Provider-reported identity only. `model` remains the requested selection
     # key; this optional observation never changes pricing or bandit semantics.
     resolved_model: str | None = None
+    token_stats: dict | None = None
+
+
+def _token_stats(choice) -> dict | None:
+    content = getattr(getattr(choice, 'logprobs', None), 'content', None) or []
+    logprobs, entropies = [], []
+    for token in content:
+        logprobs.append(float(token.logprob))
+        top = [math.exp(float(alt.logprob)) for alt in (token.top_logprobs or [])]
+        rest = max(1e-12, 1.0 - sum(top))
+        entropies.append(-sum(p * math.log(p) for p in top if p > 0) - rest * math.log(rest))
+    if not logprobs:
+        return None
+    return {'tokens': len(logprobs), 'mean_logprob': sum(logprobs) / len(logprobs),
+            'min_logprob': min(logprobs), 'mean_entropy': sum(entropies) / len(entropies)}
 
 
 def validate_resolved_model(value):
@@ -287,7 +302,7 @@ class EnsembleLLM:
     def __init__(self, models: list, weights: list, api_base: str, api_key: str,
                  temperature: float = 0.7, max_tokens: int = 16000,
                  timeout: float = 120.0, max_retries: int = 1, model_capabilities=None,
-                 reasoning_effort: str | None = None):
+                 reasoning_effort: str | None = None, top_logprobs: int | None = None):
         if type(max_retries) is not int or max_retries != 1:
             raise ValueError('max_retries must be 1: unknown provider outcomes cannot be replayed implicitly')
         self.models = models
@@ -302,6 +317,9 @@ class EnsembleLLM:
         if reasoning_effort not in (None, 'low', 'medium', 'high'):
             raise ValueError('llm.reasoning_effort must be low, medium, high or null')
         self.reasoning_effort = reasoning_effort
+        if top_logprobs is not None and (type(top_logprobs) is not int or not 1 <= top_logprobs <= 20):
+            raise ValueError('llm.top_logprobs must be an integer from 1 to 20 or null')
+        self.top_logprobs = top_logprobs
         from openai import OpenAI
         # Recovery belongs to the durable caller; SDK retries hide paid attempts.
         self._client = OpenAI(base_url=api_base, api_key=api_key, timeout=timeout,
@@ -320,6 +338,8 @@ class EnsembleLLM:
         options = {} if format_value is None else {'response_format': format_value}
         if getattr(self, 'reasoning_effort', None) is not None:
             options['reasoning_effort'] = self.reasoning_effort
+        if getattr(self, 'top_logprobs', None) is not None:
+            options.update(logprobs=True, top_logprobs=self.top_logprobs)
         endpoint = getattr(self, 'api_base', None)
         if (format_value is not None and type(endpoint) is str
                 and endpoint.rstrip('/') == 'https://openrouter.ai/api/v1'):
@@ -388,6 +408,7 @@ class EnsembleLLM:
                            prompt_tokens=pt, completion_tokens=ct,
                            cost_provenance=provenance,
                            resolved_model=resolved_model,
+                           token_stats=_token_stats(choices[0]) if getattr(self, 'top_logprobs', None) else None,
                            **_response_metadata(choices[0]))
 
 
