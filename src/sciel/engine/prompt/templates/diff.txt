@@ -20,6 +20,5 @@ LESSONS:
 Follow the requested search scope in DIRECTIVE when improving the algorithm.
 Keep the program's entry-point function
 name(s) and their return interface EXACTLY as in the current program above; do not rename
-functions or change what they return. Output the COMPLETE improved program in a single
-```python code block.
+functions or change what they return. {output_contract}
 {bet_block}

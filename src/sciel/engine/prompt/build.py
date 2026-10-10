@@ -8,6 +8,25 @@ from .sources import source_bundle, source_catalog_block, source_reference
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
+EDIT_OPS = ("diff", "error_repair")
+
+_FULL_CONTRACT = {
+    "diff": "Output the COMPLETE improved program in a single\n```python code block.",
+    "error_repair": "Output the COMPLETE fixed program in a single ```python code block.",
+}
+
+EDIT_CONTRACT = (
+    "Reply with one or more SEARCH/REPLACE edits to the current program, each exactly:\n"
+    "<<<<<<< SEARCH\n"
+    "lines copied verbatim from the current program\n"
+    "=======\n"
+    "replacement lines\n"
+    ">>>>>>> REPLACE\n"
+    "Each SEARCH must match the current program exactly and occur once. "
+    "Do not output the whole program.")
+
+_FIX_CONTEXT = 8
+
 _BET_BLOCK = (
     "\nAfter the code block, state a wager on one line exactly as:\n"
     'BET: {mechanism: "<what and why this may cause a jump>", q: <0..1>}\n'
@@ -117,7 +136,17 @@ def source_bundle_for_prompt(op: str, snapshot):
     return source_bundle(snapshot, include_inspirations='{inspirations}' in _load_template(op))
 
 
-def build(op: str, snapshot) -> str:
+def build_fix(code: str, error: str, lineno: int | None) -> str:
+    """Short syntax-repair turn: the error and the lines around it, not the whole task."""
+    lines = code.split("\n")
+    center = min(max((lineno or 1) - 1, 0), max(len(lines) - 1, 0))
+    first, last = max(center - _FIX_CONTEXT, 0), min(center + _FIX_CONTEXT + 1, len(lines))
+    return _load_template("fix").format(
+        error=error, first=first + 1, last=last, snippet="\n".join(lines[first:last]),
+        output_contract=EDIT_CONTRACT)
+
+
+def build(op: str, snapshot, *, edits: bool = False) -> str:
     template = _load_template(op)
     lessons = "\n".join(f"- {ls}" for ls in snapshot.kb_lessons) or "(none)"
     artifacts = "\n".join(f"{k}: {v}" for k, v in snapshot.artifacts.items()) or "(none)"
@@ -142,5 +171,6 @@ def build(op: str, snapshot) -> str:
         lessons=lessons,
         artifacts=artifacts,
         bet_block=_BET_BLOCK if snapshot.bet_enabled else "",
+        output_contract=EDIT_CONTRACT if edits and bundle is None else _FULL_CONTRACT.get(op, ""),
     )
     return prompt + '\n' + source_catalog_block(bundle) if bundle is not None else prompt

@@ -21,6 +21,10 @@ def extract_code(response: str) -> str:
     return response.strip() + "\n"
 
 
+def has_code_block(response: str) -> bool:
+    return any(language.strip() in ("", "python") for language, _ in _FENCE.findall(response))
+
+
 def parse_bet(response: str) -> Bet | None:
     m = _BET.search(response)
     if not m:

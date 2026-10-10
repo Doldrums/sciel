@@ -9,17 +9,18 @@ from copy import deepcopy
 
 from .llm.client import LLMError, accounted_cost, llm_error_metadata
 from .provider_abandonment import AbandonedProviderRequest
-from .prompt.build import build
-from .prompt.parse import extract_code, parse_bet
+from .prompt.build import EDIT_OPS, build, build_fix
+from .prompt.parse import extract_code, has_code_block, parse_bet
+from .prompt.patch import apply_edits, parse_edits
 from .types import NoChild, Result
 from .operators import usable_inspirations
-from .validation import TRACE_SCHEMA, trace_attempt, validate_candidate, source_sha256
+from .validation import TRACE_SCHEMA, ValidationResult, _decision, trace_attempt, validate_candidate, source_sha256
 from .validation import candidate_attempt_limit, candidate_registry_enabled
 from .validation import graft_entrypoints as _graft_entrypoints  # noqa: F401 (back compatibility)
 from ..campaign.budget import CampaignStopped, RequestNotDispatched
 from ..eval.facade import EvaluationInfrastructureError
 from ..hypothesis.measurement import evaluation_observation
-from .viability import _docstring_repair, pre_eval_gate  # noqa: F401 (back compatibility)
+from .viability import Violation, _docstring_repair, pre_eval_gate  # noqa: F401 (back compatibility)
 
 
 def run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
@@ -91,6 +92,8 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
     spent = 0.0          # every call costs, not only the one that produced a child
     rejected_total, recent_rejections = 0, []
     previous_response = previous_validation = previous_reason = None
+    edit_mode = research is None
+    edit_base, fix_error = snapshot.parent_code, None
 
     def stop_unknown(exc):
         stopped = unknown_request_stop(exc, spent)
@@ -117,8 +120,9 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
     for attempt in range(dup_cap):
         research_id = None
         try:
-            prompt = build(op_cur, snapshot)
-            if registry_enabled and previous_response is not None:
+            prompt = (build_fix(edit_base, *fix_error) if op_cur == "fix" else
+                      build(op_cur, snapshot, edits=edit_mode and op_cur in EDIT_OPS))
+            if registry_enabled and previous_response is not None and op_cur != "fix":
                 prompt = candidate_retry_prompt(prompt, previous_response, previous_validation,
                                                 reason=previous_reason, measured_repeat=measured_repeat)
             if research is not None:
@@ -253,14 +257,27 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
                           'escalated': escalated, 'llm_retries': llm_retries,
                           'response_error': resp.response_error,
                           'novelty_checks': novelty_checks, 'validation_trace': validation_trace})
-            child = extract_code(resp.text)
-            validation = validate_candidate(
-                child, parent_code=snapshot.parent_code,
-                required_entrypoints=snapshot.required_entrypoints,
-                code_hashes=snapshot.code_hashes, novelty_check=novelty_check)
+            patch = None
+            if edit_mode and (op_cur in EDIT_OPS or op_cur == "fix"):
+                edits = parse_edits(resp.text)
+                patch = apply_edits(edit_base, edits) if edits else None
+            if patch is not None and not patch.applied:
+                child = edit_base
+                violation = Violation("patch", "no SEARCH block matched the edit base")
+                validation = ValidationResult(child, violation, [], None, [_decision(
+                    "patch", "resample", child, child, violation=violation, **patch.summary())])
+            else:
+                child = (patch.code if patch is not None else
+                         "" if edit_mode and not has_code_block(resp.text) else extract_code(resp.text))
+                validation = validate_candidate(
+                    child, parent_code=snapshot.parent_code,
+                    required_entrypoints=snapshot.required_entrypoints,
+                    code_hashes=snapshot.code_hashes, novelty_check=novelty_check)
             attempt_trace = trace_attempt(
                 validation, extracted_code=child, response=resp, attempt=attempt + 1,
                 operator=op_cur, temperature=temp, cost=response_cost)
+            if patch is not None:
+                attempt_trace["patch"] = patch.summary()
             validation_trace["attempts"].append(attempt_trace)
             if registry_enabled:
                 previous_response, previous_validation, previous_reason = resp.text, validation, None
@@ -293,7 +310,13 @@ def _run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
                 # Report the operator actually dispatched, not an escalation that
                 # will never run after the final allowed rejection.
                 if attempt + 1 < dup_cap:
-                    op_cur, temp = _escalate(op_cur, temp)
+                    if edit_mode and validation.violation.kind == "syntax" and op_cur != "fix":
+                        line = re.search(r"\(line (\d+)\)", validation.violation.detail)
+                        edit_base = validation.code
+                        fix_error = (validation.violation.detail, int(line.group(1)) if line else None)
+                        op_cur = "fix"
+                    else:
+                        op_cur, temp = _escalate(op_cur, temp)
                     attempt_trace["resample"] = {"operator": op_cur, "temperature": temp}
                     escalated = True
                 continue

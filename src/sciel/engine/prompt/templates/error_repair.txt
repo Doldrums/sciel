@@ -19,5 +19,5 @@ LESSONS:
 
 Repair the program so it runs. Keep the program's entry-point function name(s) and their
 return interface EXACTLY as in the current program above; do not rename functions or change
-what they return. Output the COMPLETE fixed program in a single ```python code block.
+what they return. {output_contract}
 {bet_block}
