@@ -239,6 +239,50 @@ def graft_entrypoints(child: str, parent: str, names: list) -> tuple:
     return child.rstrip() + "\n\n\n" + "\n\n".join(segs) + "\n", grafted_names
 
 
+_KNOWN_IMPORTS = {
+    "np": "import numpy as np", "numpy": "import numpy", "math": "import math",
+    "random": "import random", "time": "import time", "itertools": "import itertools",
+    "scipy": "import scipy", "minimize": "from scipy.optimize import minimize",
+    "linprog": "from scipy.optimize import linprog",
+    "basinhopping": "from scipy.optimize import basinhopping",
+    "differential_evolution": "from scipy.optimize import differential_evolution",
+    "cdist": "from scipy.spatial.distance import cdist",
+    "pdist": "from scipy.spatial.distance import pdist",
+}
+
+
+def add_missing_imports(code: str) -> tuple[str, list[str]]:
+    """Import well-known modules that the code uses at module or function scope but never binds."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return code, []
+    bound = set()
+    for node in _module_stmts(tree):
+        if isinstance(node, _DEF_NODES):
+            bound.add(node.name)
+        elif isinstance(node, ast.Import):
+            bound.update((a.asname or a.name).split(".")[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            bound.update(a.asname or a.name for a in node.names)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            bound.update(_bind_targets(node))
+    missing = sorted(_global_references(tree) - bound - _BUILTINS)
+    lines = [_KNOWN_IMPORTS[name] for name in missing if name in _KNOWN_IMPORTS]
+    if not lines:
+        return code, []
+    body = tree.body
+    skip = 0
+    while skip < len(body) and (
+            isinstance(body[skip], ast.ImportFrom) and body[skip].module == "__future__"
+            or skip == 0 and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)):
+        skip += 1
+    at = body[skip - 1].end_lineno if skip else 0
+    src = code.split("\n")
+    return "\n".join(src[:at] + lines + src[at:]), [name for name in missing if name in _KNOWN_IMPORTS]
+
+
 def _source_with_decorators(src: str, node) -> str | None:
     """Move a statement to module scope without changing multiline literals."""
     seg = ast.get_source_segment(src, node)
@@ -347,12 +391,12 @@ def validate_candidate(code: str, *, parent_code: str, required_entrypoints: lis
         if violation is not None:
             return ValidationResult(code, violation, [], None, decisions, profile)
     elif violation is not None:
-        fixed = mechanical_repair(violation, code)
+        repaired = mechanical_repair(violation, code)
+        fixed, repair = repaired if repaired is not None else (None, None)
         decisions.append(_decision(
             "precheck", "repair" if fixed is not None else "resample", code,
             fixed if fixed is not None else code, violation=violation,
-            repair="prepend_docstring" if violation.kind == "syntax" else None,
-            repair_applied=fixed is not None))
+            repair=repair, repair_applied=fixed is not None))
         if fixed is None:
             return ValidationResult(code, violation, [], None, decisions, profile)
         code = fixed
@@ -368,6 +412,12 @@ def validate_candidate(code: str, *, parent_code: str, required_entrypoints: lis
         repair="graft_entrypoints" if grafted else None,
         required_entrypoints=list(required_entrypoints), grafted=list(grafted),
         parent_code_sha256=source_sha256(parent_code)))
+
+    if profile == "worker":
+        before = code
+        code, added = add_missing_imports(code)
+        decisions.append(_decision("imports", "repair" if added else "unchanged", before, code,
+                                   repair="add_imports" if added else None, added=added))
 
     if profile == "worker" and not candidate_registry_enabled(novelty_check):
         duplicate_hash = normalized_hash(code)

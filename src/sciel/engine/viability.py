@@ -39,11 +39,57 @@ def _docstring_repair(child: str) -> str | None:
                                   "class ", "@")):
         return None
     fixed = '"""' + child
+    return fixed if _parses(fixed) else None
+
+
+def _parses(code: str) -> bool:
     try:
-        ast.parse(fixed)
-        return fixed
+        ast.parse(code)
+        return True
     except SyntaxError:
+        return False
+
+
+def _strip_fences(child: str) -> str | None:
+    """Stray markdown fence or backtick lines left inside the extracted code."""
+    kept = [line for line in child.split("\n") if not line.strip().startswith("```")]
+    return "\n".join(kept) if len(kept) != child.count("\n") + 1 else None
+
+
+def _expand_tabs(child: str) -> str | None:
+    return child.expandtabs(4) if "\t" in child else None
+
+
+def _dedent_module(child: str) -> str | None:
+    """A module whose every code line carries the same leading indent."""
+    lines = [line for line in child.split("\n") if line.strip()]
+    if not lines:
         return None
+    common = min(len(line) - len(line.lstrip(" ")) for line in lines)
+    if common == 0:
+        return None
+    return "\n".join(line[common:] if line[:common].isspace() else line.lstrip(" ")
+                     for line in child.split("\n"))
+
+
+SYNTAX_REPAIRS = (("strip_fences", _strip_fences), ("expand_tabs", _expand_tabs),
+                  ("dedent_module", _dedent_module), ("prepend_docstring", _docstring_repair))
+
+
+def _syntax_repair(child: str) -> tuple[str, str] | None:
+    """Try each repair alone, then cumulatively; return the first parsing variant and its name."""
+    for name, fn in SYNTAX_REPAIRS:
+        fixed = fn(child)
+        if fixed is not None and _parses(fixed):
+            return fixed, name
+    code, names = child, []
+    for name, fn in SYNTAX_REPAIRS:
+        fixed = fn(code)
+        if fixed is not None:
+            code, names = fixed, names + [name]
+            if _parses(code):
+                return code, "+".join(names)
+    return None
 
 
 _POOL_TYPES = {"multiprocessing.Pool", "multiprocessing.pool.Pool",
@@ -364,15 +410,15 @@ def precheck(child: str) -> Violation | None:
 # `duplicate`/`empty` have no mechanical repair. This dict is the policy surface a
 # learned RepairPolicy will consume.
 REPAIR_TABLE = {
-    "syntax": _docstring_repair,
+    "syntax": _syntax_repair,
     "resource": None,
     "empty": None,
     "duplicate": None,
 }
 
 
-def mechanical_repair(v: Violation, child: str) -> str | None:
-    """Apply the declared mechanical repair for a violation, or None."""
+def mechanical_repair(v: Violation, child: str) -> tuple[str, str] | None:
+    """Apply the declared mechanical repair for a violation: (fixed code, repair name) or None."""
     fn = REPAIR_TABLE.get(v.kind)
     return fn(child) if fn is not None else None
 
