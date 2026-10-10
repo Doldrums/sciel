@@ -12,7 +12,7 @@ from ..components.kb.kb import KnowledgeBase
 from ..components.tail import BaseRate, BranchCalibration
 from .db import Database
 from ..causal import Ledger
-from ..theory import Experiments, Theory
+from ..theory import Experiments, Strategies, Theory
 from .decisions import DecisionPolicy
 from .operators import OpBandit
 from .schedule import Schedule
@@ -178,6 +178,7 @@ class EngineInitialization:
         self.ledger = Ledger()
         self.theory = Theory()
         self.experiments = Experiments()
+        self.strategies = Strategies()
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),

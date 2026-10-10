@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 SCHEMA = "sciel-decision/1"
-REQUIRED = ("island", "mode", "parent", "operator", "model", "refine")
+REQUIRED = ("island", "mode", "parent", "operator", "model", "refine", "strategy")
 
 
 def _record(name: str, distribution: dict, choice) -> dict:
@@ -45,6 +45,12 @@ class DecisionPolicy:
     def choose(self, name: str, options: list, rule_choice):
         choice, record = self.draw(name, options, rule_choice)
         self.pending.append(record)
+        return choice
+
+    def sample(self, name: str, distribution: dict):
+        options = list(distribution)
+        choice = self.rng.choices(options, weights=[distribution[o] for o in options], k=1)[0]
+        self.pending.append(_record(name, distribution, choice))
         return choice
 
     def flag(self, name: str, rule: bool) -> bool:

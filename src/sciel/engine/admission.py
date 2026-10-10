@@ -252,6 +252,9 @@ class EngineAdmission:
             decided = self.theory.update(self.ledger)
             self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,
                               claims=[c.card() for c in decided])
+            for strategy in self.strategies.judge(self.theory):
+                self.log.decision(policy="strategy", action=strategy.status, iteration_no=self.iteration_no,
+                                  strategy=strategy.id, text=strategy.text)
         finished = self.experiments.tick(self.iteration_no, self.theory, self.ledger)
         if finished is not None:
             self.log.decision(policy="experiment", action="finish", iteration_no=self.iteration_no,

@@ -189,6 +189,13 @@ class EngineStepCycle:
         models, weights = getattr(self.llm, "models", None), getattr(self.llm, "weights", None)
         self.decisions.observe("model", {m: w / sum(weights) for m, w in zip(models, weights)}
                                if models and weights and model in models else {model: 1.0}, model)
+        strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
+            self.theory.tilt("strategy", context, self.strategies.distribution())))
+        theorist = None
+        if self.strategies.due(iteration_no):
+            best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
+            theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
+                                               claims=self.theory.cards(context))
         decision_context["decisions"] = self.decisions.drain()
         lessons, injected_ids = self.theory.cards(context), []
         if self.kb_on:
@@ -221,6 +228,8 @@ class EngineStepCycle:
         # error_repair repairs the program that FAILED, which is the child, not the
         # parent that is still sitting in the population with a valid score
         repair_code = failed_code if (op == "error_repair" and failed_code) else parent.code
+        if strategy != "none":
+            directive += "\nStrategy to try in this change: " + self.strategies.text(strategy) + "\n"
         directive += self.observed_changes.block(repair_code)
         repair_score = 0.0 if repair_code is not parent.code else parent.score
         snap = Snapshot(
@@ -275,6 +284,7 @@ class EngineStepCycle:
             "mode_on_policy": mode_on_policy,
             "preset": preset,
             "preset_prop": preset_prop if preset is not None else None,
+            "theorist": theorist,
         }
 
     def _execute_step(self, plan, *, llm=None, evaluate_fn=None, idea=None):
@@ -364,6 +374,10 @@ class EngineStepCycle:
                 result.meta.setdefault(key, value)
         if episode is not None:
             result.meta['research_tools'] = episode
+        if plan.get('theorist'):
+            reply = (llm or self.llm).generate(plan['theorist'], snapshot.model)
+            result.meta['strategy_proposal'] = reply.text
+            result.cost += reply.cost or 0.0
         return result
 
     def _commit_step(self, plan, res, *, complete_research=True):
@@ -394,6 +408,10 @@ class EngineStepCycle:
         child_id = self._on_result(res, selected, op_prop, op_stat, model, model_prop, injected_ids,
                         mode, mode_prop, eff_mode, phase, mode_on_policy,
                         decision_context=plan.get('decision_context'))
+        if plan.get('theorist'):
+            adopted = self.strategies.adopt(res.meta.get('strategy_proposal'), self.iteration_no)
+            self.log.decision(policy="strategy", action="propose", iteration_no=self.iteration_no,
+                              strategy=adopted.id if adopted else None, text=adopted.text if adopted else None)
         if self.research_tools is not None and res.meta.get('research_tools') is not None:
             self.research_tools.commit(res.meta['research_tools'], child_program_id=child_id,
                 link_kind='remeasurement' if res.meta.get('remeasurement') else 'mutation',

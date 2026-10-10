@@ -43,7 +43,7 @@ class Experiments:
         best = None
         for claim in theory.claims:
             if (claim.decided or claim.context != context or abs(claim.effect) < MIN_EFFECT
-                    or claim.decision not in ("operator", "mode")):
+                    or claim.decision not in ("operator", "mode", "strategy")):
                 continue
             extra = _required(claim) - claim.n
             if extra <= 0 or extra > remaining // 2:

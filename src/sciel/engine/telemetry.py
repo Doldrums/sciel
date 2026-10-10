@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 from copy import deepcopy
+from ..theory.strategies import PREAMBLE
 from . import checkpoint
 
 
@@ -30,6 +31,8 @@ class EngineTelemetry:
         if context.pop('prompt_sha256', None) != hashlib.sha256(prompt.encode('utf-8')).hexdigest():
             context = dict(role='unknown', iteration=self.iteration_no + 1)
         self.log._llm_context = {}
+        if prompt.startswith(PREAMBLE):
+            context = dict(role='theorist', iteration=self.iteration_no + 1)
         if prompt.startswith('SCIEL_RESEARCH_TOOL_EPISODE\n'):
             try:
                 header = json.loads(prompt.split('\n', 2)[1])
