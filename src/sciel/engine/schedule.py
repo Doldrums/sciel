@@ -32,6 +32,7 @@ class Schedule:
         self.cooldown: dict = {}
         self.milestones_passed = 0
         self._rr_cursor = 0
+        self.decisions = None
 
     @property
     def phase(self) -> str:
@@ -73,6 +74,8 @@ class Schedule:
             return -1
         choice = (min(eligible, key=lambda i: (self.dispatched.get(i, 0), i))
                   if self.fair_dispatch else eligible[self._rr_cursor % len(eligible)])
+        if self.decisions is not None:
+            choice = self.decisions.choose("island", eligible, choice)
         self._rr_cursor += 1
         self.dispatched[choice] += 1
         for i in list(self.cooldown):

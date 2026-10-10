@@ -229,7 +229,8 @@ class EngineBootstrap:
         if len(self.db.islands) >= cap:
             return
         window = int(self.cfg.get("spawn_stall", 12))
-        if self.B_evals < window or self.B_evals - self._last_improve_eval < window:
+        stalled = self.B_evals >= window and self.B_evals - self._last_improve_eval >= window
+        if not self.decisions.flag("spawn", stalled):
             return
         idx = self.db.add_island()
         self.schedule.register_island(idx)
