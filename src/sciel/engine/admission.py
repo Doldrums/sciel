@@ -186,6 +186,9 @@ class EngineAdmission:
             self._last_pop_improve_iteration = self.iteration_no
         from .prompt.parse import extract_card
         saved_card = extract_card(res.response or "")
+        if res.meta.get('confirmation') is not None:
+            self.log.decision(policy="confirmation", action="consistent" if res.meta['confirmation']['consistent']
+                              else "inconsistent", iteration_no=self.iteration_no, **res.meta['confirmation'])
         child_prog = self.db.add(res.child_code, res.score, res.cases, res.island,
                                  origin=res.origin, parent_id=res.parent_id,
                                  card=saved_card)

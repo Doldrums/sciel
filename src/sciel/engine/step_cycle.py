@@ -12,6 +12,7 @@ from .runtime import observed_stage
 
 
 FRESH_SHARE = 0.2
+CONFIRM_TOLERANCE = 1e-6
 FRESH_DIRECTIVE = ("\nFRESH DESIGN: the reference program below is the task's starting point, not the current best. "
                    "Write a new design from scratch; use the measured knowledge in this prompt, not the existing lineage.\n")
 
@@ -23,6 +24,21 @@ class EngineStepCycle:
         plan = self._prepare_step(island)
         result = self._execute_step(plan)
         self._commit_step(plan, result)
+
+    def _confirm(self, result, pop_best, parent_score) -> None:
+        """Re-measure a new record, or any improving time-dependent program; inconsistent results keep the minimum."""
+        from .determinism import time_dependent
+        if not getattr(result, 'ok', False) or result.meta.get('remeasurement'):
+            return
+        clocked = time_dependent(result.child_code)
+        if not (result.score > pop_best or (clocked and result.score > parent_score)):
+            return
+        second = self._confirmation_score(result.child_code)
+        consistent = second is not None and abs(second - result.score) <= CONFIRM_TOLERANCE * max(1.0, abs(result.score))
+        result.meta['confirmation'] = {'first': result.score, 'second': second, 'time_dependent': clocked,
+                                       'consistent': consistent}
+        if not consistent:
+            result.score = min(result.score, second) if second is not None else 0.0
 
     def _idea_target(self, context: str) -> str:
         """An idea-island proposal aims at a dense unexplored behavior, at an open question of the theory, or at neither."""
@@ -374,6 +390,7 @@ class EngineStepCycle:
                 result.meta.setdefault(key, value)
         if episode is not None:
             result.meta['research_tools'] = episode
+        self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score)
         if plan.get('theorist'):
             reply = (llm or self.llm).generate(plan['theorist'], snapshot.model)
             result.meta['strategy_proposal'] = reply.text

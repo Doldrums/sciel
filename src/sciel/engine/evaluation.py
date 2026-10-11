@@ -16,6 +16,30 @@ class EngineEvaluation:
         return lambda code: self._evaluate(code, island_id=island)
 
     @observed_stage("evaluating")
+    def _confirmation_score(self, code: str) -> float | None:
+        """One more full measurement of an already evaluated source, outside the novelty registry."""
+        from . import loop as _public
+        fd, path = tempfile.mkstemp(suffix=".py", prefix="confirm_", dir=self.run_dir)
+        with os.fdopen(fd, "w") as f:
+            f.write(code)
+        try:
+            io = getattr(self, '_parallel_io', None)
+            backend = self.evaluation_backend
+            if backend is not None:
+                outcome = io.call('evaluation', {'source': code, 'task_hash': self.task.task_hash,
+                    'confirmation': True, 'evaluation_backend': backend.identity},
+                    lambda: backend.evaluate(code.encode('utf-8'), evaluation_id='confirmation:' + hashlib.sha256(code.encode()).hexdigest(),
+                                             confirm=False))
+            elif io is None:
+                outcome = _public.cascade_evaluate(self.task, path, python=self.python)
+            else:
+                outcome = io.call('evaluation', {'source': code, 'task_hash': self.task.task_hash, 'confirmation': True},
+                    lambda: _public.cascade_evaluate(self.task, path, python=self.python))
+            return outcome.result.score if outcome.result.ok else None
+        finally:
+            os.unlink(path)
+
+    @observed_stage("evaluating")
     def _evaluate(self, code: str, *, remeasurement: bool = False, island_id=None):
         from . import loop as _public
         registry = getattr(self, 'candidate_novelty', None)
