@@ -185,6 +185,9 @@ class EngineInitialization:
         from ..theory.claims import DECISIONS
         self.swm = SearchWorldModel(self.db, DECISIONS)
         self.theory.outcome_model = self.swm
+        if type(self.db) is Database and self.db.niche_fn is None:
+            from ..swm.niches import LatentNiches
+            self.db.niche_fn = LatentNiches(self.swm)
         self.learner = PopulationLearner()
         from .eviction_planner import EvictionPlanner
         self.db.eviction_rule = EvictionPlanner(self)

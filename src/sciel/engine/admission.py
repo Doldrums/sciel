@@ -252,6 +252,13 @@ class EngineAdmission:
             if self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm")):
                 self.log.decision(policy="swm", action="fit", iteration_no=self.iteration_no,
                                   actions=len(self.swm.vocab), uncertain_above=self.swm.uncertain_above)
+                if getattr(self.db.niche_fn, "rebuild", None) is not None:
+                    programs = sorted((p for island in self.db.islands for p in island.programs.values()),
+                                      key=lambda p: int(p.id[1:]))
+                    self.db.niche_fn.rebuild(programs)
+                    self.db.reencode_niches()
+                    self.log.decision(policy="niches", action="rebuild", iteration_no=self.iteration_no,
+                                      space=self.db.niche_fn.space, niches=self.db.niche_fn.k)
                 if self.learner.fit(self.ledger, self.swm, self.rng.derive_seed("swm")):
                     self.log.decision(policy="learner", action="fit", iteration_no=self.iteration_no,
                                       actions=self.learner.actions)
