@@ -2,7 +2,7 @@
 
 **Evolutionary program search that develops its own research methods.**
 
-[![Release 0.7.0](https://img.shields.io/badge/release-0.7.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.7.0)
+[![Release 0.8.0](https://img.shields.io/badge/release-0.8.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.8.0)
 [![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
 [![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
 
@@ -242,7 +242,7 @@ invocations.
 
 ## Tasks
 
-The **v0.7.0** task bundle contains **11 packages**: ten research-task packages and
+The **v0.8.0** task bundle contains **11 packages**: ten research-task packages and
 one internal test fixture. Each task defines its candidate interface, evaluator,
 metrics and execution limits.
 
@@ -282,7 +282,7 @@ compute should be inspected together when assessing how a result was obtained.
 
 ## Releases
 
-[SCiEL 0.7.0](https://github.com/Doldrums/sciel/releases/tag/v0.7.0) provides a wheel,
+[SCiEL 0.8.0](https://github.com/Doldrums/sciel/releases/tag/v0.8.0) provides a wheel,
 source distribution, separate task bundle, release manifest and SHA-256 checksums.
 The wheel and source distribution contain the Python package; task packages and
 configuration profiles are distributed separately through the task bundle and
@@ -292,9 +292,9 @@ After downloading the release assets:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install './sciel-0.7.0-py3-none-any.whl[tasks]'
-tar -xzf sciel-0.7.0-tasks.tar.gz
-.venv/bin/sciel tasks list --tasks-root ./sciel-0.7.0-tasks/tasks
+.venv/bin/python -m pip install './sciel-0.8.0-py3-none-any.whl[tasks]'
+tar -xzf sciel-0.8.0-tasks.tar.gz
+.venv/bin/sciel tasks list --tasks-root ./sciel-0.8.0-tasks/tasks
 ```
 
 Use a checked-out profile or your own YAML configuration for `sciel run`, and pass
