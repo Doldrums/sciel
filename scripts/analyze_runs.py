@@ -42,6 +42,34 @@ def load_arm(spec: str) -> dict:
                    if (Path(path) / "sciel_events.jsonl").exists()}}
 
 
+ARMS = {"finding": lambda c: c != "none", "strategy": lambda c: c != "none", "method": lambda c: c != "none",
+        "research_open": lambda c: c == "open", "origin": lambda c: c == "fresh", "planner": lambda c: c != "base",
+        "inspiration_source": lambda c: c == "archive", "idea_target": lambda c: c != "none",
+        "cell_scope": lambda c: c == "task"}
+
+
+def record_attribution(run: Path) -> dict:
+    """Which arms were active in the steps that set a population record, against their rate over all steps."""
+    steps, records, best = 0, 0, None
+    active, at_record = defaultdict(int), defaultdict(int)
+    for line in (run / "sciel_events.jsonl").read_text().splitlines():
+        event = json.loads(line)
+        if event.get("event") != "iteration" or event.get("pop_best") is None:
+            continue
+        record = best is not None and event["pop_best"] > best
+        best = event["pop_best"] if best is None else max(best, event["pop_best"])
+        arms = {d["decision"] for d in (event.get("decision_context") or {}).get("decisions", [])
+                if d["decision"] in ARMS and ARMS[d["decision"]](d["choice"])}
+        steps += 1
+        records += record
+        for arm in arms:
+            active[arm] += 1
+            at_record[arm] += record
+    return {"steps": steps, "records": records,
+            "arms": {arm: {"share_all": active[arm] / max(steps, 1), "share_records": at_record[arm] / max(records, 1),
+                           "records": at_record[arm]} for arm in sorted(active)}}
+
+
 def best_at(points: list, budget: int) -> float | None:
     values = [score for evaluations, score in points if evaluations <= budget]
     return values[-1] if values else None
@@ -134,6 +162,9 @@ def main():
                                         "mean_log_gap": sum(gaps) / len(gaps) if gaps else None}
             arm["frontier"][budget] = {k: expected_max(values, k) for k in plan["seeds_k"]}
         spec = next(s for s in args.arms if s.startswith(name + "="))
+        if not spec.endswith(".json"):
+            arm["record_attribution"] = {Path(p).name: record_attribution(Path(p)) for p in sorted(glob.glob(spec.split("=", 1)[1]))
+                                         if (Path(p) / "sciel_events.jsonl").exists()}
         if args.values and not spec.endswith(".json"):
             arm["in_run_values"] = {Path(p).name: arm_values(Path(p)) for p in sorted(glob.glob(spec.split("=", 1)[1]))
                                     if (Path(p) / "checkpoint.json").exists()}
