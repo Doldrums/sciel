@@ -4,7 +4,7 @@ Use a separate environment and install the dependencies needed by your change:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[tasks,dev,learning,analysis]'
+.venv/bin/python -m pip install -e '.[tasks,dev,analysis]'
 ```
 
 ## Repository boundaries

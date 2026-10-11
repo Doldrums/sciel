@@ -53,15 +53,16 @@ def evaluate(rows, target) -> dict:
     return {"n": len(rows), "ess": ess, "snipw": snipw, "dr": dr, "low": dr - Z * se, "high": dr + Z * se}
 
 
-def action_effect(rows, action: str) -> dict:
-    """Effect of always taking `action` versus the logging policy, paired per row."""
+def action_effect(rows, action: str, q=None) -> dict:
+    """Effect of always taking `action` versus the logging policy, paired per row; `q` is an optional per-row outcome model."""
     if not rows:
         return {"n": 0}
     model = _outcome_model(rows)
     diffs = []
     for r in rows:
-        dr_action = _q(model, r.context, action) + (
-            (r.outcome - _q(model, r.context, action)) / r.propensity if r.choice == action else 0.0)
+        learned = q(r, action) if q is not None else None
+        base = _q(model, r.context, action) if learned is None else learned
+        dr_action = base + ((r.outcome - base) / r.propensity if r.choice == action else 0.0)
         diffs.append(dr_action - r.outcome)
     effect, se = _clustered(diffs, [r.island for r in rows])
     taken = sum(r.choice == action for r in rows)

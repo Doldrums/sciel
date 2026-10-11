@@ -216,13 +216,12 @@ Chat-provider credentials come from the environment variable named by
 | Optional dependency | Purpose |
 | --- | --- |
 | `tasks` | SciPy for the supplied numerical tasks. |
-| `learning` | PyTorch models, learned storage and offline training. |
 | `analysis` | Dataframe tools and sampled process-memory telemetry. |
 | `board` | An optional Weights & Biases sink. |
 | `dev` | Tests, schema validation and package builds. |
 
-For example, install learned-storage support with
-`.venv/bin/python -m pip install -e '.[tasks,learning]'`.
+For example, install the numerical tasks with
+`.venv/bin/python -m pip install -e '.[tasks]'`.
 
 Learned profiles require external weights, normally under `../sciel-artifacts/`.
 Configure `embed_grid_path` and `embed_axis_path`, or `embed_niche_path`.
@@ -305,7 +304,7 @@ by the deployment environment.
 ## Development and validation
 
 ```sh
-.venv/bin/python -m pip install -e '.[tasks,dev,learning,analysis]'
+.venv/bin/python -m pip install -e '.[tasks,dev,analysis]'
 .venv/bin/python scripts/check_repository.py
 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m build

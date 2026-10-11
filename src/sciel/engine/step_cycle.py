@@ -123,6 +123,9 @@ class EngineStepCycle:
         if parent_distribution is not None and selected.parent_id in parent_distribution:
             self.decisions.observe("parent", parent_distribution, selected.parent_id)
         parent = self.db.get(selected.parent_id)
+        decision_context["parent_id"] = parent.id
+        planner = self.decisions.sample("planner", self.experiments.allocate("planner", context,
+            self.theory.tilt("planner", context, {"base": 0.5, "swm": 0.5} if self.swm.ready else {"base": 1.0})))
         fresh_failure = selected.parent_id in self.lineage_fail
         # Freeze usable donor inputs before choosing the operator. Scan the
         # ranked local pool before applying the three-source prompt limit, so
@@ -158,8 +161,8 @@ class EngineStepCycle:
             op, op_prop, op_stat = self.op_bandit.pick(
                 fresh_failure, self.rng.stream("op"), intensify=refine,
                 cross_available=bool(inspirations),
-                adjust=lambda p: self.experiments.allocate("operator", context,
-                                                           self.theory.tilt("operator", context, p)))
+                adjust=lambda p: self.experiments.allocate("operator", context, self.theory.tilt(
+                    "operator", context, self.swm.tilt(parent.id, context, "operator", p) if planner == "swm" else p)))
             op_selection = 'bandit'
         self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
                                else {op: 1.0}, op)
@@ -266,6 +269,7 @@ class EngineStepCycle:
             if snap.research_context is not None:
                 snap.research_context['research_cells_context'] = deepcopy(snap.research_cells_context)
             self.research_tools.culture.context = context
+            self.research_tools.culture.state = parent.id
             snap.tool_episode_plan = self.research_tools.prepare(snap, signals=signals)
         decision_context["decisions"] = self.decisions.drain()
         return {

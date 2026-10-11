@@ -248,6 +248,10 @@ class EngineAdmission:
             return
         self.ledger.add(iteration=self.iteration_no, island=island, decision_context=decision_context,
                         child=child, parent=parent, event=event)
+        if self.swm.due(self.iteration_no):
+            if self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm")):
+                self.log.decision(policy="swm", action="fit", iteration_no=self.iteration_no,
+                                  actions=len(self.swm.vocab), uncertain_above=self.swm.uncertain_above)
         if self.iteration_no % THEORY_INTERVAL == 0:
             decided = self.theory.update(self.ledger)
             self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,

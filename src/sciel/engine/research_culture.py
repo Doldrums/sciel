@@ -9,6 +9,7 @@ class ResearchCulture:
     def __init__(self, engine):
         self.engine = engine
         self.context = None
+        self.state = None
 
     def _adjust(self, decision: str, distribution: dict) -> dict:
         engine = self.engine
@@ -16,6 +17,7 @@ class ResearchCulture:
                                            engine.theory.tilt(decision, self.context, distribution))
 
     def open(self, rule: bool) -> bool:
+        rule = rule or self.engine.swm.uncertain(self.state, self.context, "operator", self.engine.op_bandit.arms)
         base = self.engine.decisions.mix({"skip": float(not rule), "open": float(rule)})
         return self.engine.decisions.sample("research_open", self._adjust("research_open", base)) == "open"
 

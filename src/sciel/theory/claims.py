@@ -9,7 +9,7 @@ from statistics import NormalDist
 from ..causal.estimators import action_effect
 from ..causal.ledger import HORIZON
 
-DECISIONS = ("operator", "mode", "strategy", "research_open", "method")
+DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner")
 MIN_ROWS = 12
 MIN_TAKEN = 8
 SHIFT = 4.0
@@ -42,9 +42,12 @@ class Claim:
 class Theory:
     def __init__(self):
         self.claims: list[Claim] = []
+        self.outcome_model = None
 
     def update(self, ledger) -> list[Claim]:
         tested = []
+        model = self.outcome_model
+        q = model.q if model is not None and model.ready else None
         for decision in DECISIONS:
             rows = [r for r in ledger.labeled(decision) if len(r.distribution) > 1]
             for context in sorted({r.context for r in rows}):
@@ -52,7 +55,7 @@ class Theory:
                 if len(local) < MIN_ROWS:
                     continue
                 for action in sorted({a for r in local for a in r.distribution}):
-                    e = action_effect(local, action)
+                    e = action_effect(local, action, q)
                     if e["taken"]:
                         tested.append((decision, context, action, e))
         z = NormalDist().inv_cdf(1 - 0.025 / max(len(tested), 1))

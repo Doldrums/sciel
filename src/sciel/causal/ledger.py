@@ -19,6 +19,7 @@ class Row:
     propensity: float
     child: str | None
     outcome: float | None = None
+    state: str | None = None
 
 
 def context_of(decision_context: dict) -> str:
@@ -40,7 +41,8 @@ class Ledger:
             self.rows.append(Row(decision=record["decision"], iteration=iteration, island=island,
                                  context=context, distribution=dict(record["distribution"]),
                                  choice=str(record["choice"]), propensity=float(record["propensity"]),
-                                 child=child, outcome=None if child is not None else 0.0))
+                                 child=child, outcome=None if child is not None else 0.0,
+                                 state=decision_context.get("parent_id")))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:

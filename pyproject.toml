@@ -23,12 +23,12 @@ dependencies = [
     "openai>=1.30",
     "greenlet>=3.1,<4",
     "huggingface_hub>=0.23",
+    "torch>=2.2",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.2", "build>=1.2", "jsonschema>=4"]
 tasks = ["scipy>=1.11"]
-learning = ["torch>=2.2"]
 board = ["wandb>=0.16"]
 analysis = ["duckdb>=0.10", "pandas>=2.0", "psutil>=7.2"]
 
