@@ -43,8 +43,8 @@ class LatentArchive:
         return self.centres is not None
 
     def rebuild(self, world, programs: list, seed: int) -> None:
-        programs = [p for p in programs if np.isfinite(p.score)]
-        if not world.ready or len(programs) < 2 * max(KS):
+        programs = [p for p in programs if world.ready and np.isfinite(p.score) and world.latent(p.id) is not None]
+        if len(programs) < 2 * max(KS):
             self.centres, self.elites, self.k = None, [], 0
             return
         z = np.stack([world.latent(p.id) for p in programs])
@@ -65,6 +65,8 @@ class LatentArchive:
     def neighbours(self, world, parent_id: str, exclude: set) -> list[str]:
         """Elites of the cells nearest the parent, excluding the parent's own cell."""
         z = world.latent(parent_id)
+        if z is None:
+            return []
         own = int(_labels(z[None], self.centres)[0])
         elite_z = np.stack([world.latent(e) for e in self.elites])
         cells = _labels(elite_z, self.centres)

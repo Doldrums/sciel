@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from ..causal.estimators import _outcome_model, _q
 from ..components.policy.code_embed import featurize
 from . import model
+from .embedding import DIM
 
 MIN_ROWS = 60
 MAX_TRAIN = 50000
@@ -42,8 +43,9 @@ def _context(context: str) -> list:
 
 
 class SearchWorldModel:
-    def __init__(self, db, decisions: tuple):
+    def __init__(self, db, decisions: tuple, embedder=None):
         self.db = db
+        self.embedder = embedder
         self.decisions = decisions
         self.vocab: list[str] = []
         self.edges: dict[str, list] = {}
@@ -66,8 +68,22 @@ class SearchWorldModel:
             program = self.db._all.get(pid)
             if program is None:
                 return None
-            self._cache[pid] = featurize(program.code, program.cases).astype(np.float32)
+            if self.embedder is not None and self.embedder.get(program.code) is None:
+                return None
+            self._cache[pid] = self.features(program.code, program.cases)
         return self._cache[pid]
+
+    def prefetch(self) -> None:
+        if self.embedder is not None:
+            self.embedder.prefetch(p.code for p in self.db._all.values())
+
+    def features(self, code: str, cases: dict) -> np.ndarray:
+        """Behavior and AST readouts plus the frozen code embedding (zeros until the next batched prefetch)."""
+        base = featurize(code, cases).astype(np.float32)
+        if self.embedder is None:
+            return base
+        vector = self.embedder.get(code)
+        return np.concatenate([base, vector if vector is not None else np.zeros(DIM, np.float32)]).astype(np.float32)
 
     def _x(self, pid: str, context: str) -> np.ndarray | None:
         state = self._program(pid)
@@ -134,6 +150,7 @@ class SearchWorldModel:
         return self.trained_at is None or iteration - self.trained_at >= FIT_INTERVAL
 
     def fit(self, ledger, iteration: int, seed: int) -> bool:
+        self.prefetch()
         rows = self._rows(ledger)[-MAX_TRAIN:]
         self.trained_at = iteration
         if len(rows) < MIN_ROWS:
@@ -151,6 +168,7 @@ class SearchWorldModel:
                            [index[f"{r.decision}:{r.choice}"] for r in rows], children)
         data.update(
             y=np.array([r.outcome for r in rows], dtype=np.float32),
+            reward=np.array([r.reward for r in rows], dtype=np.float32),
             w=self._weights(rows),
             valid=np.array([r.child is not None for r in rows], dtype=np.float32),
             boot=np.random.default_rng(seed).poisson(1.0, size=(len(rows), model.HEADS)).astype(np.float32),
@@ -191,6 +209,11 @@ class SearchWorldModel:
         n = len(actions)
         return self._batch([pid] * n, [context] * n, [self._population(pid)] * n, [index[k] for k in keys])
 
+    def state_values(self, states: list, contexts: list) -> np.ndarray:
+        """TD value of programs under the search, from the world model's critic head."""
+        return model.state_values(self.net, self._batch(states, contexts, [self._population(p) for p in states],
+                                                        [0] * len(states)))
+
     def predict(self, pid: str, context: str, decision: str, actions: list) -> dict | None:
         batch = self._query(pid, context, decision, actions)
         if batch is None:
@@ -205,10 +228,13 @@ class SearchWorldModel:
         with torch.no_grad():
             return self.net.encoder(torch.tensor(((x - self.mean) / self.std)[None].astype(np.float32)))[0].numpy()
 
-    def latent(self, pid: str) -> np.ndarray:
+    def latent(self, pid: str) -> np.ndarray | None:
         key = (self.trained_at, pid)
         if key not in self._latents:
-            self._latents[key] = self.encode(self._program(pid))
+            features = self._program(pid)
+            if features is None:
+                return None
+            self._latents[key] = self.encode(features)
         return self._latents[key]
 
     def tilt(self, pid: str, context: str, decision: str, distribution: dict) -> dict:

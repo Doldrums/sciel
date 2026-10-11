@@ -1,4 +1,4 @@
-"""Population actor-critic: one learner over all islands, V-trace corrected by the logged propensities."""
+"""Population actor over all islands, trained with V-trace on the logged propensities against the world model's critic."""
 
 from __future__ import annotations
 
@@ -21,16 +21,14 @@ def _norm(world, pid: str, context: str) -> np.ndarray:
     return ((world._x(pid, context) - world.mean) / world.std).astype(np.float32)
 
 
-class ActorCritic(nn.Module):
+class Actor(nn.Module):
     def __init__(self, features: int, actions: int):
         super().__init__()
         self.trunk = nn.Sequential(nn.Linear(features, HIDDEN), nn.GELU(), nn.Linear(HIDDEN, HIDDEN), nn.GELU())
         self.policy = nn.Linear(HIDDEN, actions)
-        self.value = nn.Linear(HIDDEN, 1)
 
     def forward(self, x):
-        h = self.trunk(x)
-        return self.policy(h), self.value(h).squeeze(-1)
+        return self.policy(self.trunk(x))
 
 
 class PopulationLearner:
@@ -54,28 +52,26 @@ class PopulationLearner:
         index = {a: i for i, a in enumerate(self.actions)}
         x = torch.tensor(np.stack([_norm(world, r.state, r.context) for r in rows]))
         nxt = [world._program(r.child) is not None if r.child else False for r in rows]
-        x_next = torch.tensor(np.stack([_norm(world, r.child, r.context) if n else np.zeros(x.shape[1])
-                                        for r, n in zip(rows, nxt)]).astype(np.float32))
         alive = torch.tensor(nxt, dtype=torch.float32)
+        v = torch.tensor(world.state_values([r.state for r in rows], [r.context for r in rows]), dtype=torch.float32)
+        v_next = torch.tensor(world.state_values([r.child if n else r.state for r, n in zip(rows, nxt)],
+                                                 [r.context for r in rows]), dtype=torch.float32) * alive
         a = torch.tensor([index[r.choice] for r in rows])
         mu = torch.tensor([r.propensity for r in rows], dtype=torch.float32)
         reward = torch.tensor([r.reward for r in rows], dtype=torch.float32)
         mask = torch.tensor([[a_ in r.distribution for a_ in self.actions] for r in rows])
-        net = ActorCritic(x.shape[1], len(self.actions))
+        net = Actor(x.shape[1], len(self.actions))
         opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=1e-4)
         for _ in range(epochs):
             opt.zero_grad()
-            logits, v = net(x)
-            logits = logits.masked_fill(~mask, -1e9)
+            logits = net(x).masked_fill(~mask, -1e9)
             logp = torch.log_softmax(logits, -1)
             with torch.no_grad():
-                _, v_next = net(x_next)
                 rho = torch.clamp(logp.gather(1, a[:, None]).squeeze(1).exp() / mu, max=RHO_BAR)
-                target = v + rho * (reward + GAMMA * alive * v_next - v)
-                advantage = reward + GAMMA * alive * v_next - v
+                advantage = reward + GAMMA * v_next - v
             policy_loss = -(rho * logp.gather(1, a[:, None]).squeeze(1) * advantage).mean()
             entropy = -(logp.exp() * logp).masked_fill(~mask, 0).sum(-1).mean()
-            loss = policy_loss + 0.5 * ((v - target) ** 2).mean() - ENTROPY * entropy
+            loss = policy_loss - ENTROPY * entropy
             loss.backward()
             opt.step()
         self.net = net.eval()
@@ -86,7 +82,7 @@ class PopulationLearner:
         x = world._x(pid, context)
         if not self.ready or x is None or any(a not in self.actions for a in distribution):
             return dict(distribution)
-        logits, _ = self.net(torch.tensor(_norm(world, pid, context)[None]))
+        logits = self.net(torch.tensor(_norm(world, pid, context)[None]))
         index = {a: i for i, a in enumerate(self.actions)}
         chosen = torch.softmax(logits[0, [index[a] for a in distribution]], -1)
         return {a: MIX * float(p) + (1 - MIX) * distribution[a] for a, p in zip(distribution, chosen)}
@@ -104,6 +100,6 @@ class PopulationLearner:
         self.net = None
         if data["weights"] is not None:
             state = torch.load(io.BytesIO(base64.b64decode(data["weights"])))
-            net = ActorCritic(state["trunk.0.weight"].shape[1], len(self.actions))
+            net = Actor(state["trunk.0.weight"].shape[1], len(self.actions))
             net.load_state_dict(state)
             self.net = net.eval()

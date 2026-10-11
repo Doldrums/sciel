@@ -23,6 +23,7 @@ LINEAGE = 8
 POPULATION = 16
 VAR_WEIGHT = 1.0
 EMA = 0.95
+GAMMA = 0.9
 
 torch.set_num_threads(1)
 
@@ -46,6 +47,7 @@ class Network(nn.Module):
         self.mixture = _mlp(4 * LATENT, COMPONENTS * (1 + 2 * LATENT))
         self.value = nn.ModuleList(_mlp(4 * LATENT, 1) for _ in range(HEADS))
         self.valid = _mlp(4 * LATENT, 1)
+        self.critic = _mlp(3 * LATENT, 1)
 
     def context(self, batch: dict):
         """Programs are encoded once from the shared table; rows index into it (the last row is padding)."""
@@ -57,6 +59,9 @@ class Network(nn.Module):
 
     def joint(self, z, context, a):
         return torch.cat([z, context, self.action(a)], -1)
+
+    def state_value(self, z, context):
+        return self.critic(torch.cat([z, context], -1)).squeeze(-1)
 
     def heads(self, h):
         return torch.cat([head(h) for head in self.value], -1), self.valid(h).squeeze(-1)
@@ -110,7 +115,10 @@ def _loss(net, batch, bce):
         with torch.no_grad():
             goal = net.target(batch["table"])[batch["child"][has_child]]
         loss = loss + _nll(*net.density(h[has_child]), goal).mean() / LATENT
-    return loss
+    with torch.no_grad():
+        nxt = net.state_value(net.encoder(batch["table"])[batch["child"]], context)
+        target = batch["reward"] + GAMMA * has_child.float() * nxt
+    return loss + ((net.state_value(z, context) - target) ** 2).mean()
 
 
 @torch.no_grad()
@@ -166,6 +174,12 @@ def lookahead(net: Network, batch: dict, actions: np.ndarray, gamma: float, bonu
     second = torch.stack([_optimistic(torch.sigmoid(net.heads(net.joint(z2, c2, first.new_full((n * k,), int(a))))[0]),
                                       bonus) for a in actions], -1).max(-1).values.reshape(n, k)
     return (_optimistic(p1, bonus) + gamma * (log_pi.exp() * second).sum(-1)).numpy()
+
+
+@torch.no_grad()
+def state_values(net: Network, batch: dict) -> np.ndarray:
+    z, context = net.context(tensors(batch))
+    return net.state_value(z, context).numpy()
 
 
 @torch.no_grad()
