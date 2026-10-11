@@ -21,6 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(config: dict, outputs: Path, run_id: str, seed: int) -> dict:
     path = outputs / f"{run_id}.yaml"
+    capacity = {"capacity_dir": str(outputs / "capacity" / run_id)}
+    config = {**config, "parallel_search": {**config.get("parallel_search", {}), **capacity}}
     path.write_text(yaml.safe_dump(config))
     env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "OMP_NUM_THREADS": "1",
            "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
