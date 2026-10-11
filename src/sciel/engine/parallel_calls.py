@@ -86,7 +86,7 @@ def _encode(kind, value):
             encoded['execution']=value.execution
         return encoded
     fields = ('text', 'model', 'cost', 'prompt_tokens', 'completion_tokens',
-              'finish_reason', 'refusal')
+              'finish_reason', 'refusal', 'reasoning')
     # Malformed metadata remains unusable on replay; never stringify SDK objects.
     result = {key: getattr(value, key, None) for key in fields}
     provenance = response_cost_provenance(value)

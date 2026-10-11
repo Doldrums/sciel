@@ -132,6 +132,7 @@ class EngineAdmission:
                 prompt=res.prompt, response=res.response,
                 artifacts=_trunc(res.artifacts),
                 **({"decision_context": decision_context} if decision_context else {}))
+            self._record_decisions(res.island, decision_context, None, None, False)
             return program.id if program else None
         if not res.ok:
             # Keep the CHILD's source, not just its error. The repair prompt used to
@@ -157,6 +158,8 @@ class EngineAdmission:
                                cost=res.cost, timing=res.timing,
                                artifacts=_trunc(res.artifacts),
                                **({"decision_context": decision_context} if decision_context else {}))
+            if res.bet is not None:
+                self._log_forecast(res, False, res.bet.q ** 2, decision_context)
             self._record_decisions(res.island, decision_context, None, None, False)
             self.controller.observe(
                 obs_phase, eff_mode, None,
@@ -220,8 +223,12 @@ class EngineAdmission:
         if res.meta["dup_attempts"] > 0:
             self.n_dups += 1
         self.intensity.observe(ev.is_island_event)
-        if ev.is_island_event and saved_card:
-            self.findings.add([{"text": saved_card, "island_id": res.island, "kind": "lesson"}], self.iteration_no)
+        mechanism = res.bet.mechanism if res.bet is not None and res.bet.mechanism else saved_card
+        if ev.is_island_event and mechanism:
+            from ..theory.findings import lesson
+            before = (decision_context or {}).get("baseline", parent.score if parent is not None else 0.0)
+            self.findings.add([{"text": lesson(mechanism, before, res.score), "island_id": res.island,
+                                "kind": "lesson"}], self.iteration_no)
         if ev.is_island_event:
             self.n_events += 1
         if self.plateau_shadow:
@@ -231,19 +238,20 @@ class EngineAdmission:
         brier = None
         if res.bet is not None:
             brier = (res.bet.q - (1.0 if ev.is_island_event else 0.0)) ** 2
-            self._log_forecast(res, ev, brier, decision_context)
+            self._log_forecast(res, bool(ev.is_island_event), brier, decision_context)
         self._log_iteration(res, selected, op_prop, op_stat, ev, brier, model,
                             model_prop, mode, mode_prop,
                             pre=pre, phase_pre=obs_phase, effective_mode=eff_mode,
                             decision_context=decision_context)
         self._record_decisions(res.island, decision_context, child_prog.id, res.parent_id,
-                               ev.is_island_event)
+                               ev.is_island_event, research=bool(res.meta.get('research_candidate')))
         return child_prog.id
 
-    def _log_forecast(self, res, ev, brier, decision_context):
+    def _log_forecast(self, res, event, brier, decision_context):
         """The generator's forecast scored by the engine, next to the world model's forecast for the same step."""
         parent = self.db._all.get(res.parent_id)
-        delta = res.score - parent.score if parent is not None else None
+        baseline = (decision_context or {}).get("baseline", parent.score if parent is not None else None)
+        delta = res.score - baseline if baseline is not None and res.ok else None
         bet, covered = res.bet, None
         if bet.delta_low is not None and delta is not None:
             covered = bet.delta_low <= delta <= bet.delta_high
@@ -253,12 +261,18 @@ class EngineAdmission:
             out = self.swm.predict(parent.id, context_of(decision_context), "operator", [op])
             world = out[op]["value"] if out else None
         self.log.decision(policy="forecast", action="scored", iteration_no=self.iteration_no, q=bet.q,
-                          event=bool(ev.is_island_event), brier=brier, delta=delta,
+                          event=event, brier=brier, delta=delta,
                           interval=[bet.delta_low, bet.delta_high], covered=covered, swm_value=world)
 
-    def _record_decisions(self, island, decision_context, child, parent, event):
+    def _record_decisions(self, island, decision_context, child, parent, event, research=False):
         if not decision_context:
             return
+        if decision_context.get("origin") == "fresh":
+            parent = None
+        if research:
+            from .research_culture import DECISIONS
+            decision_context = {**decision_context,
+                                "decisions": [r for r in decision_context["decisions"] if r["decision"] in DECISIONS]}
         self.ledger.add(iteration=self.iteration_no, island=island, decision_context=decision_context,
                         child=child, parent=parent, event=event)
         if self.swm.due(self.iteration_no):

@@ -97,6 +97,7 @@ def execute(engine, snapshot):
         for index, attempt in enumerate(attempts, 1):
             attempt['attempt'] = index
         candidate.meta['validation_trace']['attempts'] = attempts
+        engine._confirm(candidate, engine.db.pop_best, snapshot.parent_score)
     return ResearchJobResult(episode, candidate)
 
 
@@ -120,6 +121,7 @@ def commit(engine, snapshot, outcome):
             scope='Ordinary evaluator/novelty admission; no ordinary operator or mode credit.')
     if engine.iteration_no != before:
         raise ValueError('research-only commit changed the ordinary iteration clock')
+    engine._add_findings(outcome.episode)
     engine.research_tools.commit(outcome.episode, child_program_id=child_id,
         link_kind='remeasurement' if result and result.meta.get('remeasurement') else 'mutation',
         completed_iteration=engine.iteration_no,

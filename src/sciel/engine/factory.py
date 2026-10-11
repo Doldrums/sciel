@@ -83,6 +83,8 @@ def build_engine(cfg: dict, tasks_root: str, run_dir: str, python: str | None = 
     from ..config import apply_defaults
     from ..eval.candidate_backend import create_backend
     cfg = apply_defaults(cfg)
+    if cfg.get("max_eval_cpu_seconds") is not None and cfg.get("evaluation"):
+        cfg["evaluation"]["cpu_seconds"] = min(cfg["evaluation"]["cpu_seconds"], cfg["max_eval_cpu_seconds"])
     evaluation_backend = create_backend(cfg, task)
     if llm is None:
         llm = build_llm(cfg)

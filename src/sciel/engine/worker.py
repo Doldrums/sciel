@@ -75,7 +75,7 @@ def run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
         try:
             prompt = (build_fix(edit_base, *fix_error) if op_cur == "fix" else
                       build(op_cur, snapshot, edits=edit_mode and op_cur in EDIT_OPS))
-            if registry_enabled and previous_response is not None and op_cur != "fix":
+            if previous_response is not None and op_cur != "fix":
                 prompt = candidate_retry_prompt(prompt, previous_response, previous_validation,
                                                 reason=previous_reason, measured_repeat=measured_repeat)
         except Exception as exc:
@@ -182,9 +182,8 @@ def run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
             if patch is not None:
                 attempt_trace["patch"] = patch.summary()
             validation_trace["attempts"].append(attempt_trace)
-            if registry_enabled:
-                previous_response, previous_validation, previous_reason = resp.text, validation, None
-                measured_repeat = None
+            previous_response, previous_validation, previous_reason = resp.text, validation, None
+            measured_repeat = None
             if validation.novelty is not None:
                 novelty_checks.append(validation.novelty)
             if validation.violation is not None:

@@ -112,6 +112,7 @@ class EngineBootstrap:
                               **trace_fields)
             return False
         attempt["evaluation"] = {"ok": True, "disposition": "admit"}
+        outcome.result.score = self._rechecked(code, outcome.result.score, base_code)
         prog = self.db.add(code, outcome.result.score, outcome.result.cases,
                            island, origin=origin, card=extract_card(resp.text))
         self._bind_novelty_program(prog, evaluation_id=getattr(outcome, 'evaluation_id', None))
@@ -120,6 +121,14 @@ class EngineBootstrap:
         self.log.decision(policy="portfolio_seed", action=origin, island=island,
                           score=outcome.result.score, paradigm=paradigm[:40], **trace_fields)
         return True
+
+    def _rechecked(self, code: str, score: float, base_code: str) -> float:
+        base = next((p.score for p in self.db._all.values() if p.code == base_code), 0.0)
+        score, info = self._recheck(code, score, self.db.pop_best, base)
+        if info is not None:
+            self.log.decision(policy="confirmation", action="consistent" if info['consistent'] else "inconsistent",
+                              iteration_no=self.iteration_no, **info)
+        return score
 
     def _novelty_paradigm_child(self, base_code, paradigm, island, origin):
         """Portfolio/spawn uses the same bounded novelty retry protocol as search."""
@@ -143,6 +152,8 @@ class EngineBootstrap:
         if ok:
             from .prompt.parse import extract_card
             measured_again = result.meta.get('remeasurement', False)
+            if not measured_again:
+                result.score = self._rechecked(result.child_code, result.score, base_code)
             program = self.db.add(result.child_code, result.score, result.cases, island,
                 origin='remeasurement' if measured_again else origin,
                 parent_id=None if measured_again or parent is None else parent.id,
@@ -186,7 +197,11 @@ class EngineBootstrap:
             return
         window = int(self.cfg.get("spawn_stall", 12))
         stalled = self.B_evals >= window and self.B_evals - self._last_improve_eval >= window
-        if not self.decisions.flag("spawn", stalled):
+        spawn, record = self.decisions.draw("spawn", [False, True], stalled)
+        if spawn or stalled:
+            self.log.decision(policy="spawn", action=str(spawn), stalled=stalled, propensity=record["propensity"],
+                              iteration_no=self.iteration_no)
+        if not spawn:
             return
         idx = self.db.add_island()
         self.schedule.register_island(idx)
@@ -214,11 +229,7 @@ class EngineBootstrap:
         if target is not None:
             paradigm = directive(target)
         ok = self._paradigm_child(base, paradigm, idx, origin="spawn")
-        seed = next(iter(self.db.islands[idx].programs.values()), None) if ok else None
-        self.ledger.add(iteration=self.iteration_no, island=idx, child=seed.id if seed else None,
-                        parent=self.db.pop_best_id, event=False,
-                        decision_context={"phase": self.schedule.phase_code(), "progress": self._progress(),
-                                          "parent_id": self.db.pop_best_id, "decisions": [record]})
+        self.ledger.add_island(iteration=self.iteration_no, island=idx, context=context, record=record)
         self.log.decision(policy="spawn_target", action=source, island=idx, target=target, candidates=targets,
                           propensity=record["propensity"])
         if not ok:

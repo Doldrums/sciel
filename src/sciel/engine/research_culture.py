@@ -10,6 +10,7 @@ import math
 
 from ..theory.claims import evpi, open_question, question_text
 
+DECISIONS = ("research_open", "method", "cell_stage", "cell_scope")
 SUGGEST_SHARE = 0.5
 MAINTENANCE_SHARE = 0.3
 TASK_SHARE = 0.5
@@ -46,8 +47,8 @@ class ResearchCulture:
         return (evpi(claim) * remaining * share, claim) if claim is not None else (0.0, None)
 
     def open(self, rule: bool) -> bool:
-        value, claim = self.voi()
         self.question = None
+        value, claim = self.voi()
         if claim is not None and value > VOI_THRESHOLD * self.engine._procedure.voi_scale:
             rule = True
             self.question = question_text(claim)
@@ -55,6 +56,16 @@ class ResearchCulture:
                                                  self.engine._procedure.uncertainty_scale)
         base = self.engine.decisions.mix({"skip": float(not rule), "open": float(rule)})
         return self.engine.decisions.sample("research_open", self._adjust("research_open", base)) == "open"
+
+    def detach(self, island: int, iteration: int) -> None:
+        """Cells in the independent queue never shape this step's child, so their decisions are judged by island events."""
+        kept = []
+        for record in self.engine.decisions.pending:
+            if record["decision"] in DECISIONS:
+                self.engine.ledger.add_island(iteration=iteration, island=island, context=self.context, record=record)
+            else:
+                kept.append(record)
+        self.engine.decisions.pending = kept
 
     def _sources(self, tool_id: str) -> set:
         if tool_id not in self._links:
@@ -100,7 +111,7 @@ class ResearchCulture:
     def suggest(self, shown: list) -> str | None:
         if not shown:
             return None
-        credit = self.credit(shown)
+        credit = self.credit(list(dict.fromkeys([*self.engine.research_tools._state["published"], *shown])))
         weights = {t: math.exp(CREDIT_SHIFT * credit[t]) for t in shown}
         total = sum(weights.values())
         distribution = {"none": 1 - SUGGEST_SHARE} | {t: SUGGEST_SHARE * w / total for t, w in weights.items()}

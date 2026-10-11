@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from ..campaign.budget import CampaignStopped
 from ..causal import context_of
 from ..components.policy.mode_features import mode_features
 from .operators import usable_inspirations
@@ -25,20 +26,34 @@ class EngineStepCycle:
         result = self._execute_step(plan)
         self._commit_step(plan, result)
 
-    def _confirm(self, result, pop_best, parent_score) -> None:
+    def _recheck(self, code: str, score: float, pop_best: float, parent_score: float) -> tuple:
         """Re-measure a new record, or any improving time-dependent program; inconsistent results keep the minimum."""
         from .determinism import time_dependent
+        clocked = time_dependent(code)
+        if not (score > pop_best or (clocked and score > parent_score)):
+            return score, None
+        second = self._confirmation_score(code)
+        consistent = second is not None and abs(second - score) <= CONFIRM_TOLERANCE * max(1.0, abs(score))
+        info = {'first': score, 'second': second, 'time_dependent': clocked, 'consistent': consistent}
+        return (score if consistent else min(score, second) if second is not None else 0.0), info
+
+    def _confirm(self, result, pop_best, parent_score) -> None:
         if not getattr(result, 'ok', False) or result.meta.get('remeasurement'):
             return
-        clocked = time_dependent(result.child_code)
-        if not (result.score > pop_best or (clocked and result.score > parent_score)):
-            return
-        second = self._confirmation_score(result.child_code)
-        consistent = second is not None and abs(second - result.score) <= CONFIRM_TOLERANCE * max(1.0, abs(result.score))
-        result.meta['confirmation'] = {'first': result.score, 'second': second, 'time_dependent': clocked,
-                                       'consistent': consistent}
-        if not consistent:
-            result.score = min(result.score, second) if second is not None else 0.0
+        result.score, info = self._recheck(result.child_code, result.score, pop_best, parent_score)
+        if info is not None:
+            result.meta['confirmation'] = info
+
+    def _add_findings(self, episode) -> None:
+        added = self.findings.add((episode or {}).get('findings', []), self.iteration_no)
+        if added:
+            self.log.decision(policy="finding", action="add", iteration_no=self.iteration_no,
+                              findings=[{"id": f.id, "text": f.text, "island": f.island} for f in added])
+
+    def _seed_score(self) -> float:
+        from .loop_contracts import _read
+        initial = _read(self.task.initial_program_path)
+        return next((p.score for p in self.db._all.values() if p.origin == "seed" and p.code == initial), 0.0)
 
     def _families(self) -> list:
         """One strategy card per latent archive cell, or per island best before the archive exists."""
@@ -63,7 +78,7 @@ class EngineStepCycle:
         return ""
 
     def _planners(self) -> dict:
-        arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.learner.ready),
+        arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.learner.current(self.swm)),
                 ("heritage", self.heritage is not None and self.heritage.ready)) if ready]
         share = self._procedure.base_share
         return {"base": share} | {a: (1 - share) / len(arms) for a in arms} if arms else {"base": 1.0}
@@ -123,6 +138,7 @@ class EngineStepCycle:
             self.log.decision(policy="preset_weights", action=preset, propensity=preset_prop,
                               distribution=mix, island=island, iteration_no=iteration_no,
                               adaptive=self.cfg.get("preset_adaptive", True))
+        forced = False
         if self.three_head is not None:
             # #4c: promise head of the shared three-head trunk (default off).
             #
@@ -132,14 +148,14 @@ class EngineStepCycle:
             # mode was drawn -- while the reward was credited to a mode that never ran.
             head_tilt = self.three_head.build(view, self.db)
             if head_tilt is not None:
-                mode_on_policy = False
+                mode_on_policy, forced = False, True
                 tilt = head_tilt
                 mode = "exploit"      # a promise tilt IS an exploit, name it honestly
         # Effective mode for reward attribution: a warmup-gated exploit (tilt dropped)
         # actually executed base selection, so its reward belongs to base.
         eff_mode = mode if tilt is not None else "base"
-        self.decisions.observe("mode", mix if isinstance(mix, dict) and mode in mix and preset is None
-                               else {mode: 1.0}, mode)
+        sampled = isinstance(mix, dict) and mode in mix and preset is None and not forced
+        self.decisions.observe("mode", mix if sampled else {mode: 1.0}, mode)
         if self.controller.enabled:
             # mix is the distribution actually sampled from this iteration (learned,
             # plateau, or static) -- not the bandit's estimate when plateau overrode it.
@@ -161,6 +177,8 @@ class EngineStepCycle:
                                else getattr(self.selection, "last_distribution", None))
         if parent_distribution is not None and selected.parent_id in parent_distribution:
             self.decisions.observe("parent", parent_distribution, selected.parent_id)
+        else:
+            self.decisions.observe("parent", {selected.parent_id: 1.0}, selected.parent_id)
         parent = self.db.get(selected.parent_id)
         decision_context["parent_id"] = parent.id
         decision_context["population"] = [p.id for p in self.db.islands[island].top_k(16)]
@@ -276,6 +294,7 @@ class EngineStepCycle:
             operator_decision.update(effective=op, fallback_reason='fresh_design', on_policy=False)
             op_stat = {**op_stat, 'effective': op, 'fallback_reason': 'fresh_design', 'on_policy': False}
             directive += FRESH_DIRECTIVE
+            decision_context["origin"] = "fresh"
         repair_code = (failed_code if (op == "error_repair" and failed_code) else
                        _read(self.task.initial_program_path) if origin == "fresh" else parent.code)
         if strategy != "none":
@@ -284,7 +303,9 @@ class EngineStepCycle:
         if op == "idea":
             directive += self._idea_target(context)
         directive += self.observed_changes.block(repair_code)
-        repair_score = 0.0 if repair_code is not parent.code else parent.score
+        repair_score = (self._seed_score() if origin == "fresh" else
+                        0.0 if repair_code is not parent.code else parent.score)
+        decision_context["baseline"] = repair_score
         snap = Snapshot(
             island=island, op=op, model=model, iteration_no=iteration_no,
             parent_id=selected.parent_id, parent_code=repair_code,
@@ -312,9 +333,12 @@ class EngineStepCycle:
             self.research_tools.culture.context = context
             self.research_tools.culture.state = parent.id
             snap.tool_episode_plan = self.research_tools.prepare(snap, signals=signals)
+            if self.research_tools.config['independent_research']:
+                self.research_tools.culture.detach(island, iteration_no)
         decision_context["decisions"] = self.decisions.drain()
         return {
             "op": op,
+            "procedure": self._procedure.id,
             "snap": snap,
             "selected": selected,
             "op_prop": op_prop,
@@ -399,12 +423,20 @@ class EngineStepCycle:
             result.meta['research_tools'] = episode
         self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score)
         if plan.get('theorist'):
-            reply = (llm or self.llm).generate(plan['theorist'], snapshot.model)
-            result.meta['strategy_proposal'] = reply.text
-            result.cost += reply.cost or 0.0
+            from .llm.client import accounted_cost
+            try:
+                reply = (llm or self.llm).generate(plan['theorist'], snapshot.model)
+                result.meta['strategy_proposal'] = reply.text
+                result.cost += accounted_cost(reply)
+            except CampaignStopped:
+                raise
+            except Exception as error:
+                result.meta['theorist_error'] = type(error).__name__
         return result
 
     def _commit_step(self, plan, res):
+        self._procedure = self.procedures.get(plan["procedure"])
+        self.theory.shift, self.theory.mix = self._procedure.shift, self._procedure.mix
         selected = plan["selected"]
         op_prop = plan["op_prop"]
         op_stat = plan["op_stat"]
@@ -437,10 +469,7 @@ class EngineStepCycle:
             self.log.decision(policy="strategy", action="propose", iteration_no=self.iteration_no,
                               strategy=adopted.id if adopted else None, text=adopted.text if adopted else None)
         if self.research_tools is not None and res.meta.get('research_tools') is not None:
-            added = self.findings.add(res.meta['research_tools'].get('findings', []), self.iteration_no)
-            if added:
-                self.log.decision(policy="finding", action="add", iteration_no=self.iteration_no,
-                                  findings=[{"id": f.id, "text": f.text, "island": f.island} for f in added])
+            self._add_findings(res.meta['research_tools'])
             self.research_tools.commit(res.meta['research_tools'], child_program_id=child_id,
                 link_kind='remeasurement' if res.meta.get('remeasurement') else 'mutation',
                 **({'candidate_binding': candidate_link, 'child_source': self.db._all[child_id].code}
