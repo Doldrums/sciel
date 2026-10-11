@@ -15,6 +15,17 @@ NONE_SHARE = 0.4
 MAX_CULTURE = 3
 MAX_CHARS = 600
 _NUMBER = re.compile(r"-?\d+\.\d{5,}(?:[eE][-+]?\d+)?")
+_WORD = re.compile(r"[a-z]+|\d+(?:\.\d+)?")
+SIMILAR = 0.6
+
+
+def _tokens(text: str) -> set:
+    return {"#" if w[0].isdigit() else w for w in _WORD.findall(text.lower()) if len(w) > 2 or w[0].isdigit()}
+
+
+def _similar(a: str, b: str) -> bool:
+    x, y = _tokens(a), _tokens(b)
+    return bool(x and y) and len(x & y) / len(x | y) >= SIMILAR
 
 
 def _round(text: str) -> str:
@@ -60,7 +71,7 @@ class Findings:
             if item.get("kind", "finding") == "finding" and not item.get("receipt_id"):
                 continue
             text = _round(" ".join(item["text"].split()))
-            same = next((f for f in self.pool if f.text == text), None)
+            same = next((f for f in self.pool if f.kind == item.get("kind", "finding") and _similar(f.text, text)), None)
             if same is not None:
                 same.created += 1
                 continue
