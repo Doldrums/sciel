@@ -92,7 +92,7 @@ class MockLLM:
             code = ("import numpy as np\n"
                     "def run_search():\n"
                     f"    return ({x:.6f}, {y:.6f})\n")
-        text = f"```python\n{code}```\n"
+        text = f"Strategy: move the search point to region {n % 7} of the plane.\n```python\n{code}```\n"
         if self.bet_marker in prompt:
             q = 0.1 + 0.8 * ((n >> 8) % 1000) / 1000.0
             text += f'\nBET: {{mechanism: "mock local move", q: {q:.3f}, delta: [-0.05, {q / 4:.3f}]}}\n'
