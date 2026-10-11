@@ -186,6 +186,8 @@ class EngineInitialization:
         self.swm = SearchWorldModel(self.db, DECISIONS)
         self.theory.outcome_model = self.swm
         self.learner = PopulationLearner()
+        from .eviction_planner import EvictionPlanner
+        self.db.eviction_rule = EvictionPlanner(self)
         self.heritage = None
         if cfg.get("inherit") is not None:
             from ..culture import Heritage

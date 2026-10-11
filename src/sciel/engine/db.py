@@ -51,6 +51,7 @@ class Database:
         # collection (drained and logged by the engine)
         self.evictions: list = []
         self.decisions = None
+        self.eviction_rule = None
 
     def new_id(self) -> str:
         self._counter += 1
@@ -140,6 +141,8 @@ class Database:
         removable.sort(key=lambda p: p.score)
         while len(isl.programs) > self.pop_cap and removable:
             victim, record = removable[0], None
+            if self.eviction_rule is not None:
+                victim = self.eviction_rule(isl.idx, removable)
             if self.decisions is not None:
                 victim_id, record = self.decisions.draw("eviction", [p.id for p in removable], victim.id)
                 victim = next(p for p in removable if p.id == victim_id)

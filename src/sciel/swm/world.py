@@ -108,6 +108,10 @@ class SearchWorldModel:
         shifted = np.array(list(distribution.values())) * np.exp(BETA * (values - values.mean()))
         return {a: float(p) for a, p in zip(distribution, shifted / shifted.sum())}
 
+    def value(self, pid: str, context: str, decision: str, actions: list) -> float | None:
+        out = self.predict(pid, context, decision, actions)
+        return None if out is None else float(np.mean([v["value"] for v in out.values()]))
+
     def uncertain(self, pid: str, context: str, decision: str, actions: list) -> bool:
         out = self.predict(pid, context, decision, actions)
         return out is not None and np.mean([v["epistemic"] for v in out.values()]) > self.uncertain_above
