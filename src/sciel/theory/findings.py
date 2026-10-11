@@ -23,7 +23,7 @@ def _round(text: str) -> str:
 
 def fresh(items: list) -> str:
     """Conclusions the current episode just reached, for the generation step that follows it."""
-    lines = [f"- {_round(' '.join(item['text'].split()))}"[:MAX_CHARS] for item in items]
+    lines = [f"- {_round(' '.join(item['text'].split()))}"[:MAX_CHARS] for item in items if item.get("receipt_id")]
     return ("\nFindings this research cell just reached (measured by tools, not by the task evaluator):\n"
             + "\n".join(lines) + "\n") if lines else ""
 
@@ -57,6 +57,8 @@ class Findings:
     def add(self, items: list, iteration: int) -> list[Finding]:
         added = []
         for item in items:
+            if item.get("kind", "finding") == "finding" and not item.get("receipt_id"):
+                continue
             text = _round(" ".join(item["text"].split()))
             same = next((f for f in self.pool if f.text == text), None)
             if same is not None:

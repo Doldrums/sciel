@@ -58,6 +58,8 @@ def prepare(tools, snapshot, *, signals=None):
         lifecycle_options['proactive'] = True
     if tools.culture is not None and tools.culture.question and type(signals) is dict:
         signals = {**signals, 'open_claim': tools.culture.question}
+    if tools.culture is not None:
+        lifecycle_options.update(choose_stage=tools.culture.stage, choose_scope=tools.culture.scope)
     cell_plan = tools.lifecycle.prepare(snapshot, signals, **lifecycle_options)
     if cell_plan is None:
         return None

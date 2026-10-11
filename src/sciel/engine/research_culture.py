@@ -11,6 +11,8 @@ import math
 from ..theory.claims import evpi, open_question, question_text
 
 SUGGEST_SHARE = 0.5
+MAINTENANCE_SHARE = 0.3
+TASK_SHARE = 0.5
 VOI_THRESHOLD = 1.0
 RECENT = 500
 DECAY = 0.5
@@ -81,6 +83,16 @@ class ResearchCulture:
                 if ancestor in credit:
                     credit[ancestor] += DECAY ** level * self.effect(tool)
         return credit
+
+    def stage(self) -> str:
+        """Research or due maintenance (replay, recipient trial, reuse) when a cell could do either."""
+        return self.engine.decisions.sample("cell_stage", self._adjust("cell_stage",
+            {"research": 1 - MAINTENANCE_SHARE, "maintenance": MAINTENANCE_SHARE}))
+
+    def scope(self) -> str:
+        """A new cell studies the task and its data, or the supplied candidate."""
+        return self.engine.decisions.sample("cell_scope", self._adjust("cell_scope",
+            {"task": TASK_SHARE, "candidate": 1 - TASK_SHARE}))
 
     def retired(self, tool_id: str) -> bool:
         return any(self.engine.theory.refuted("method", t) for t in {tool_id, *self.ancestors(tool_id)})

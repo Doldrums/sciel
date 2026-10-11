@@ -273,7 +273,7 @@ class EngineStepCycle:
             task_prompt=self.task_prompt, bet_enabled=True,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
-        if self.research_tools is not None:
+        if self.research_tools is not None and origin != "fresh":
             from .research_tool_signals import snapshot_signals
             from .research_targets import freeze_targets
             from .research_search_evidence import search_evidence

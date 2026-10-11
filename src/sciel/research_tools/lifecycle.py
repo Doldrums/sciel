@@ -10,6 +10,10 @@ from .tool_protocol import LIFECYCLE_SCHEMA as SCHEMA
 
 from . import lifecycle_evidence, lifecycle_delivery
 
+TASK_QUESTION = ('What structure of the task itself, in its inputs, data, constraints and scoring, would change how '
+                 'programs should be designed? Study the task and its data directly with a reusable analysis tool; '
+                 'do not tune the supplied candidate.')
+
 
 class CellLifecycle:
     def __init__(self, run_dir, config, emit):
@@ -57,7 +61,8 @@ class CellLifecycle:
             names.append('open_claim')
         return names
 
-    def prepare(self, snapshot, signals, *, maintenance=False, proactive=False, renew_closed=False):
+    def prepare(self, snapshot, signals, *, maintenance=False, proactive=False, renew_closed=False, choose_stage=None,
+                choose_scope=None):
         if type(proactive) is not bool:
             raise ValueError('proactive research reservation must be boolean')
         proactive_trigger = None
@@ -93,6 +98,8 @@ class CellLifecycle:
                             'Develop or retain evidence-backed options before a slowdown; '
                             'keep untested alternatives distinct from validated findings. '
                             f'Scheduling context: proactive research for island {snapshot.island}.')
+                if choose_scope is not None and choose_scope() == 'task':
+                    question = TASK_QUESTION + f' Scheduling context: proactive research for island {snapshot.island}.'
                 if previous_closed is not None:
                     question += (' New question after closed cell ' + previous_closed['id'][:12]
                                  + '; allocate a different uncertainty using its retained evidence.')
@@ -112,6 +119,8 @@ class CellLifecycle:
                         'would affect the next search decision, and what reusable check can investigate it? '
                         f'Trigger context: island {snapshot.island}, record evaluation {anchor}; '
                         'this explains scheduling only.')
+            if choose_scope is not None and choose_scope() == 'task':
+                question = TASK_QUESTION + f' Trigger context: island {snapshot.island}, record evaluation {anchor}.'
             if type(signals.get('open_claim')) is str:
                 question += ' Open claim of the search theory worth resolving: ' + signals['open_claim']
             if previous_closed is not None:
@@ -151,6 +160,9 @@ class CellLifecycle:
                             and cell['id'] not in method['use_attempts']):
                         stage, target = 'use_again', ident
                         break
+        if (stage is not None and (active or proactive) and choose_stage is not None
+                and choose_stage() == 'research'):
+            stage, target, reference = None, None, None
         if stage is None and (active or maintenance or proactive):
             stage = 'research'
         if stage is None or not self.cells.activate(cell['id']):
