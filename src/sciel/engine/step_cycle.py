@@ -11,6 +11,11 @@ from .types import Snapshot
 from .runtime import observed_stage
 
 
+FRESH_SHARE = 0.2
+FRESH_DIRECTIVE = ("\nFRESH DESIGN: the reference program below is the task's starting point, not the current best. "
+                   "Write a new design from scratch; use the measured knowledge in this prompt, not the existing lineage.\n")
+
+
 class EngineStepCycle:
 
     @observed_stage("generating")
@@ -238,7 +243,18 @@ class EngineStepCycle:
         failure_ref = failure.pop("_failure_provenance", None)
         # error_repair repairs the program that FAILED, which is the child, not the
         # parent that is still sitting in the population with a valid score
-        repair_code = failed_code if (op == "error_repair" and failed_code) else parent.code
+        origin = self.decisions.sample("origin", self.experiments.allocate("origin", context,
+            self.theory.tilt("origin", context, {"parent": 1 - FRESH_SHARE, "fresh": FRESH_SHARE}
+                             if op in ("diff", "full_rewrite", "cross") else {"parent": 1.0})))
+        if origin == "fresh":
+            from .loop_contracts import _read
+            op, op_prop, inspirations = "full_rewrite", None, []
+            failed_code = ""
+            operator_decision.update(effective=op, fallback_reason='fresh_design', on_policy=False)
+            op_stat = {**op_stat, 'effective': op, 'fallback_reason': 'fresh_design', 'on_policy': False}
+            directive += FRESH_DIRECTIVE
+        repair_code = (failed_code if (op == "error_repair" and failed_code) else
+                       _read(self.task.initial_program_path) if origin == "fresh" else parent.code)
         if strategy != "none":
             directive += "\nStrategy to try in this change: " + self.strategies.text(strategy) + "\n"
         directive += self.findings.deliver(finding, island)
