@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from .llm.client import LLMError, accounted_cost, llm_error_metadata
 from .provider_abandonment import AbandonedProviderRequest
-from .prompt.build import EDIT_OPS, build, build_fix
+from .prompt.build import EDIT_OPS, block_sizes, build, build_fix
 from .prompt.parse import extract_code, has_code_block, parse_bet
 from .prompt.patch import apply_edits, parse_edits
 from .types import NoChild, Result
@@ -176,6 +176,9 @@ def run_worker(op: str, snapshot, llm, evaluate_fn, dup_cap: int = 4,
             attempt_trace = trace_attempt(
                 validation, extracted_code=child, response=resp, attempt=attempt + 1,
                 operator=op_cur, temperature=temp, cost=response_cost)
+            attempt_trace["prompt_chars"] = len(prompt)
+            if op_cur != "fix":
+                attempt_trace["prompt_blocks"] = block_sizes(snapshot)
             if patch is not None:
                 attempt_trace["patch"] = patch.summary()
             validation_trace["attempts"].append(attempt_trace)

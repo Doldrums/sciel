@@ -29,7 +29,7 @@ class EngineTelemetry:
         context = dict(getattr(self.log, '_llm_context', {}))
         # A preceding request's context must never label a different call.
         if context.pop('prompt_sha256', None) != hashlib.sha256(prompt.encode('utf-8')).hexdigest():
-            context = dict(role='unknown', iteration=self.iteration_no + 1)
+            context = dict(role='generator', iteration=self.iteration_no + 1)
         self.log._llm_context = {}
         if prompt.startswith(PREAMBLE):
             context = dict(role='theorist', iteration=self.iteration_no + 1)

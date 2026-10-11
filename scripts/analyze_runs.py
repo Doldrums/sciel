@@ -70,6 +70,31 @@ def record_attribution(run: Path) -> dict:
                            "records": at_record[arm]} for arm in sorted(active)}}
 
 
+def llm_usage(run: Path, evaluations: int) -> dict:
+    """Calls, prompt size, tokens and cost per role, and per evaluation, from the run's LLM call log."""
+    path = run / "artifacts" / "llm_calls.jsonl"
+    if not path.exists():
+        return {}
+    roles = defaultdict(lambda: {"calls": 0, "prompt_chars": [], "prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0})
+    for line in path.read_text().splitlines():
+        call = json.loads(line)
+        role = roles[call.get("role", "unknown")]
+        if call.get("event") == "request":
+            role["calls"] += 1
+            role["prompt_chars"].append(call.get("prompt_chars", 0))
+        elif call.get("event") == "response":
+            role["prompt_tokens"] += call.get("prompt_tokens") or 0
+            role["completion_tokens"] += call.get("completion_tokens") or 0
+            role["cost"] += call.get("cost") or 0.0
+    out = {}
+    for name, role in roles.items():
+        sizes = role.pop("prompt_chars")
+        out[name] = {**role, "mean_prompt_chars": sum(sizes) / max(len(sizes), 1), "max_prompt_chars": max(sizes, default=0)}
+    total = {key: sum(r[key] for r in out.values()) for key in ("prompt_tokens", "completion_tokens", "cost")}
+    out["per_evaluation"] = {key: value / max(evaluations, 1) for key, value in total.items()}
+    return out
+
+
 def best_at(points: list, budget: int) -> float | None:
     values = [score for evaluations, score in points if evaluations <= budget]
     return values[-1] if values else None
@@ -163,6 +188,8 @@ def main():
             arm["frontier"][budget] = {k: expected_max(values, k) for k in plan["seeds_k"]}
         spec = next(s for s in args.arms if s.startswith(name + "="))
         if not spec.endswith(".json"):
+            arm["llm_usage"] = {Path(p).name: llm_usage(Path(p), runs.get(Path(p).name, [(0, 0)])[-1][0] if runs.get(Path(p).name) else 0)
+                                for p in sorted(glob.glob(spec.split("=", 1)[1])) if (Path(p) / "sciel_events.jsonl").exists()}
             arm["record_attribution"] = {Path(p).name: record_attribution(Path(p)) for p in sorted(glob.glob(spec.split("=", 1)[1]))
                                          if (Path(p) / "sciel_events.jsonl").exists()}
         if args.values and not spec.endswith(".json"):

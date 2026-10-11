@@ -172,6 +172,15 @@ def build_fix(code: str, error: str, lineno: int | None) -> str:
         output_contract=EDIT_CONTRACT)
 
 
+def block_sizes(snapshot) -> dict:
+    """Characters each variable block contributes to a generation prompt, after its budget."""
+    return {"task": len(snapshot.task_prompt or ""), "parent": len(snapshot.parent_code or ""),
+            "inspirations": len(fit("inspirations", _summarize_inspirations(snapshot.inspirations))),
+            "directive": len(fit("directive", snapshot.directive or "")),
+            "lessons": len(fit("lessons", "\n".join(snapshot.kb_lessons))),
+            "artifacts": len(fit("artifacts", "\n".join(f"{k}: {v}" for k, v in snapshot.artifacts.items())))}
+
+
 def build(op: str, snapshot, *, edits: bool = False) -> str:
     template = _load_template(op)
     lessons = "\n".join(f"- {ls}" for ls in snapshot.kb_lessons) or "(none)"
