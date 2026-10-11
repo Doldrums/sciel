@@ -141,6 +141,7 @@ class EngineStepCycle:
             self.decisions.observe("parent", parent_distribution, selected.parent_id)
         parent = self.db.get(selected.parent_id)
         decision_context["parent_id"] = parent.id
+        decision_context["population"] = [p.id for p in self.db.islands[island].top_k(16)]
         planner = self.decisions.sample("planner", self.experiments.allocate("planner", context,
             self.theory.tilt("planner", context, self._planners())))
         fresh_failure = selected.parent_id in self.lineage_fail

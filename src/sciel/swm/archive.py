@@ -45,6 +45,7 @@ class LatentArchive:
     def rebuild(self, world, programs: list, seed: int) -> None:
         programs = [p for p in programs if np.isfinite(p.score)]
         if not world.ready or len(programs) < 2 * max(KS):
+            self.centres, self.elites, self.k = None, [], 0
             return
         z = np.stack([world.latent(p.id) for p in programs])
         rng = np.random.default_rng(seed)

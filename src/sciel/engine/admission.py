@@ -249,20 +249,22 @@ class EngineAdmission:
         self.ledger.add(iteration=self.iteration_no, island=island, decision_context=decision_context,
                         child=child, parent=parent, event=event)
         if self.swm.due(self.iteration_no):
-            if self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm")):
-                self.log.decision(policy="swm", action="fit", iteration_no=self.iteration_no,
-                                  actions=len(self.swm.vocab), uncertain_above=self.swm.uncertain_above)
-                if getattr(self.db.niche_fn, "rebuild", None) is not None:
-                    programs = sorted((p for island in self.db.islands for p in island.programs.values()),
-                                      key=lambda p: int(p.id[1:]))
-                    self.db.niche_fn.rebuild(programs)
-                    self.db.reencode_niches()
-                    self.log.decision(policy="niches", action="rebuild", iteration_no=self.iteration_no,
-                                      space=self.db.niche_fn.space, niches=self.db.niche_fn.k)
-                self.memory.rebuild(self.swm, list(self.db._all.values()), self.rng.derive_seed("swm"))
-                if self.memory.ready:
-                    self.log.decision(policy="memory", action="rebuild", iteration_no=self.iteration_no,
-                                      cells=self.memory.k, elites=self.memory.elites)
+            fitted = self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm"))
+            if self.swm.gate is not None:
+                self.log.decision(policy="swm", action="fit" if fitted else "held_back", iteration_no=self.iteration_no,
+                                  actions=len(self.swm.vocab), uncertain_above=self.swm.uncertain_above, **self.swm.gate)
+            if getattr(self.db.niche_fn, "rebuild", None) is not None:
+                programs = sorted((p for island in self.db.islands for p in island.programs.values()),
+                                  key=lambda p: int(p.id[1:]))
+                self.db.niche_fn.rebuild(programs)
+                self.db.reencode_niches()
+                self.log.decision(policy="niches", action="rebuild", iteration_no=self.iteration_no,
+                                  space=self.db.niche_fn.space, niches=self.db.niche_fn.k)
+            self.memory.rebuild(self.swm, list(self.db._all.values()), self.rng.derive_seed("swm"))
+            if self.memory.ready:
+                self.log.decision(policy="memory", action="rebuild", iteration_no=self.iteration_no,
+                                  cells=self.memory.k, elites=self.memory.elites)
+            if fitted:
                 if self.learner.fit(self.ledger, self.swm, self.rng.derive_seed("swm")):
                     self.log.decision(policy="learner", action="fit", iteration_no=self.iteration_no,
                                       actions=self.learner.actions)

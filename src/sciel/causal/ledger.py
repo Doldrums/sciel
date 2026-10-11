@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 HORIZON = 20
 MAX_ROWS = 20000
@@ -22,6 +22,7 @@ class Row:
     state: str | None = None
     reward: float = 0.0
     scope: str = "lineage"
+    population: list = field(default_factory=list)
 
 
 def context_of(decision_context: dict) -> str:
@@ -44,7 +45,8 @@ class Ledger:
                                  context=context, distribution=dict(record["distribution"]),
                                  choice=str(record["choice"]), propensity=float(record["propensity"]),
                                  child=child, outcome=None if child is not None else 0.0,
-                                 state=decision_context.get("parent_id"), reward=float(event)))
+                                 state=decision_context.get("parent_id"), reward=float(event),
+                                 population=list(decision_context.get("population", []))))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:

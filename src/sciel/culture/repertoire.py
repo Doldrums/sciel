@@ -48,6 +48,7 @@ class Heritage:
         self.methods = value["methods"]
         self.swm = SearchWorldModel(db, ())
         self.swm.load_state(value["swm"])
+        self.swm.edges = {}
         self.learner = PopulationLearner()
         self.learner.load_state(value["learner"])
 
