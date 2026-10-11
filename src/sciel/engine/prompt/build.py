@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import os
 
+from .budget import fit
 from .sources import source_bundle, source_catalog_block, source_reference
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -30,9 +31,10 @@ EDIT_CONTRACT = (
 _FIX_CONTEXT = 8
 
 _BET_BLOCK = (
-    "\nAfter the code block, state a wager on one line exactly as:\n"
-    'BET: {mechanism: "<what and why this may cause a jump>", q: <0..1>}\n'
-    "where q is your probability the child beats the island best."
+    "\nAfter the code block, state a forecast on one line exactly as:\n"
+    'BET: {mechanism: "<what and why this may cause a jump>", q: <0..1>, delta: [<low>, <high>]}\n'
+    "where q is your probability the child beats the island best and delta is the range you expect "
+    "for the child's score minus the parent's score."
 )
 
 
@@ -197,12 +199,12 @@ def build(op: str, snapshot, *, edits: bool = False) -> str:
         task_prompt=snapshot.task_prompt,
         parent_code=parent_code,
         parent_score=f"{snapshot.parent_score:.4f}",
-        inspirations=(_summarize_inspirations(inspirations) if bundle is None and op != "cross"
-                      else _format_inspirations(inspirations)),
-        directive=snapshot.directive or "(none)",
-        lessons=lessons,
-        artifacts=artifacts,
-        bet_block=_BET_BLOCK if snapshot.bet_enabled else "",
+        inspirations=fit("inspirations", _summarize_inspirations(inspirations) if bundle is None and op != "cross"
+                         else _format_inspirations(inspirations)),
+        directive=fit("directive", snapshot.directive or "(none)"),
+        lessons=fit("lessons", lessons),
+        artifacts=fit("artifacts", artifacts),
+        bet_block=_BET_BLOCK,
         output_contract=EDIT_CONTRACT if edits and bundle is None else _FULL_CONTRACT.get(op, ""),
     )
     return prompt + '\n' + source_catalog_block(bundle) if bundle is not None else prompt

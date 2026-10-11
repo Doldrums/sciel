@@ -5,6 +5,7 @@ import json
 import math
 import re
 from copy import deepcopy
+from .prompt.budget import tail
 from .llm.client import llm_error_metadata
 from .validation import source_sha256
 from ..campaign.budget import CampaignStopped
@@ -80,8 +81,8 @@ def candidate_retry_prompt(prompt, response, validation=None, *, reason=None, me
             'however small the improvement; shrinking or perturbing a known output without improvement is insufficient. '
             'Do not claim efficacy from reproducing this known output.\n'
             'MEASURED_REPEAT_JSON:\n' + json.dumps(measured_repeat, ensure_ascii=True, allow_nan=False) + '\n'
-            'PREVIOUS_RESPONSE_JSON (exact previous generator response):\n'
-            + json.dumps(response, ensure_ascii=True) + '\n')
+            'PREVIOUS_RESPONSE_JSON (end of the previous generator response):\n'
+            + json.dumps(tail(response), ensure_ascii=True) + '\n')
     novelty = validation.novelty if validation is not None else None
     violation = validation.violation if validation is not None else None
     feedback = {'reason': reason or (violation.detail or violation.kind if violation else 'invalid candidate'),
@@ -92,8 +93,8 @@ def candidate_retry_prompt(prompt, response, validation=None, *, reason=None, me
             'do not merely reword its forecast, comments, or formatting. Embedding similarity alone '
             'is not proof of equivalent behavior.\n'
             'REFUSAL_JSON:\n' + json.dumps(feedback, ensure_ascii=True, allow_nan=False) + '\n'
-            'PREVIOUS_RESPONSE_JSON (exact previous generator response):\n'
-            + json.dumps(response, ensure_ascii=True) + '\n')
+            'PREVIOUS_RESPONSE_JSON (end of the previous generator response):\n'
+            + json.dumps(tail(response), ensure_ascii=True) + '\n')
 
 def evaluation_attempt(outcome, source):
     """Retain every returned measurement, including rejected mutations."""
