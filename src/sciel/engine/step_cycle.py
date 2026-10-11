@@ -147,10 +147,14 @@ class EngineStepCycle:
         # Freeze usable donor inputs before choosing the operator. Scan the
         # ranked local pool before applying the three-source prompt limit, so
         # exact-source aliases at its head cannot hide a later distinct donor.
+        source = self.decisions.sample("inspiration_source", self.experiments.allocate("inspiration_source",
+            context, self.theory.tilt("inspiration_source", context,
+                {"island": 0.5, "archive": 0.5} if self.memory.ready else {"island": 1.0})))
+        donors = (self.db.inspirations(island, selected.parent_id, k=len(self.db.islands[island].programs))
+                  if source == "island" else [self.db.get(pid) for pid in self.memory.neighbours(
+                      self.swm, parent.id, {parent.id})])
         inspirations = usable_inspirations(parent.id, parent.code,
-            [{'program_id': p.id, 'code': p.code, 'score': p.score, 'card': p.card}
-             for p in self.db.inspirations(island, selected.parent_id,
-                 k=len(self.db.islands[island].programs))])
+            [{'program_id': p.id, 'code': p.code, 'score': p.score, 'card': p.card} for p in donors])
         # exploit-on-stall: pop_best has idled for `refine_stall` evals and this
         # parent is within `refine_elite_frac` of the best -> deepen the incumbent
         # (bias diff, hand a reformulation directive) instead of re-exploring.

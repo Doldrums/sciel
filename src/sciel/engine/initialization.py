@@ -181,7 +181,7 @@ class EngineInitialization:
         self.strategies = Strategies()
         self.procedures = Procedures()
         self._procedure = self.procedures.get("p0")
-        from ..swm import PopulationLearner, SearchWorldModel
+        from ..swm import LatentArchive, PopulationLearner, SearchWorldModel
         from ..theory.claims import DECISIONS
         self.swm = SearchWorldModel(self.db, DECISIONS)
         self.theory.outcome_model = self.swm
@@ -189,6 +189,7 @@ class EngineInitialization:
             from ..swm.niches import LatentNiches
             self.db.niche_fn = LatentNiches(self.swm)
         self.learner = PopulationLearner()
+        self.memory = LatentArchive()
         from .eviction_planner import EvictionPlanner
         self.db.eviction_rule = EvictionPlanner(self)
         self.heritage = None

@@ -6,7 +6,6 @@ Before the first fit the codebook lives in the task's behavior descriptors.
 from __future__ import annotations
 
 import numpy as np
-import torch
 
 from ..components.policy.code_embed import BEHAVIOR_EXTRA_KEYS, VQBook, behavior_value, featurize
 
@@ -21,10 +20,7 @@ class LatentNiches:
     def _vector(self, code: str, cases: dict) -> np.ndarray:
         if self.space == "behavior":
             return np.array([behavior_value(cases, k) for k in BEHAVIOR_EXTRA_KEYS], dtype=np.float32)
-        x = np.concatenate([featurize(code, cases), [0.0, 0.0]]).astype(np.float32)
-        with torch.no_grad():
-            z = self.world.net.encoder(torch.tensor(((x - self.world.mean) / self.world.std)[None].astype(np.float32)))
-        return z[0].numpy()
+        return self.world.encode(featurize(code, cases))
 
     def assign(self, code: str, cases: dict) -> int:
         return self.book.assign(self._vector(code, cases))

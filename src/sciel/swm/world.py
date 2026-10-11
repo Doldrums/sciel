@@ -35,6 +35,7 @@ class SearchWorldModel:
         self.trained_at = None
         self.uncertain_above = None
         self._cache: dict[str, np.ndarray] = {}
+        self._latents: dict = {}
 
     @property
     def ready(self) -> bool:
@@ -83,6 +84,7 @@ class SearchWorldModel:
                                   ).astype(np.float32),
                 "has_child": np.array([c is not None for c in children])}
         self.net = model.fit(data, len(self.vocab), seed)
+        self._latents = {}
         spread = model.predict(self.net, data["x"], data["a"])["epistemic"]
         self.uncertain_above = float(np.quantile(spread, UNCERTAIN_QUANTILE))
         return True
@@ -96,6 +98,17 @@ class SearchWorldModel:
         xs = np.repeat(((x - self.mean) / self.std)[None].astype(np.float32), len(actions), axis=0)
         out = model.predict(self.net, xs, np.array([index[k] for k in keys]))
         return {a: {name: float(out[name][i]) for name in out} for i, a in enumerate(actions)}
+
+    def encode(self, features: np.ndarray) -> np.ndarray:
+        x = np.concatenate([features, [0.0, 0.0]]).astype(np.float32)
+        with torch.no_grad():
+            return self.net.encoder(torch.tensor(((x - self.mean) / self.std)[None].astype(np.float32)))[0].numpy()
+
+    def latent(self, pid: str) -> np.ndarray:
+        key = (self.trained_at, pid)
+        if key not in self._latents:
+            self._latents[key] = self.encode(self._program(pid))
+        return self._latents[key]
 
     def tilt(self, pid: str, context: str, decision: str, distribution: dict) -> dict:
         x = self._x(pid, context)
@@ -134,7 +147,7 @@ class SearchWorldModel:
     def load_state(self, data: dict) -> None:
         self.vocab, self.trained_at = list(data["vocab"]), data["trained_at"]
         self.uncertain_above = data["uncertain_above"]
-        self._cache = {}
+        self._cache, self._latents = {}, {}
         self.net = None
         if data["weights"] is not None:
             self.mean = np.asarray(data["mean"], dtype=np.float32)

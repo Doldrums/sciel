@@ -259,6 +259,10 @@ class EngineAdmission:
                     self.db.reencode_niches()
                     self.log.decision(policy="niches", action="rebuild", iteration_no=self.iteration_no,
                                       space=self.db.niche_fn.space, niches=self.db.niche_fn.k)
+                self.memory.rebuild(self.swm, list(self.db._all.values()), self.rng.derive_seed("swm"))
+                if self.memory.ready:
+                    self.log.decision(policy="memory", action="rebuild", iteration_no=self.iteration_no,
+                                      cells=self.memory.k, elites=self.memory.elites)
                 if self.learner.fit(self.ledger, self.swm, self.rng.derive_seed("swm")):
                     self.log.decision(policy="learner", action="fit", iteration_no=self.iteration_no,
                                       actions=self.learner.actions)
