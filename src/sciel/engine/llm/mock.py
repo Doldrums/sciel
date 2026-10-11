@@ -53,6 +53,8 @@ def _structured(schema: dict, n: int) -> str:
                       parents=visible[:1] if n % 2 else [])
     if "arguments_json" in action:
         action["arguments_json"] = "{}"
+    if "finding" in action and n % 2:
+        action["finding"] = f"payload probe reports {n % 9973 / 7:.10f} on the target scale"
     if "replay_policy" in action:
         action["replay_policy"] = "independent_execution"
     return json.dumps(action)
