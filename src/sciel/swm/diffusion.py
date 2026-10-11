@@ -16,7 +16,7 @@ GUIDANCE = 2.0
 
 
 def _schedule():
-    betas = torch.linspace(1e-4, 0.05, STEPS)
+    betas = torch.linspace(1e-4, 0.2, STEPS)
     alphas = 1 - betas
     return betas, alphas, torch.cumprod(alphas, 0)
 
@@ -24,12 +24,12 @@ def _schedule():
 class Denoiser(nn.Module):
     def __init__(self, dim: int):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(dim + 3, HIDDEN), nn.SiLU(), nn.Linear(HIDDEN, HIDDEN), nn.SiLU(),
+        self.net = nn.Sequential(nn.Linear(dim + 4, HIDDEN), nn.SiLU(), nn.Linear(HIDDEN, HIDDEN), nn.SiLU(),
                                  nn.Linear(HIDDEN, dim))
 
     def forward(self, x, t, condition, present):
         phase = t.float()[:, None] / STEPS * math.pi
-        return self.net(torch.cat([x, torch.sin(phase), condition[:, None] * present[:, None], present[:, None]], -1))
+        return self.net(torch.cat([x, torch.sin(phase), torch.cos(phase), condition[:, None] * present[:, None], present[:, None]], -1))
 
 
 def sample(behaviors: np.ndarray, ranks: np.ndarray, count: int, seed: int) -> np.ndarray:

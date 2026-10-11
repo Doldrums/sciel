@@ -78,12 +78,15 @@ class SearchWorldModel:
             self.embedder.prefetch(p.code for p in self.db._all.values())
 
     def features(self, code: str, cases: dict) -> np.ndarray:
-        """Behavior and AST readouts plus the frozen code embedding (zeros until the next batched prefetch)."""
+        """Behavior and AST readouts plus the frozen code embedding; until the next batched prefetch the embedding is
+        imputed with its training mean, which the normalization maps to zero."""
         base = featurize(code, cases).astype(np.float32)
         if self.embedder is None:
             return base
         vector = self.embedder.get(code)
-        return np.concatenate([base, vector if vector is not None else np.zeros(DIM, np.float32)]).astype(np.float32)
+        if vector is None:
+            vector = self.mean[len(base):len(base) + DIM] if self.mean is not None else np.zeros(DIM, np.float32)
+        return np.concatenate([base, vector]).astype(np.float32)
 
     def _x(self, pid: str, context: str) -> np.ndarray | None:
         state = self._program(pid)
@@ -92,8 +95,11 @@ class SearchWorldModel:
     def _norm(self, pid: str, context: str) -> np.ndarray:
         return ((self._x(pid, context) - self.mean) / self.std).astype(np.float32)
 
-    def _rows(self, ledger) -> list:
+    def _rows(self, ledger, iteration: int | None = None) -> list:
+        """Labeled rows; for training, only rows whose horizon has passed, so recent failures and successes enter
+        together."""
         return [r for r in ledger.rows if r.outcome is not None and r.state is not None
+                and (iteration is None or iteration - r.iteration > ledger.horizon)
                 and r.decision in self.decisions and len(r.distribution) > 1
                 and self._program(r.state) is not None]
 
@@ -151,7 +157,7 @@ class SearchWorldModel:
 
     def fit(self, ledger, iteration: int, seed: int) -> bool:
         self.prefetch()
-        rows = self._rows(ledger)[-MAX_TRAIN:]
+        rows = self._rows(ledger, iteration)[-MAX_TRAIN:]
         self.trained_at = iteration
         if len(rows) < MIN_ROWS:
             self.net = None
@@ -160,7 +166,14 @@ class SearchWorldModel:
         index = {k: i for i, k in enumerate(self.vocab)}
         self.edges = {r.child: (index[f"operator:{r.choice}"], r.reward) for r in ledger.rows
                       if r.decision == "operator" and r.child and f"operator:{r.choice}" in index}
-        x = np.stack([self._x(r.state, r.context) for r in rows])
+        islands = sorted({r.island for r in rows})
+        out = islands[(iteration // FIT_INTERVAL) % len(islands)]
+        held = np.array([i for i, r in enumerate(rows) if r.island == out])
+        kept = np.array([i for i, r in enumerate(rows) if r.island != out])
+        if len(islands) < 2 or len(kept) < MIN_ROWS // 2 or len(held) < MIN_HELD:
+            self.net = None
+            return False
+        x = np.stack([self._x(rows[i].state, rows[i].context) for i in kept])
         self.mean, self.std = x.mean(0), x.std(0) + 1e-3
         children = [r.child if r.child and self._program(r.child) is not None else None for r in rows]
         data = self._batch([r.state for r in rows], [r.context for r in rows],
@@ -173,14 +186,9 @@ class SearchWorldModel:
             valid=np.array([r.child is not None for r in rows], dtype=np.float32),
             boot=np.random.default_rng(seed).poisson(1.0, size=(len(rows), model.HEADS)).astype(np.float32),
             has_child=np.array([c is not None for c in children]))
-        islands = sorted({r.island for r in rows})
-        out = islands[(iteration // FIT_INTERVAL) % len(islands)]
-        held = np.array([i for i, r in enumerate(rows) if r.island == out])
-        kept = np.array([i for i, r in enumerate(rows) if r.island != out])
-        if len(islands) < 2 or len(kept) < MIN_ROWS // 2 or len(held) < MIN_HELD:
-            self.net = None
-            return False
-        net, _ = model.fit(model.rows(data, kept), model.rows(data, held), len(self.vocab), seed)
+        order = np.random.default_rng(seed).permutation(kept)
+        valid, train = order[:max(len(order) // 5, 1)], order[max(len(order) // 5, 1):]
+        net, _ = model.fit(model.rows(data, train), model.rows(data, valid), len(self.vocab), seed)
         self.cells = _outcome_model([SimpleNamespace(context=rows[i].context, choice=f"{rows[i].decision}:{rows[i].choice}",
                                                      outcome=rows[i].outcome) for i in kept])
         y = data["y"][held]
@@ -194,7 +202,7 @@ class SearchWorldModel:
         self._latents = {}
         if self.net is None:
             return False
-        spread = model.predict(self.net, data)["epistemic"]
+        spread = model.predict(self.net, model.rows(data, kept))["epistemic"]
         self.uncertain_above = float(np.quantile(spread, UNCERTAIN_QUANTILE))
         return True
 

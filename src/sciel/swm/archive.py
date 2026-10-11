@@ -1,6 +1,7 @@
 """Long-term memory: a CVT archive over every program of the run, evicted ones included, in the world model latent.
 
-The number of cells is the most bootstrap-stable k; each cell keeps its best program.
+The number of cells is the most bootstrap-stable k by adjusted Rand index, or the smallest k when no k is stable;
+each cell keeps its best program.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ BOOTSTRAPS = 4
 ITERATIONS = 25
 NEIGHBOURS = 3
 STABILITY_SAMPLE = 800
+STABLE = 0.5
 
 
 def _kmeans(z: np.ndarray, k: int, rng) -> np.ndarray:
@@ -27,9 +29,14 @@ def _labels(z: np.ndarray, centres: np.ndarray) -> np.ndarray:
 
 
 def _agreement(a: np.ndarray, b: np.ndarray) -> float:
-    same_a = a[:, None] == a[None]
-    same_b = b[:, None] == b[None]
-    return float((same_a == same_b).mean())
+    """Adjusted Rand index: pair agreement corrected for chance, so it does not grow with k on unstructured data."""
+    table = np.zeros((a.max() + 1, b.max() + 1))
+    np.add.at(table, (a, b), 1)
+    pairs = lambda x: (x * (x - 1) / 2).sum()
+    both, rows, cols, total = pairs(table), pairs(table.sum(1)), pairs(table.sum(0)), len(a) * (len(a) - 1) / 2
+    expected = rows * cols / total
+    top = (rows + cols) / 2
+    return float((both - expected) / (top - expected)) if top > expected else 1.0
 
 
 class LatentArchive:
@@ -56,6 +63,8 @@ class LatentArchive:
             stability = np.mean([_agreement(runs[i], runs[j]) for i in range(BOOTSTRAPS) for j in range(i + 1, BOOTSTRAPS)])
             if stability > best_stability:
                 best_k, best_stability = k, stability
+        if best_stability < STABLE:
+            best_k = KS[0]
         self.centres = _kmeans(z, best_k, rng)
         self.k = best_k
         labels = _labels(z, self.centres)

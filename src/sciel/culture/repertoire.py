@@ -64,7 +64,7 @@ class Heritage:
         return self.swm.ready
 
     def operator(self, parent_id: str, context: str, distribution: dict) -> dict:
-        planned = (self.learner.policy(self.swm, parent_id, context, distribution) if self.learner.ready
+        planned = (self.learner.policy(self.swm, parent_id, context, distribution) if self.learner.current(self.swm)
                    else self.swm.tilt(parent_id, context, "operator", distribution))
         return self.theory.tilt("operator", context, planned)
 

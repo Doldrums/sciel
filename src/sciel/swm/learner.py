@@ -1,4 +1,5 @@
-"""Population actor over all islands, trained with V-trace on the logged propensities against the world model's critic."""
+"""Population actor over all islands: one-step off-policy actor-critic with importance ratios against the logged
+propensities clipped at one, and advantages from the world model's TD critic."""
 
 from __future__ import annotations
 
@@ -36,10 +37,15 @@ class PopulationLearner:
         self.decision = decision
         self.actions: list[str] = []
         self.net = None
+        self.version = None
 
     @property
     def ready(self) -> bool:
         return self.net is not None
+
+    def current(self, world) -> bool:
+        """Trained against the world model's accepted fit, so its inputs share that fit's normalization."""
+        return self.ready and world.ready and self.version == world.trained_at
 
     def fit(self, ledger, world, seed: int, epochs: int = 150, lr: float = 3e-3) -> bool:
         if not world.ready:
@@ -75,12 +81,13 @@ class PopulationLearner:
             loss.backward()
             opt.step()
         self.net = net.eval()
+        self.version = world.trained_at
         return True
 
     @torch.no_grad()
     def policy(self, world, pid: str, context: str, distribution: dict) -> dict:
         x = world._x(pid, context)
-        if not self.ready or x is None or any(a not in self.actions for a in distribution):
+        if not self.current(world) or x is None or any(a not in self.actions for a in distribution):
             return dict(distribution)
         logits = self.net(torch.tensor(_norm(world, pid, context)[None]))
         index = {a: i for i, a in enumerate(self.actions)}
@@ -93,10 +100,10 @@ class PopulationLearner:
             buffer = io.BytesIO()
             torch.save(self.net.state_dict(), buffer)
             weights = base64.b64encode(buffer.getvalue()).decode()
-        return {"decision": self.decision, "actions": self.actions, "weights": weights}
+        return {"decision": self.decision, "actions": self.actions, "weights": weights, "version": self.version}
 
     def load_state(self, data: dict) -> None:
-        self.decision, self.actions = data["decision"], list(data["actions"])
+        self.decision, self.actions, self.version = data["decision"], list(data["actions"]), data["version"]
         self.net = None
         if data["weights"] is not None:
             state = torch.load(io.BytesIO(base64.b64decode(data["weights"])))

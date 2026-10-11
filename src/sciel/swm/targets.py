@@ -49,9 +49,10 @@ def propose(db, seed: int, method: str = "kde") -> dict | None:
     else:
         picks = rng.choice(len(programs), size=CANDIDATES, p=weights)
         candidates = np.clip(behaviors[picks] + rng.normal(0, BANDWIDTH, size=(CANDIDATES, behaviors.shape[1])), 0, 1)
-    occupied = np.stack([np.stack([_behavior(p) for p in island.programs.values()]).mean(0)
-                         for island in db.islands if island.programs])
-    distance = np.sqrt(((candidates[:, None] - occupied[None]) ** 2).sum(-1)).min(1)
+    occupied = [np.stack([_behavior(p) for p in island.programs.values()]).mean(0) for island in db.islands
+                if island.programs]
+    distance = (np.sqrt(((candidates[:, None] - np.stack(occupied)[None]) ** 2).sum(-1)).min(1) if occupied
+                else np.zeros(len(candidates)))
     best = int(np.argmax(_log_density(candidates, behaviors, weights) + NOVELTY * distance / BANDWIDTH))
     return {k: round(float(v), 3) for k, v in zip(BEHAVIOR_EXTRA_KEYS, candidates[best])}
 

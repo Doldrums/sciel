@@ -126,7 +126,8 @@ def _held_out(net, batch, bce) -> float:
     net.eval()
     z, context = net.context(batch)
     values, _ = net.heads(net.joint(z, context, batch["a"]))
-    return float(bce(values.mean(-1), batch["y"]).mean())
+    p = torch.sigmoid(values).mean(-1).clamp(1e-6, 1 - 1e-6)
+    return float(-(batch["y"] * p.log() + (1 - batch["y"]) * (1 - p).log()).mean())
 
 
 def fit(train_data: dict, valid_data: dict, actions: int, seed: int, steps: int = 300, size: int = 256,
