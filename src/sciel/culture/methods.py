@@ -25,7 +25,9 @@ def export_methods(engine) -> list:
 
 
 def import_methods(tools, methods: list, islands: int) -> list:
-    """Parents are lineage metadata and follow re-registration; code dependencies are imported by ID and must not move."""
+    """Parents are lineage metadata: they follow re-registration and parents left behind by the donor are dropped.
+    Code imports dependencies by ID, so their new IDs are written into the code; a method whose dependency was not
+    passed on cannot run and is not imported."""
     known, renamed, imported = {m["id"] for m in methods}, {}, []
     pending = list(methods)
     while pending:
@@ -34,10 +36,14 @@ def import_methods(tools, methods: list, islands: int) -> list:
             break
         for m in ready:
             pending.remove(m)
-            if any(renamed.get(d) != d for d in m["dependencies"]) or any(p not in renamed for p in m["parents"]):
+            if any(d not in renamed for d in m["dependencies"]):
                 continue
-            bundle = tools.library.register(m["name"], m["description"], m["code"], m["author_island"] % islands,
-                                            [renamed[p] for p in m["parents"]], dependencies=m["dependencies"],
+            code = m["code"]
+            for d in m["dependencies"]:
+                code = code.replace(d, renamed[d])
+            bundle = tools.library.register(m["name"], m["description"], code, m["author_island"] % islands,
+                                            [renamed[p] for p in m["parents"] if p in renamed],
+                                            dependencies=[renamed[d] for d in m["dependencies"]],
                                             replay_policy=m["replay_policy"])
             renamed[m["id"]] = bundle["id"]
             imported.append(bundle["id"])

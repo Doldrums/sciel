@@ -41,6 +41,8 @@ def prepare(tools, snapshot, *, signals=None):
     branch_due = bool(pending_trial and (prior_research or {}).get('status') not in ('open','step_limit')
                       and not (prior_research or {}).get('transfer_review_pending'))
     fresh_result = fresh_result or branch_due
+    if tools.culture is not None:
+        tools.culture.question = None
     proactive = tools._proactive_reservation(signals) if not fresh_result else None
     tools._state['run_id'] = tools.lifecycle.run_id = targets['run_id']
     tools._state['opportunities'][island] = opportunity + 1

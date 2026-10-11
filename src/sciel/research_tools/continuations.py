@@ -213,7 +213,7 @@ class ContinuationMixin:
             # Automatic assigned replay retains its first assigned action. All
             # later work continues the same enduring question, not a new genesis.
             if entry['dispatch_count']:
-                plan.update(stage='research', assigned_tool_id=None, reference_receipt_id=None)
+                plan.update(stage='research', assigned_tool_id=None, reference_receipt_id=None, suggested_tool_id=None)
             plan.update(schema=CONTRACT, cell_revision_id=cell['head_revision'],
                 island_id=snapshot.island, parent_program_id=snapshot.parent_id,
                 iteration=snapshot.iteration_no + 1, cadence_reason='independent_continuation',
@@ -233,6 +233,8 @@ class ContinuationMixin:
             assigned = plan.get('assigned_tool_id')
             if assigned and assigned not in visible:
                 visible.append(assigned)
+            if self.culture is not None:
+                visible = [ident for ident in visible if ident == assigned or not self.culture.retired(ident)]
             plan.update(visible_tool_ids=visible,
                 published_tool_ids=[ident for ident in visible if ident in self._state['published']],
                 library_revision=content_hash(self._state['published']),

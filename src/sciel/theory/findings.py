@@ -14,7 +14,7 @@ CANDIDATES = 4
 NONE_SHARE = 0.4
 MAX_CULTURE = 3
 MAX_CHARS = 600
-_NUMBER = re.compile(r"-?\d+\.\d{5,}(?:[eE][-+]?\d+)?")
+_NUMBER = re.compile(r"(?<![\w.])-?(?:\d+\.\d+(?:[eE][-+]?\d+)?|\d+[eE][-+]?\d+)(?![\w.])")
 _WORD = re.compile(r"[a-z]+|\d+(?:\.\d+)?")
 SIMILAR = 0.6
 
@@ -30,6 +30,15 @@ def _similar(a: str, b: str) -> bool:
 
 def _round(text: str) -> str:
     return _NUMBER.sub(lambda m: f"{float(m.group()):.4g}", text)
+
+
+_HEDGE = re.compile(r"\b(guess|not run|n't run|untested|cannot run|can't run|estimate of the score)\b", re.IGNORECASE)
+
+
+def lesson(mechanism: str, before: float, after: float) -> str:
+    """A measured improvement: the mechanism the generator named, without its hedges, and the scores it moved."""
+    sentences = [x for x in re.split(r"(?<=[.!?])\s+", " ".join(mechanism.split())) if x and not _HEDGE.search(x)]
+    return f"{' '.join(sentences[:2])} Measured: {before:.4g} -> {after:.4g}."
 
 
 def fresh(items: list) -> str:
@@ -71,9 +80,11 @@ class Findings:
             if item.get("kind", "finding") == "finding" and not item.get("receipt_id"):
                 continue
             text = _round(" ".join(item["text"].split()))
-            same = next((f for f in self.pool if f.kind == item.get("kind", "finding") and _similar(f.text, text)), None)
+            same = next((f for f in self.pool if f.kind == item.get("kind", "finding") and f.status != "retired"
+                         and _similar(f.text, text)), None)
             if same is not None:
                 same.created += 1
+                same.text, same.receipt_id = text, item.get("receipt_id") or same.receipt_id
                 continue
             finding = Finding(id=f"f{len(self.pool) + 1}", text=text, cell_id=item.get("cell_id"),
                               island=int(item["island_id"]), receipt_id=item.get("receipt_id"), born=iteration,
@@ -106,12 +117,9 @@ class Findings:
 
     def judge(self, theory) -> list[Finding]:
         changed = []
-        for claim in theory.claims:
-            finding = next((f for f in self.pool if f.id == claim.action), None)
-            if claim.decision != "finding" or finding is None or not claim.decided:
-                continue
-            status = "culture" if claim.effect > 0 else "retired"
-            if finding.status != status:
+        for finding in self.pool:
+            status = schools.verdict(theory, "finding", finding.id)
+            if status is not None and finding.status != status:
                 finding.status = status
                 changed.append(finding)
         return changed

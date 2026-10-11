@@ -201,8 +201,9 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
             action = parse_action(response.text,tools.config,visible_tool_ids=available)
             if action['finding']:
                 findings.append({'text':action['finding'],'proposal_id':proposal_id,'cell_id':plan['cell_id'],
-                    'island_id':plan['island_id'],'receipt_id':next((row['receipt_id'] for row in reversed(state['steps'])
-                        if row.get('receipt_id') and row.get('status') == 'success'), None)})
+                    'island_id':plan['island_id'],'receipt_id':next((row.get('receipt_id') or row.get('canonical_evaluation_id')
+                        for row in reversed(state['steps']) if row.get('receipt_id') and row.get('status') == 'success'
+                        or row.get('canonical_evaluation_id') and row.get('status') == 'evaluated'), None)})
             if tools.config.get('experimental_protocol'):
                 from .experiment_protocol import validate_dispatch
                 protocol_audit = validate_dispatch(action,evidence.dispatch_plan,selected['source_sha256'],
@@ -228,11 +229,13 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
                 state['status'] = 'closed'
                 break
             if action['action'] == 'submit_candidate':
-                if 'refuted' in (state.get('conclusion'), action.get('conclusion')):
-                    raise ValueError('a candidate cannot rest on a conclusion this cell has refuted')
-                if action['candidate_receipt_id'] not in {row.get('receipt_id') for row in state['steps']
-                                                          if row.get('status') == 'success'}:
+                cited = next((i for i, row in enumerate(state['steps']) if row.get('status') == 'success'
+                              and row.get('receipt_id') == action['candidate_receipt_id']), None)
+                if cited is None:
                     raise ValueError('a candidate must come from a successful receipt of this cell')
+                if action.get('conclusion') == 'refuted' or any(row.get('conclusion') == 'refuted'
+                                                                for row in state['steps'][cited:]):
+                    raise ValueError('a candidate cannot rest on a receipt this cell has since refuted')
                 evidence.submit_saved(action,proposal_id=proposal_id,cost=cost)
                 repairs = 0
                 continue
