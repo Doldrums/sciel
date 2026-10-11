@@ -91,7 +91,7 @@ def compute_task_hash(root: str, cfg: dict) -> str:
 
 
 def load_task(root: str) -> TaskSpec:
-    from ..hypothesis.measurement import validate_research_metric
+    from ..evidence.measurement import validate_research_metric
     from .output_identity import validate_output_identity_config
     from .task_prompt import validate_task_prompt
     from .sandbox import validate_stage_limits

@@ -13,7 +13,7 @@ from .repeat_journal import digest, encoded, immutable_file
 from .repeat_promotion import (RepeatPromotion, RepeatPromotionError,
                                _aggregate, _finite, _source_sha)
 from ..knowledge_base.paired_comparisons import _adapter, _receipt
-from ..hypothesis.measurement import validate_metric_context
+from ..evidence.measurement import validate_metric_context
 
 CONTRACT = "sciel-paired-batches/1"
 

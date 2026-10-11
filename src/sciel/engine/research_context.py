@@ -9,7 +9,7 @@ from ..knowledge_base.presentation import (
     LEGACY_COMPARISON_CARD_SCHEMA,
 )
 from ..hypothesis.rendering import reference_rules, serialize_card
-from ..hypothesis.measurement import validate_cases
+from ..evidence.measurement import validate_cases
 from ..hypothesis.conclusion_feedback import conclusion_feedback
 from ..hypothesis.prompts import COMPARISON_RULES, PAIRED_COMPARISON_RULES
 from ..knowledge_base.catalogs import canonical_json

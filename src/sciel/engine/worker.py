@@ -19,7 +19,7 @@ from .validation import candidate_attempt_limit, candidate_registry_enabled
 from .validation import graft_entrypoints as _graft_entrypoints  # noqa: F401 (back compatibility)
 from ..campaign.budget import CampaignStopped, RequestNotDispatched
 from ..eval.facade import EvaluationInfrastructureError
-from ..hypothesis.measurement import evaluation_observation
+from ..evidence.measurement import evaluation_observation
 from .viability import Violation, _docstring_repair, pre_eval_gate  # noqa: F401 (back compatibility)
 
 

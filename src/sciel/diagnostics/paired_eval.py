@@ -118,7 +118,7 @@ def _read_setup(path):
 def _task_identity(task):
     from ..engine.repeat_support import NATIVE_GEOMETRY_TASK_EVALUATORS
     from ..eval.registry import load_task
-    from ..hypothesis.measurement import metric_context
+    from ..evidence.measurement import metric_context
 
     if task.qualified_name != 'oe/circle_packing' or task.primary_metric != 'combined_score':
         raise ValueError('diagnostic requires the native Circle task')

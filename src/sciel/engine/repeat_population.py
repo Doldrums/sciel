@@ -13,7 +13,7 @@ import hashlib
 import json
 import math
 
-from ..hypothesis.measurement import validate_metric_context
+from ..evidence.measurement import validate_metric_context
 from ..knowledge_base import paired_comparisons as evidence
 from .repeat_promotion import bootstrap_decision, paired_dominance
 

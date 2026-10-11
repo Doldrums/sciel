@@ -172,7 +172,7 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
             raise IdentityMismatch('cannot force or change circle generation checkpoint identity/state')
         try:
             from copy import copy
-            from .research import assert_no_uncheckpointed_research
+            from .journal_anchor import assert_no_uncheckpointed_research
             if 'research' not in state:
                 raise ValueError('checkpoint has no full research state')
             assert_no_uncheckpointed_research(engine.log.path, provenance.get('journal_anchor'))
@@ -256,7 +256,7 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
         if 'research' not in state:
             raise IdentityMismatch('checkpoint has no full research state; start a new run')
         try:
-            from .research import assert_no_uncheckpointed_research
+            from .journal_anchor import assert_no_uncheckpointed_research
             assert_no_uncheckpointed_research(engine.log.path, (provenance or {}).get('journal_anchor'))
             if restored_research is None:
                 research.load_state(state['research'])

@@ -7,7 +7,7 @@ import hashlib
 import math
 from .llm.client import accounted_cost, response_resolved_model
 from ..hypothesis import parse_hypothesis
-from ..hypothesis.measurement import validate_evaluation
+from ..evidence.measurement import validate_evaluation
 from ..hypothesis.controlled_changes import validate_controlled_change
 from ..knowledge_base.catalogs import canonical_json, canonical_sha
 from .research_protocol import (_OUTCOME_CAPTURES, digest)
@@ -294,7 +294,7 @@ class ResearchEvidence:
         repeated_output = False
         if output_novelty is not None:
             from .output_novelty import is_repeat
-            from ..knowledge_base.eligibility import validate_output_observation
+            from ..evidence.eligibility import validate_output_observation
             output_novelty = validate_output_observation(output_novelty,
                 source_sha256=record['source_sha256'], metric=record.get('metric'),
                 island=record.get('island'), evaluation=observation, status=status)

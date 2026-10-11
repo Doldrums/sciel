@@ -42,7 +42,7 @@ def from_run(directory, task):
         identity = saved.get('identity') or {}
         if identity.get('task') != task:
             raise ValueError('warm start task name differs')
-        from .research import assert_no_uncheckpointed_research
+        from .journal_anchor import assert_no_uncheckpointed_research
         assert_no_uncheckpointed_research(directory / 'sciel_events.jsonl', provenance.get('journal_anchor'))
         journal = (directory / 'sciel_events.jsonl').read_bytes()
         rows = [json.loads(line) for line in journal.splitlines()]

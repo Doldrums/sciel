@@ -8,7 +8,7 @@ from pathlib import Path
 from ..campaign.budget import CampaignStopped, RequestNotDispatched
 from ..hypothesis import circle_restart_body as builder
 from ..hypothesis import circle_baseline_equivalence
-from ..hypothesis.measurement import evaluation_observation
+from ..evidence.measurement import evaluation_observation
 from .db import normalized_hash
 from .prompt.sources import source_digest
 from .types import NoChild, Result

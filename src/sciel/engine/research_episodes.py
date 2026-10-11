@@ -11,7 +11,7 @@ from .llm.client import (
 )
 from ..hypothesis import hypothesis_instruction
 from ..hypothesis.rendering import reference_rules, serialize_context
-from ..hypothesis.measurement import validate_metric_context, validate_cases
+from ..evidence.measurement import validate_metric_context, validate_cases
 from ..hypothesis.prompts import (
     PAIRED_COMPARISON_RULES,
     PRIOR_EXPERIMENT_RULES,

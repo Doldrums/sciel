@@ -229,7 +229,7 @@ def validate_binding(geometry, observation, source_sha256=None, metric=None):
     if metric is not None:
         # Lazy import permits measurement's optional geometry projection without
         # creating a module initialization cycle.
-        from ..hypothesis.measurement import validate_metric_context
+        from ..evidence.measurement import validate_metric_context
         from ..engine.repeat_support import NATIVE_GEOMETRY_TASK_EVALUATORS
         descriptor = validate_metric_context(metric)
         _require(NATIVE_GEOMETRY_TASK_EVALUATORS.get(descriptor['task_hash']) == value['evaluator_sha256'],

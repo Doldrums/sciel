@@ -32,7 +32,7 @@ from ..hypothesis.rendering import (MAX_CONTEXT_CHARS, presentation_identity, re
 from .reflection_context import ALLOCATION_POLICY, prepare_reflection_context
 from .prompt.sources import (SCHEMA as SOURCE_SCHEMA, fragment_reference_views,
                              source_digest)
-from ..hypothesis.measurement import (metric_context, validate_metric_context,
+from ..evidence.measurement import (metric_context, validate_metric_context,
                                       validate_cases, validate_evaluation)
 from ..hypothesis.observed_facts import observed_comparison
 from ..hypothesis.controlled_changes import validate_controlled_change

@@ -245,7 +245,7 @@ class EngineInitialization:
         self.evaluation_timings: dict = {}  # explicit source-bound timing scope/provenance
         self.noop_parents: set = set()   # legacy score-tie warning; not behavior equivalence
         from .observed_changes import ObservedChanges
-        from ..hypothesis.measurement import metric_context
+        from ..evidence.measurement import metric_context
         self.observed_changes = ObservedChanges(metric=metric_context(task))
         # idea island (arch-v4 #2): the last island explores idea-space (forced
         # `idea` operator). None disables it.
@@ -298,7 +298,7 @@ class EngineInitialization:
         self.research = None
         if cfg.get('research', {}).get('enabled'):
             from .research import ResearchController
-            from ..hypothesis.measurement import metric_context
+            from ..evidence.measurement import metric_context
             self.research = ResearchController(cfg['research'], llm, self.log,
                                                self._charge_research, metric=metric_context(task))
         self.research_tools = None

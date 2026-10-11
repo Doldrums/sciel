@@ -9,8 +9,8 @@ from bisect import insort
 import math
 
 from ..methods.models import canonical_bytes, content_hash, require_hash
-from ..hypothesis.measurement import validate_evaluation, validate_metric_context
-from ..knowledge_base.eligibility import admission_facts, validate_output_observation, REPEAT_STATUSES
+from ..evidence.measurement import validate_evaluation, validate_metric_context
+from ..evidence.eligibility import admission_facts, validate_output_observation, REPEAT_STATUSES
 
 EXPOSURE_SCHEMA = 'sciel-method-exposures/1'
 FOLLOWUP_SCHEMA = 'sciel-method-followup/1'

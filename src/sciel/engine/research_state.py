@@ -8,7 +8,7 @@ from ..knowledge_base import KnowledgeBase
 from ..knowledge_base.retrieval import selection_identity
 from ..hypothesis.rendering import presentation_identity
 from .reflection_context import ALLOCATION_POLICY
-from ..hypothesis.measurement import validate_metric_context
+from ..evidence.measurement import validate_metric_context
 from ..hypothesis.conclusion_feedback import validate_conclusions
 from ..knowledge_base.paired_comparisons import SCHEMA as PAIRED_SCHEMA
 from ..knowledge_base.catalogs import canonical_json

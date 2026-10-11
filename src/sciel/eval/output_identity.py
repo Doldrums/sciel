@@ -245,7 +245,7 @@ def adapt_output(task, source_sha256, outcome, evaluation_binding):
         else:
             from .native_geometry import parse_artifact, validate_binding as native_binding
             from ..engine.repeat_support import NATIVE_GEOMETRY_TASK_EVALUATORS
-            from ..hypothesis.measurement import metric_context
+            from ..evidence.measurement import metric_context
             require(NATIVE_GEOMETRY_TASK_EVALUATORS.get(task.task_hash) == evaluator_sha,
                     'no registered full-output adapter')
             text = result.artifacts.get('native_geometry')

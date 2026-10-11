@@ -35,9 +35,9 @@ from ..engine.types import Program, Snapshot
 from ..engine.validation import validate_candidate
 from ..eval.registry import load_task
 from ..hypothesis import hypothesis_instruction, parse_hypothesis
-from ..hypothesis.change_audit import build_change_audit, summarize_change_audit, unit_catalog
+from ..evidence.change_audit import build_change_audit, summarize_change_audit, unit_catalog
 from ..hypothesis.intervention_claim import extract, instruction
-from ..hypothesis.measurement import metric_context
+from ..evidence.measurement import metric_context
 from .paired_eval import paired_draw
 
 ROOT = Path(__file__).resolve().parents[3]

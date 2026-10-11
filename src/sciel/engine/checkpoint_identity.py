@@ -186,7 +186,7 @@ def _identity(engine) -> dict:
         identity["presets"] = {"enabled": True, "adaptive": cfg.get("preset_adaptive", True)}
     if cfg.get('research', {}).get('enabled'):
         from ..hypothesis import CONTRACT
-        from ..hypothesis.measurement import metric_context
+        from ..evidence.measurement import metric_context
         from ..hypothesis.rendering import presentation_identity
         identity['research'] = {'contract': CONTRACT, 'config': cfg['research'],
                                 'metric': metric_context(engine.task),

@@ -12,7 +12,7 @@ import hashlib
 import json
 import math
 import re
-from ..hypothesis.change_audit import build_change_audit
+from ..evidence.change_audit import build_change_audit
 from .observed_schema import (
     RECORD_SCHEMA,
     SCHEMA,
@@ -50,7 +50,7 @@ class ObservedChanges:
 
     def __init__(self, metric=None):
         if metric is not None:
-            from ..hypothesis.measurement import validate_metric_context
+            from ..evidence.measurement import validate_metric_context
             metric = validate_metric_context(metric)
         self._metric = deepcopy(metric)
         self._records = []

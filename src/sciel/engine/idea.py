@@ -9,7 +9,7 @@ import json
 import math
 
 from ..campaign.budget import CampaignStopped, RequestNotDispatched
-from ..hypothesis.measurement import evaluation_observation
+from ..evidence.measurement import evaluation_observation
 from .prompt.parse import extract_code, parse_bet
 from .types import NoChild, Result
 from .provider_abandonment import AbandonedProviderRequest

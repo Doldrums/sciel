@@ -28,8 +28,8 @@ from . import packing_geometry as geometry
 from . import repeat_docker
 from .repeat_io import (RepeatInfrastructureError as RepeatInfrastructureError,
                         _read_json, _write_json)
-from ..hypothesis import restart_optimizer_trace as trace_codec
-from ..hypothesis import restart_trace as legacy_trace_codec
+from ..evidence import restart_optimizer_trace as trace_codec
+from ..evidence import restart_trace as legacy_trace_codec
 
 _DIRECTORY = Path(__file__).resolve().parent
 _FILES = {"adapter": _DIRECTORY / "repeat_draw.py", "runner": _DIRECTORY / "_repeat_runner.py",

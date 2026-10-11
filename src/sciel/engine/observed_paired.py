@@ -12,7 +12,7 @@ import json
 import math
 import re
 
-from ..hypothesis.change_audit import build_change_audit
+from ..evidence.change_audit import build_change_audit
 from ..knowledge_base.paired_comparisons import validate_comparison
 
 SCHEMA = 'sciel-observed-paired/1'

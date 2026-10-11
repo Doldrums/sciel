@@ -17,7 +17,7 @@ import math
 
 from ..campaign.budget import CampaignStopped, RequestNotDispatched
 from ..hypothesis import circle_interventions as edits
-from ..hypothesis.measurement import evaluation_observation
+from ..evidence.measurement import evaluation_observation
 from ..hypothesis.models import CONTRACT as RESEARCH_CONTRACT
 from ..hypothesis.parsing import parse_hypothesis
 from .db import normalized_hash

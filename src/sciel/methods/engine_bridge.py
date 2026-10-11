@@ -168,7 +168,7 @@ def run(inputs):
                      'raw_first_score':outcome.raw_first_score,'evaluation_ok':outcome.result.ok}
         if 'native_geometry' in outcome.result.artifacts:
             from ..eval.native_geometry import parse_artifact, validate_binding
-            from ..hypothesis.measurement import metric_context
+            from ..evidence.measurement import metric_context
             geometry=parse_artifact(outcome.result.artifacts['native_geometry'])
             validate_binding(geometry,dict(ok=outcome.result.ok,score=outcome.result.score,
                 cases=outcome.result.cases,reached=outcome.reached,confirmed=outcome.confirmed),

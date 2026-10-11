@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from ..campaign.budget import CampaignStopped
-from ..hypothesis.measurement import metric_context
+from ..evidence.measurement import metric_context
 from . import checkpoint
 from .db import normalized_hash
 from .paired_batches import CONTRACT as BATCH_CONTRACT, PairedBatches
