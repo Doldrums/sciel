@@ -106,9 +106,13 @@ class TracedLLM:
             provenance = response_cost_provenance(response)
             resolved = response_resolved_model(response)
             self._text(call_id, 'response', text)
+            reasoning = getattr(response, 'reasoning', None)
+            if reasoning:
+                self._text(call_id, 'reasoning', reasoning)
             self._emit(dict(common, event='response', elapsed_seconds=monotonic() - started,
                 generation_returned=True, generation_dispatch='returned',
                 response_sha256=_sha(text), response_chars=len(text),
+                **({'reasoning_chars': len(reasoning)} if reasoning else {}),
                 cost=cost, current_call_cost_unknown=accounting is None,
                 **({'unpriced_calls':accounting['unpriced_calls'], 'known_usd':accounting['known_usd']}
                    if accounting is not None and accounting['unpriced_calls'] else {}),

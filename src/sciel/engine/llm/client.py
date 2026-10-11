@@ -68,6 +68,18 @@ class LLMResponse:
     # key; this optional observation never changes pricing or bandit semantics.
     resolved_model: str | None = None
     token_stats: dict | None = None
+    reasoning: str | None = None
+
+
+def _reasoning(choice) -> str | None:
+    """Reasoning text returned beside the answer (vLLM/DeepSeek reasoning_content, OpenRouter reasoning)."""
+    message = getattr(choice, 'message', None)
+    extra = getattr(message, 'model_extra', None) or {}
+    for name in ('reasoning_content', 'reasoning'):
+        value = getattr(message, name, None) or extra.get(name)
+        if type(value) is str and value:
+            return value
+    return None
 
 
 def _token_stats(choice) -> dict | None:
@@ -409,6 +421,7 @@ class EnsembleLLM:
                            cost_provenance=provenance,
                            resolved_model=resolved_model,
                            token_stats=_token_stats(choices[0]) if getattr(self, 'top_logprobs', None) else None,
+                           reasoning=_reasoning(choices[0]),
                            **_response_metadata(choices[0]))
 
 
