@@ -319,11 +319,6 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
         if "preset_weights" not in state:
             raise IdentityMismatch("checkpoint is missing enabled preset selection state")
         engine.preset_weights.load_state(state["preset_weights"])
-    if engine.kb_on and "kb" in state:
-        for name in ("kb", "base_rate"):
-            getattr(engine, name).load_state(state[name])
-    if engine.c2_on and "branch_cal" in state:
-        engine.branch_cal.load_state(state["branch_cal"])
     controller = getattr(engine, "controller", None)
     if controller is not None and getattr(controller, "enabled", False) and "controller" in state:
         controller.load_state(state["controller"])

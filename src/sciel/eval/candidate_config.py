@@ -40,7 +40,7 @@ def validate_task(cfg,task):
     for key in ('repeat_population','repeat_promotion','circle_generation','circle_intervention'):
         if (cfg.get(key) or {}).get('enabled'):
             raise ValueError('candidate_only does not support '+key)
-    if cfg.get('kb_free') or cfg.get('c2_event_bets') or (cfg.get('container') or {}).get('selection')=='centres':
+    if (cfg.get('container') or {}).get('selection')=='centres':
         raise ValueError('candidate_only requires the supported ordinary wave layout')
     from .registry import load_task
     current=load_task(task.root)

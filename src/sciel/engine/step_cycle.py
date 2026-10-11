@@ -226,10 +226,6 @@ class EngineStepCycle:
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
                                                claims=self.theory.cards(context), findings=self.findings.top())
         lessons, injected_ids = self.theory.cards(context), []
-        if self.kb_on:
-            picked = self.kb.retrieve(parent.score)
-            lessons += [l.text for l in picked]
-            injected_ids = [l.id for l in picked]
         research_context = None
         if self.research is not None:
             research_context = self.research.context(self.db, parent, island, iteration_no + 1,

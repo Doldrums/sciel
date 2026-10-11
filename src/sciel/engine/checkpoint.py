@@ -98,11 +98,6 @@ def save(engine, milestone, *, path=None) -> str:
         validate_projection(engine)
         state['repeat_population'] = population.state()
         state['paired_batches'] = batches.state()
-    if engine.kb_on:
-        for name in ("kb", "base_rate"):
-            state[name] = getattr(engine, name).state()
-    if engine.c2_on:
-        state["branch_cal"] = engine.branch_cal.state()
     controller = getattr(engine, "controller", None)
     if controller is not None and getattr(controller, "enabled", False):
         state["controller"] = controller.state()

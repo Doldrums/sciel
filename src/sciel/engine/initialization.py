@@ -8,8 +8,6 @@ from ..run_log import RunLog
 from ..stats import IntensityEstimator, OpportunityCostMonitor, PlateauMonitor
 from ..components.selection.novelty_chain import NoveltyChainKernel
 from ..components.policy.controller import Controller
-from ..components.kb.kb import KnowledgeBase
-from ..components.tail import BaseRate, BranchCalibration
 from .db import Database
 from ..causal import Ledger
 from ..theory import Experiments, Findings, Procedures, Strategies, Theory
@@ -285,16 +283,6 @@ class EngineInitialization:
                                        min_n=pol["plateau_min_n"])
              for i in range(cfg["num_islands"])}
             if (bool(pol.get("plateau_shadow")) or self.oc_shift) else None)
-        self.c2_on = bool(cfg.get("c2_event_bets", False))
-        self.bet_on = self.c2_on or bool(cfg.get("bet_enabled", False))
-        # kb_free: same lesson KB, but lessons are the free strategy cards already
-        # extracted from responses (no postmortem LLM call). RLAD shows even
-        # untrained in-context abstractions help; this pays zero extra calls.
-        self.kb_free = bool(cfg.get("kb_free", False))
-        self.kb_on = self.c2_on or self.kb_free
-        self.kb = KnowledgeBase() if self.kb_on else None
-        self.branch_cal = BranchCalibration() if self.c2_on else None
-        self.base_rate = BaseRate() if self.kb_on else None
         self.research = None
         if cfg.get('research', {}).get('enabled'):
             from .research import ResearchController
@@ -332,7 +320,6 @@ class EngineInitialization:
             self.circle_generation = CircleGeneration(self.research,
                 proposal_policy=cfg['circle_generation'].get('proposal_policy'),
                 execution_profile=cfg['circle_generation'].get('execution_profile'))
-        self.n_postmortems = 0
         from ..eval.task_prompt import compose_task_prompt
         self.task_prompt = compose_task_prompt(task, cfg.get("llm", {}).get("system_message"))
         req = set(_required_entrypoints(getattr(task, "evaluator_path", None)))

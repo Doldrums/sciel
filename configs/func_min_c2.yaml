@@ -1,4 +1,0 @@
-extends: func_min.yaml
-c2_event_bets: true
-wandb:
-  enabled: false

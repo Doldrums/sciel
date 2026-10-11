@@ -42,9 +42,6 @@ def _validate_parallel_search(cfg, defaults):
     for route in ('repeat_population', 'repeat_promotion', 'circle_generation', 'circle_intervention'):
         if isinstance(cfg.get(route), dict) and cfg[route].get('enabled'):
             raise ValueError('parallel_search does not support ' + route)
-    for route in ('kb_free', 'c2_event_bets'):
-        if cfg.get(route):
-            raise ValueError('parallel_search does not support ' + route)
     container = cfg.get('container')
     if isinstance(container, dict) and container.get('selection') == 'centres':
         raise ValueError('parallel_search does not support centre selection without parent reservation masks')
@@ -121,7 +118,7 @@ def validate_experiments(cfg, defaults):
         if cfg['repeat_population']['enabled']:
             forbidden = ('confirm_records', 'portfolio_seed', 'dynamic_islands',
                 'idea_island', 'crossover', 'embed_grid', 'embed_niche', 'three_head',
-                'preset_selection', 'kb_free', 'c2_event_bets', 'bet_enabled', 'plateau_shadow')
+                'preset_selection', 'plateau_shadow')
             if any(cfg.get(key) for key in forbidden):
                 raise ValueError('repeat_population requires static pools and legacy adaptation off')
             if (cfg.get('policy', {}).get('enabled') or cfg.get('policy', {}).get('mode_bandit')

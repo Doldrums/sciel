@@ -37,6 +37,3 @@ plateau_shadow: true
 log_population: true
 
 # Full G/C/R already replaces these legacy knowledge and prediction routes.
-kb_free: false
-c2_event_bets: false
-bet_enabled: false

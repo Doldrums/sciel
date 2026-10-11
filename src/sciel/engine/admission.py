@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from ..causal import context_of
-from ..components.tail import extract_lesson
 from .types import NoChild
-from .loop_contracts import (_changed_region, _trunc)
+from .loop_contracts import _trunc
 
 THEORY_INTERVAL = 10
 
@@ -235,11 +234,8 @@ class EngineAdmission:
         if res.bet is not None:
             brier = (res.bet.q - (1.0 if ev.is_island_event else 0.0)) ** 2
             self._log_forecast(res, ev, brier, decision_context)
-        branch_brier = None
-        if self.kb_on and not res.meta.get('research_candidate'):
-            branch_brier = self._run_tail(res, ev, injected_ids, brier, child_prog)
         self._log_iteration(res, selected, op_prop, op_stat, ev, brier, model,
-                            model_prop, mode, mode_prop, branch_brier,
+                            model_prop, mode, mode_prop,
                             pre=pre, phase_pre=obs_phase, effective_mode=eff_mode,
                             decision_context=decision_context)
         self._record_decisions(res.island, decision_context, child_prog.id, res.parent_id,
@@ -325,41 +321,3 @@ class EngineAdmission:
                               hypothesis=started.hypothesis, length=started.length,
                               required=started.required)
 
-    def _run_tail(self, res, ev, injected_ids, brier, child_prog):
-        island, phase = res.island, self.schedule.phase_code()
-        if self.c2_on and brier is not None:
-            self.branch_cal.note(res.parent_id, brier)
-        for lid in injected_ids:
-            self.kb.note_exposure(lid, ev.is_island_event,
-                                  self.base_rate.rate(island, phase))
-        self.base_rate.observe(island, phase, ev.is_island_event)
-        if ev.is_island_event:
-            if self.c2_on:
-                lesson = self._mint_postmortem(res, island)
-            else:
-                # kb_free: the lesson is the strategy card the LLM already wrote
-                # for this event-child -- no extra call, no code-alignment gate
-                card = child_prog.card
-                lesson = (self.kb.add_lesson(card, card, "", self.iteration_no, align=False)
-                          if card else None)
-            self.n_postmortems += 1
-            self.log.postmortem(iter_ref=self.iteration_no, island=island,
-                                mechanism=(res.bet.mechanism if res.bet else ""),
-                                lesson=(lesson.text if lesson else None),
-                                aligned=lesson is not None)
-        return self.branch_cal.mean(res.parent_id) if self.c2_on else None
-
-    def _mint_postmortem(self, res, island):
-        parent = self.db.get(res.parent_id)
-        mech = res.bet.mechanism if res.bet else ""
-        result, cost = extract_lesson(self.llm, self._postmortem_model(),
-                                      parent.code, res.child_code, mech)
-        self.cost_total += cost
-        if result is None:
-            return None
-        diff = _changed_region(parent.code, res.child_code)
-        return self.kb.add_lesson(result[0], result[1], diff, self.iteration_no)
-
-    def _postmortem_model(self):
-        models = getattr(self.llm, "models", ["unknown"])
-        return models[-1]

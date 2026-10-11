@@ -18,8 +18,6 @@ from ..stats import IntensityEstimator, OpportunityCostMonitor, PlateauMonitor
 from ..components.selection.novelty_chain import IslandView, NoveltyChainKernel
 from ..components.policy.controller import Controller
 from ..components.policy.mode_features import mode_features
-from ..components.kb.kb import KnowledgeBase
-from ..components.tail import BaseRate, BranchCalibration, extract_lesson
 from ..eval.cascade import cascade_evaluate
 from ..eval.facade import EvaluationInfrastructureError
 from ..tui.board import WandbSink

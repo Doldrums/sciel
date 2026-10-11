@@ -110,8 +110,6 @@ def validate_research(cfg):
         if research['model'] is not None and (
                 not isinstance(research['model'], str) or not research['model'].strip()):
             raise ValueError('research model must be a model ID or null')
-        if research['enabled'] and any(cfg.get(k) for k in ('kb_free', 'c2_event_bets', 'bet_enabled')):
-            raise ValueError('full research replaces legacy kb_free/c2_event_bets/bet_enabled')
         if research['enabled']:
             llm = dict(cfg.get('llm') or {})
             if type(llm.get('max_retries', 1)) is not int or llm.get('max_retries', 1) != 1:

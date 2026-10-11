@@ -12,7 +12,7 @@ from time import monotonic
 
 SCHEMA_VERSION = 2
 EVENT_TYPES = {
-    "run_start", "iteration", "sh_cut", "postmortem",
+    "run_start", "iteration", "sh_cut",
     "window_closed", "decision", "checkpoint", "checkpoint_restore", "run_end", "population",
     "research", "research_tool", "repeat_search",
 }
@@ -142,9 +142,6 @@ class RunLog:
 
     def sh_cut(self, **f):
         self.emit("sh_cut", **f)
-
-    def postmortem(self, **f):
-        self.emit("postmortem", **f)
 
     def window_closed(self, **f):
         self.emit("window_closed", **f)

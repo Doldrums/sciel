@@ -46,13 +46,11 @@ class EngineTelemetry:
                     journal_event_seq=self.log.event_seq)
 
     def _log_iteration(self, res, selected, op_prop, op_stat, ev, brier, model,
-                       model_prop, mode, mode_prop, branch_brier=None, *,
+                       model_prop, mode, mode_prop, *,
                        pre, phase_pre, effective_mode, decision_context=None) -> None:
         extras = {}
         if decision_context is not None:
             extras['decision_context'] = deepcopy(decision_context)
-        if self.c2_on:
-            extras["branch_cal_brier"] = branch_brier
         # These *_pre fields describe marginal reward at commit. The separately
         # frozen decision_context is the state actually available to mode choice.
         self.log.iteration(

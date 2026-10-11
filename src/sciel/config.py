@@ -14,14 +14,14 @@ KNOWN_KEYS = {
     "grid_bins", "inflight_cap", "dup_cap", "backstop_k", "random_seed",
     "schedule_policy", "milestone_fracs", "op_temperature", "op_floor",
     "op_window", "selection_floor", "tau_floor", "reward_w_pop", "reward_w_isl",
-    "llm", "base_temp", "bet_enabled", "confirm_records",
+    "llm", "base_temp", "confirm_records",
     "checkpoint_on_milestone", "wandb", "sciel_tasks_revision", "op_fixed",
     "selection_policy", "selection_cap", "selection_temperature", "selection_window",
-    "sciel_tasks_repo", "c2_event_bets", "plateau_shadow", "policy",
+    "sciel_tasks_repo", "plateau_shadow", "policy",
     "sh_min_fair_evals", "log_population",
     "embed_grid", "embed_grid_path", "embed_axis_path",
     "crossover", "portfolio_seed", "dynamic_islands", "max_islands", "spawn_stall",
-    "idea_island", "kb_free",
+    "idea_island",
     "refine_stall", "refine_elite_frac", "op_intensify_boost",
     "embed_niche", "embed_niche_path", "niche_d_min", "niche_target_k",
     "niche_k_max", "niche_csc_rate",
@@ -32,7 +32,7 @@ KNOWN_KEYS = {
 }
 
 # Accepted in old checkpoints, but no longer used.
-DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval", "log_evictions"}
+DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval", "log_evictions", "bet_enabled", "c2_event_bets", "kb_free"}
 
 DEFAULTS = {
     "num_islands": 3,
@@ -51,7 +51,6 @@ DEFAULTS = {
     "schedule_policy": "sh",
     "milestone_fracs": [0.5, 0.75],
     "inflight_cap": 4,
-    "bet_enabled": False,
     "confirm_records": False,
     "sh_min_fair_evals": 16,
     "log_population": True,

@@ -96,7 +96,7 @@ class EngineLifecycle:
                            engine_contract=_public.ENGINE_CONTRACT,
                            num_islands=self.cfg["num_islands"],
                            schedule_policy=self.cfg["schedule_policy"],
-                           bet_enabled=self.cfg["bet_enabled"], models=_model_names(self.llm),
+                           models=_model_names(self.llm),
                            sciel_tasks_revision=self.cfg.get("sciel_tasks_revision", "local"),
                            non_comparable=self.cfg.get("sciel_tasks_revision") is None,
                            descriptor=self.descriptor_info,

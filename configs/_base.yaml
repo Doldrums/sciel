@@ -17,7 +17,6 @@ tau_floor: 0.001
 reward_w_pop: 1.0
 reward_w_isl: 1.0
 base_temp: 0.7
-bet_enabled: false
 confirm_records: false
 checkpoint_on_milestone: true
 llm:

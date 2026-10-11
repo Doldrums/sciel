@@ -21,7 +21,7 @@ class IdentityMismatch(Exception):
 _COMPONENTS = ("db", "schedule", "op_bandit", "reward", "selection", "intensity", "rng", "ledger", "theory", "experiments", "strategies", "swm", "learner", "procedures", "memory", "findings")
 
 _SCALARS = ("iteration_no", "B_evals", "budget", "seed_score", "cost_total", "llm_unpriced_calls",
-            "n_events", "n_dups", "n_eval_fail", "n_nochild", "n_postmortems",
+            "n_events", "n_dups", "n_eval_fail", "n_nochild",
             "_last_improve_eval", "_last_pop_improve", "_last_pop_improve_iteration",
             "n_records", "_observed_trials",
             "n_remeasurements", "n_remeasurement_successes", "n_evaluation_results", "n_output_repeats")
