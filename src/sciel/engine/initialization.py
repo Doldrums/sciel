@@ -168,9 +168,12 @@ class EngineInitialization:
         self.procedures = Procedures()
         self.findings = Findings()
         self._procedure = self.procedures.get("p0")
-        from ..swm import LatentArchive, PopulationLearner, SearchWorldModel
+        from ..swm import CodeEmbedder, LatentArchive, PopulationLearner, SearchWorldModel
+        self.embedder = CodeEmbedder(cfg["swm"]["embedding_api_base"], cfg["swm"]["embedding_model"],
+                                     mock=bool(cfg.get("llm", {}).get("mock")))
+        self.embedder.check()
         from ..theory.claims import DECISIONS
-        self.swm = SearchWorldModel(self.db, DECISIONS)
+        self.swm = SearchWorldModel(self.db, DECISIONS, self.embedder)
         if type(self.db) is Database and self.db.niche_fn is None:
             from ..swm.niches import LatentNiches
             self.db.niche_fn = LatentNiches(self.swm)
@@ -181,9 +184,10 @@ class EngineInitialization:
         self.heritage = None
         if cfg.get("inherit") is not None:
             from ..culture import Heritage
-            self.heritage = Heritage(cfg["inherit"], self.db)
+            self.heritage = Heritage(cfg["inherit"], self.db, self.embedder)
             self.strategies.pool.extend(self.heritage.strategies)
             self.procedures.pool.extend(self.heritage.procedures)
+            self.findings.pool.extend(self.heritage.knowledge)
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),

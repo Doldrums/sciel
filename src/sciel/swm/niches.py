@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..components.policy.code_embed import BEHAVIOR_EXTRA_KEYS, VQBook, behavior_value, featurize
+from ..components.policy.code_embed import BEHAVIOR_EXTRA_KEYS, VQBook, behavior_value
 
 
 class LatentNiches:
@@ -20,7 +20,7 @@ class LatentNiches:
     def _vector(self, code: str, cases: dict) -> np.ndarray:
         if self.space == "behavior":
             return np.array([behavior_value(cases, k) for k in BEHAVIOR_EXTRA_KEYS], dtype=np.float32)
-        return self.world.encode(featurize(code, cases))
+        return self.world.encode(self.world.features(code, cases))
 
     def assign(self, code: str, cases: dict) -> int:
         return self.book.assign(self._vector(code, cases))
