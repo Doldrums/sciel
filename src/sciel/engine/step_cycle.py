@@ -269,7 +269,7 @@ class EngineStepCycle:
             directive=directive, kb_lessons=lessons,
             code_hashes=self.db.code_hashes(island),
             escalation_seed=self.rng.derive_seed("escalation"),
-            task_prompt=self.task_prompt, bet_enabled=self.bet_on,
+            task_prompt=self.task_prompt, bet_enabled=True,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
         if research_context is not None:

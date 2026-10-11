@@ -95,7 +95,7 @@ class MockLLM:
         text = f"```python\n{code}```\n"
         if self.bet_marker in prompt:
             q = 0.1 + 0.8 * ((n >> 8) % 1000) / 1000.0
-            text += f'\nBET: {{mechanism: "mock local move", q: {q:.3f}}}\n'
+            text += f'\nBET: {{mechanism: "mock local move", q: {q:.3f}, delta: [-0.05, {q / 4:.3f}]}}\n'
         return LLMResponse(text=text, model="mock-model", cost=0.0,
                            prompt_tokens=len(prompt) // 4,
                            completion_tokens=len(text) // 4)

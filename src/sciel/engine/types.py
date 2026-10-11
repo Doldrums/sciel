@@ -51,6 +51,8 @@ class Snapshot:
 class Bet:
     mechanism: str
     q: float
+    delta_low: float | None = None
+    delta_high: float | None = None
 
 
 @dataclass

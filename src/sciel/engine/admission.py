@@ -232,6 +232,7 @@ class EngineAdmission:
         brier = None
         if res.bet is not None:
             brier = (res.bet.q - (1.0 if ev.is_island_event else 0.0)) ** 2
+            self._log_forecast(res, ev, brier, decision_context)
         branch_brier = None
         if self.kb_on and not res.meta.get('research_candidate'):
             branch_brier = self._run_tail(res, ev, injected_ids, brier, child_prog)
@@ -242,6 +243,22 @@ class EngineAdmission:
         self._record_decisions(res.island, decision_context, child_prog.id, res.parent_id,
                                ev.is_island_event)
         return child_prog.id
+
+    def _log_forecast(self, res, ev, brier, decision_context):
+        """The generator's forecast scored by the engine, next to the world model's forecast for the same step."""
+        parent = self.db._all.get(res.parent_id)
+        delta = res.score - parent.score if parent is not None else None
+        bet, covered = res.bet, None
+        if bet.delta_low is not None and delta is not None:
+            covered = bet.delta_low <= delta <= bet.delta_high
+        world = None
+        op = res.meta.get('op_initial')
+        if decision_context and parent is not None and op:
+            out = self.swm.predict(parent.id, context_of(decision_context), "operator", [op])
+            world = out[op]["value"] if out else None
+        self.log.decision(policy="forecast", action="scored", iteration_no=self.iteration_no, q=bet.q,
+                          event=bool(ev.is_island_event), brier=brier, delta=delta,
+                          interval=[bet.delta_low, bet.delta_high], covered=covered, swm_value=world)
 
     def _record_decisions(self, island, decision_context, child, parent, event):
         if not decision_context:
