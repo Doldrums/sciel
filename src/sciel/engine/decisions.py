@@ -47,10 +47,14 @@ class DecisionPolicy:
         self.pending.append(record)
         return choice
 
-    def sample(self, name: str, distribution: dict):
+    def pick(self, name: str, distribution: dict):
         options = list(distribution)
         choice = self.rng.choices(options, weights=[distribution[o] for o in options], k=1)[0]
-        self.pending.append(_record(name, distribution, choice))
+        return choice, _record(name, distribution, choice)
+
+    def sample(self, name: str, distribution: dict):
+        choice, record = self.pick(name, distribution)
+        self.pending.append(record)
         return choice
 
     def flag(self, name: str, rule: bool) -> bool:

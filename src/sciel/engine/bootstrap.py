@@ -4,7 +4,9 @@ from __future__ import annotations
 import hashlib
 from copy import deepcopy
 from ..campaign.budget import CampaignStopped
+from ..causal import context_of
 from ..stats import OpportunityCostMonitor, PlateauMonitor
+from ..swm import directive, propose
 from .prompt.build import compose_directive
 from .types import NoChild, Snapshot
 from .runtime import observed_stage
@@ -248,7 +250,21 @@ class EngineBootstrap:
         base = self.db._all[self.db.pop_best_id].code if self.db.pop_best_id \
             else _read(self.task.initial_program_path)
         paradigm = _PARADIGMS[idx % len(_PARADIGMS)]
+        context = context_of({"phase": self.schedule.phase_code(), "progress": self._progress()})
+        target = propose(self.db, self.rng.derive_seed("swm"))
+        source, record = self.decisions.pick("spawn_target", self.experiments.allocate("spawn_target", context,
+            self.theory.tilt("spawn_target", context,
+                             {"paradigm": 0.5, "behavior": 0.5} if target else {"paradigm": 1.0})))
+        if source == "behavior":
+            paradigm = directive(target)
         ok = self._paradigm_child(base, paradigm, idx, origin="spawn")
+        seed = next(iter(self.db.islands[idx].programs.values()), None) if ok else None
+        self.ledger.add(iteration=self.iteration_no, island=idx, child=seed.id if seed else None,
+                        parent=self.db.pop_best_id, event=False,
+                        decision_context={"phase": self.schedule.phase_code(), "progress": self._progress(),
+                                          "parent_id": self.db.pop_best_id, "decisions": [record]})
+        self.log.decision(policy="spawn_target", action=source, island=idx, target=target,
+                          propensity=record["propensity"])
         if not ok:
             # Fall back to this run's retained baseline, including a warm start.
             # Copying a measured program is migration, never another evaluation.
