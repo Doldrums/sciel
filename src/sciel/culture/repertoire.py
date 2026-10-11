@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..swm import PopulationLearner, SearchWorldModel
 from ..theory import Claim, Procedure, Strategy, Theory
+from .methods import export_methods
 
 SCHEMA = "sciel-repertoire/1"
 FILE = "repertoire.json"
@@ -22,6 +23,7 @@ def export(engine) -> Path:
                             if s.status != "retired"],
              "procedures": [p.params() for p in engine.procedures.pool
                             if p.status == "culture" and p.params() != Procedure(id="p0").params()],
+             "methods": export_methods(engine),
              "swm": engine.swm.state(), "learner": engine.learner.state()}
     path = Path(engine.run_dir) / FILE
     path.write_text(json.dumps(value, sort_keys=True))
@@ -43,6 +45,7 @@ class Heritage:
         self.theory.claims = [Claim(**c) for c in value["claims"]]
         self.strategies = [Strategy(id=f"h{i + 1}", text=s["text"], born=0) for i, s in enumerate(value["strategies"])]
         self.procedures = [Procedure(id=f"h{i + 1}", **p) for i, p in enumerate(value["procedures"])]
+        self.methods = value["methods"]
         self.swm = SearchWorldModel(db, ())
         self.swm.load_state(value["swm"])
         self.learner = PopulationLearner()
@@ -60,5 +63,5 @@ class Heritage:
     def describe(self) -> dict:
         return {"path": self.path, "sha256": self.sha256, "generation": self.generation, **self.source,
                 "claims": len(self.theory.claims), "strategies": len(self.strategies),
-                "procedures": len(self.procedures),
+                "procedures": len(self.procedures), "methods": len(self.methods),
                 "swm": self.swm.ready, "learner": self.learner.ready}

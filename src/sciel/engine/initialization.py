@@ -304,6 +304,11 @@ class EngineInitialization:
                 emit=self.log.research_tool, charge=self._charge_research, **tool_options)
             from .research_culture import ResearchCulture
             self.research_tools.culture = ResearchCulture(self)
+            if self.heritage is not None:
+                from ..culture.methods import import_methods
+                imported = import_methods(self.research_tools, self.heritage.methods, len(self.db.islands))
+                self.log.decision(policy="heritage", action="methods", offered=len(self.heritage.methods),
+                                  imported=imported)
         self.idea = None
         if cfg.get('idea_two_stage', {}).get('enabled'):
             from .idea import TwoStageIdea
