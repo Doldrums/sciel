@@ -21,6 +21,7 @@ class Row:
     outcome: float | None = None
     state: str | None = None
     reward: float = 0.0
+    scope: str = "lineage"
 
 
 def context_of(decision_context: dict) -> str:
@@ -48,8 +49,19 @@ class Ledger:
             self.parent[child] = parent
         if event and child is not None:
             self._credit(child, iteration)
+        if event:
+            for row in self.rows:
+                if (row.scope == "island" and row.outcome is None and row.island == island
+                        and iteration - row.iteration <= self.horizon):
+                    row.outcome = 1.0
         self._expire(iteration)
         del self.rows[:-MAX_ROWS]
+
+    def add_island(self, *, iteration: int, island: int, context: str, record: dict) -> None:
+        """A decision whose outcome is any island event within the horizon, not a lineage event."""
+        self.rows.append(Row(decision=record["decision"], iteration=iteration, island=island, context=context,
+                             distribution=dict(record["distribution"]), choice=str(record["choice"]),
+                             propensity=float(record["propensity"]), child=None, scope="island"))
 
     def _lineage(self, program: str) -> set:
         seen, node = set(), program
