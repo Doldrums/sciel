@@ -6,11 +6,12 @@ in the order claims first appear, and the reported interval is a confidence sequ
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from statistics import NormalDist
 
-from ..causal.sequential import contrasts, lond_level, sequence
+from ..causal.sequential import comparator, contrasts, lond_level, sequence
 from .schools import DECISIONS as SCHOOL_DECISIONS, island_context
 
 DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
@@ -69,6 +70,10 @@ def _closed(row) -> bool:
     return len(row.distribution) > 1 and (row.scope == "lineage" or row.outcome is not None)
 
 
+def _close_time(row) -> int:
+    return row.closed if row.closed is not None else row.iteration
+
+
 class Theory:
     def __init__(self):
         self.claims: list[Claim] = []
@@ -78,7 +83,7 @@ class Theory:
 
     def update(self, ledger) -> list[Claim]:
         cells = defaultdict(list)
-        for row in ledger.rows:
+        for row in sorted(ledger.rows, key=_close_time):
             if row.decision in DECISIONS and _closed(row):
                 cells[(row.decision, row.context)].append(row)
                 if row.decision in SCHOOL_DECISIONS:
@@ -89,20 +94,25 @@ class Theory:
                 if (decision, context, action) not in known:
                     self.order.append([decision, context, action])
                     known.add((decision, context, action))
+        position = {"|".join(k): i for i, k in enumerate(self.order, 1)}
         tested = []
         for index, (decision, context, action) in enumerate(self.order, 1):
             rows = cells.get((decision, context), [])
             if len(rows) < MIN_ROWS:
                 continue
-            psi, bound = contrasts(rows, action)
+            fixed, reference = comparator(rows, action)
+            if not fixed:
+                continue
+            psi, bound = contrasts(rows, action, reference)
             if not len(psi):
                 continue
             key = f"{decision}|{context}|{action}"
             peak = sequence(psi, bound, ALPHA)["e_peak"]
-            if key not in self.rejected and peak >= 1.0 / lond_level(ALPHA, index, len(self.rejected)):
+            earlier = sum(position[k] < index for k in self.rejected)
+            if key not in self.rejected and peak >= 1.0 / lond_level(ALPHA, index, earlier):
                 self.rejected.add(key)
             tested.append((decision, context, action, key, psi, bound, sum(r.choice == action for r in rows)))
-        level = ALPHA * max(len(self.rejected), 1) / max(len(tested), 1)
+        level = ALPHA * max(len(self.rejected), 1) / max(len(self.order), 1)
         self.claims = []
         for decision, context, action, key, psi, bound, taken in tested:
             s = sequence(psi, bound, level)

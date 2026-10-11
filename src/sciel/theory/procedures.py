@@ -47,7 +47,8 @@ class Procedures:
     def distribution(self, island: int) -> dict:
         trials = schools.trials(self.pool, island)
         incumbents = [p for p in schools.available(self.pool, island)
-                      if p.status == "culture" or p.local.get(str(island)) == "culture"] or [self.pool[0]]
+                      if p.status == "culture" or p.local.get(str(island)) == "culture"] or [
+                      p for p in self.pool if p.status == "culture"][:1]
         if not trials:
             return {p.id: 1 / len(incumbents) for p in incumbents}
         return ({p.id: NONE_SHARE / len(incumbents) for p in incumbents}
@@ -70,11 +71,10 @@ class Procedures:
 
     def judge(self, theory) -> list[Procedure]:
         changed = []
-        for claim in theory.claims:
-            procedure = next((p for p in self.pool if p.id == claim.action), None)
-            if claim.decision != "procedure" or procedure is None or not claim.decided:
+        for procedure in self.pool:
+            status = schools.verdict(theory, "procedure", procedure.id)
+            if status is None:
                 continue
-            status = "culture" if claim.effect > 0 else "retired"
             last_incumbent = sum(p.status == "culture" for p in self.pool) == 1 and procedure.status == "culture"
             if procedure.status != status and not (status == "retired" and last_incumbent):
                 procedure.status = status

@@ -1,8 +1,9 @@
 """Anytime-valid inference for claims: DR contrasts with predictable outcome models, betting e-processes and e-LOND.
 
-The contrast of an action is its value minus the uniform mixture of the other actions of the same decision, so the
-target does not drift when the theory tilts the logging policy. Each row enters in decision order with an outcome that
-is closed when the row is written (the child's own event), and its outcome model uses only earlier rows.
+The contrast of an action is its value minus the uniform mixture of the other actions of the same decision when every
+row offers the same alternatives, and minus one reference action offered in every row when the alternatives change, so
+the target does not drift when the theory tilts the logging policy or arms enter and leave. Rows enter in the order
+their outcomes close, and each row's outcome model uses only rows closed before it.
 """
 
 from __future__ import annotations
@@ -17,14 +18,25 @@ CAP = 0.5
 PRIOR = 2.0
 
 
-def contrasts(rows: list, action: str) -> tuple[np.ndarray, np.ndarray]:
-    """Doubly robust pseudo-outcomes of `action` against the other actions, with their known bounds."""
+def comparator(rows: list, action: str) -> tuple[bool, str | None]:
+    """Whether `action` has a fixed comparison target in these rows: the shared alternatives or a reference action."""
+    others = [frozenset(r.distribution) - {action} for r in rows if action in r.distribution]
+    others = [o for o in others if o]
+    if not others or len(set(others)) == 1:
+        return True, None
+    common = frozenset.intersection(*others)
+    reference = next((a for r in rows if action in r.distribution for a in r.distribution if a in common), None)
+    return reference is not None, reference
+
+
+def contrasts(rows: list, action: str, reference: str | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """Doubly robust pseudo-outcomes of `action` against the other actions or a reference action, with known bounds."""
     sums, counts = defaultdict(float), defaultdict(int)
     total, seen = 0.0, 0
     psi, bound = [], []
     for row in rows:
-        others = [b for b in row.distribution if b != action]
-        if action not in row.distribution or not others:
+        others = [reference] if reference is not None else [b for b in row.distribution if b != action]
+        if action not in row.distribution or not others or any(b not in row.distribution for b in others):
             continue
         mean = (total + PRIOR * 0.5) / (seen + PRIOR)
 

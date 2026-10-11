@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 HORIZON = 20
-MAX_ROWS = 100000
 
 
 @dataclass
@@ -23,6 +22,7 @@ class Row:
     reward: float = 0.0
     scope: str = "lineage"
     population: list = field(default_factory=list)
+    closed: int | None = None
 
 
 def context_of(decision_context: dict) -> str:
@@ -40,13 +40,14 @@ class Ledger:
     def add(self, *, iteration: int, island: int, decision_context: dict, child: str | None,
             parent: str | None, event: bool) -> None:
         context = context_of(decision_context)
+        decided = int(decision_context.get("iteration_no", iteration))
         for record in decision_context.get("decisions", []):
-            self.rows.append(Row(decision=record["decision"], iteration=iteration, island=island,
+            self.rows.append(Row(decision=record["decision"], iteration=decided, island=island,
                                  context=context, distribution=dict(record["distribution"]),
                                  choice=str(record["choice"]), propensity=float(record["propensity"]),
                                  child=child, outcome=None if child is not None else 0.0,
                                  state=decision_context.get("parent_id"), reward=float(event),
-                                 population=list(decision_context.get("population", []))))
+                                 population=list(decision_context.get("population", [])), closed=iteration))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:
@@ -55,9 +56,8 @@ class Ledger:
             for row in self.rows:
                 if (row.scope == "island" and row.outcome is None and row.island == island
                         and iteration - row.iteration <= self.horizon):
-                    row.outcome = 1.0
+                    row.outcome, row.closed = 1.0, iteration
         self._expire(iteration)
-        del self.rows[:-MAX_ROWS]
 
     def add_island(self, *, iteration: int, island: int, context: str, record: dict) -> None:
         """A decision whose outcome is any island event within the horizon, not a lineage event."""
@@ -82,6 +82,8 @@ class Ledger:
         for row in self.rows:
             if row.outcome is None and iteration - row.iteration > self.horizon:
                 row.outcome = 0.0
+                if row.scope == "island":
+                    row.closed = iteration
 
     def labeled(self, decision: str) -> list[Row]:
         return [r for r in self.rows if r.decision == decision and r.outcome is not None]

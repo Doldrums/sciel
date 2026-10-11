@@ -74,12 +74,9 @@ class Strategies:
 
     def judge(self, theory) -> list[Strategy]:
         changed = []
-        for claim in theory.claims:
-            strategy = next((s for s in self.pool if s.id == claim.action), None)
-            if claim.decision != "strategy" or strategy is None or not claim.decided:
-                continue
-            status = "culture" if claim.effect > 0 else "retired"
-            if strategy.status != status:
+        for strategy in self.pool:
+            status = schools.verdict(theory, "strategy", strategy.id)
+            if status is not None and strategy.status != status:
                 strategy.status = status
                 changed.append(strategy)
         return changed
