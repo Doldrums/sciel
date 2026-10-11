@@ -9,7 +9,7 @@ from statistics import NormalDist
 from ..causal.estimators import action_effect
 from ..causal.ledger import HORIZON
 
-DECISIONS = ("operator", "mode", "strategy")
+DECISIONS = ("operator", "mode", "strategy", "research_open")
 MIN_ROWS = 12
 MIN_TAKEN = 8
 SHIFT = 4.0

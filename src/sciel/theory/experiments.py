@@ -6,6 +6,7 @@ import math
 from dataclasses import asdict, dataclass
 
 from ..causal.ledger import HORIZON
+from .claims import DECISIONS
 
 POWER_Z = 2.8
 MIN_EFFECT = 0.02
@@ -43,7 +44,7 @@ class Experiments:
         best = None
         for claim in theory.claims:
             if (claim.decided or claim.context != context or abs(claim.effect) < MIN_EFFECT
-                    or claim.decision not in ("operator", "mode", "strategy")):
+                    or claim.decision not in DECISIONS):
                 continue
             extra = _required(claim) - claim.n
             if extra <= 0 or extra > remaining // 2:

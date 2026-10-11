@@ -196,7 +196,6 @@ class EngineStepCycle:
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
                                                claims=self.theory.cards(context))
-        decision_context["decisions"] = self.decisions.drain()
         lessons, injected_ids = self.theory.cards(context), []
         if self.kb_on:
             picked = self.kb.retrieve(parent.score)
@@ -266,7 +265,11 @@ class EngineStepCycle:
                 max_chars=min(self.cfg['research_tools']['max_context_chars'], 10000))
             if snap.research_context is not None:
                 snap.research_context['research_cells_context'] = deepcopy(snap.research_cells_context)
+            self.research_tools.decide = lambda rule: self.decisions.sample("research_open",
+                self.experiments.allocate("research_open", context, self.theory.tilt("research_open", context,
+                    self.decisions.mix({"skip": float(not rule), "open": float(rule)})))) == "open"
             snap.tool_episode_plan = self.research_tools.prepare(snap, signals=signals)
+        decision_context["decisions"] = self.decisions.drain()
         return {
             "op": op,
             "snap": snap,

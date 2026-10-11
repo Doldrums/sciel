@@ -29,7 +29,7 @@ class DecisionPolicy:
         self.rng = rng
         self.pending: list[dict] = []
 
-    def _mix(self, distribution: dict) -> dict:
+    def mix(self, distribution: dict) -> dict:
         n = len(distribution)
         return {k: (1.0 - self.epsilon) * p + self.epsilon / n for k, p in distribution.items()}
 
@@ -38,7 +38,7 @@ class DecisionPolicy:
         base = {o: float(o == rule_choice) for o in options}
         if len(options) < 2:
             return rule_choice, _record(name, base, rule_choice)
-        distribution = self._mix(base)
+        distribution = self.mix(base)
         choice = self.rng.choices(options, weights=[distribution[o] for o in options], k=1)[0]
         return choice, _record(name, distribution, choice)
 

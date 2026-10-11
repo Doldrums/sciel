@@ -47,7 +47,7 @@ def prepare(tools, snapshot, *, signals=None):
     last_episode = tools._state['last_episode_opportunity'].get(island)
     interval_due = last_episode is None or opportunity - last_episode >= tools.config['interval']
     research_due = bool(prior_research and prior_research['status'] in ('open','step_limit') and interval_due)
-    if not interval_due and not fresh_result and proactive is None:
+    if not fresh_result and not tools.decide(interval_due or proactive is not None):
         return None
     maintenance = research_due or branch_due or bool(job_rows) and (fresh_result or any(not row.get('collected') for row in job_rows))
     lifecycle_options = {'maintenance': maintenance}
@@ -85,7 +85,7 @@ def prepare(tools, snapshot, *, signals=None):
         'opportunity': opportunity, 'last_episode_opportunity': last_episode,
         'cadence_reason': ('proactive_research' if proactive is not None else
             'first_episode' if last_episode is None else
-            'interval_elapsed' if interval_due else 'fresh_result'),
+            'interval_elapsed' if interval_due else 'fresh_result' if fresh_result else 'randomized'),
         'snapshot_sha256': content_hash(_basis(snapshot)),
         'visible_tool_ids': visible,
         'published_tool_ids': [ident for ident in visible if ident in tools._state['published']],
