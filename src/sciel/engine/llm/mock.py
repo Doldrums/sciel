@@ -49,7 +49,8 @@ def _structured(schema: dict, n: int) -> str:
         action.update(action="use", tool_id=visible[0])
     elif "create" in actions and n % 3 == 2:
         action.update(action="create", name="payload_probe", code=_TOOL,
-                      description="Lists the payload fields supplied to the tool.")
+                      description="Lists the payload fields supplied to the tool.",
+                      parents=visible[:1] if n % 2 else [])
     if "arguments_json" in action:
         action["arguments_json"] = "{}"
     if "replay_policy" in action:
