@@ -12,7 +12,7 @@ from ..components.kb.kb import KnowledgeBase
 from ..components.tail import BaseRate, BranchCalibration
 from .db import Database
 from ..causal import Ledger
-from ..theory import Experiments, Strategies, Theory
+from ..theory import Experiments, Procedures, Strategies, Theory
 from .decisions import DecisionPolicy
 from .operators import OpBandit
 from .schedule import Schedule
@@ -179,10 +179,19 @@ class EngineInitialization:
         self.theory = Theory()
         self.experiments = Experiments()
         self.strategies = Strategies()
-        from ..swm import SearchWorldModel
+        self.procedures = Procedures()
+        self._procedure = self.procedures.get("p0")
+        from ..swm import PopulationLearner, SearchWorldModel
         from ..theory.claims import DECISIONS
         self.swm = SearchWorldModel(self.db, DECISIONS)
         self.theory.outcome_model = self.swm
+        self.learner = PopulationLearner()
+        self.heritage = None
+        if cfg.get("inherit") is not None:
+            from ..culture import Heritage
+            self.heritage = Heritage(cfg["inherit"], self.db)
+            self.strategies.pool.extend(self.heritage.strategies)
+            self.procedures.pool.extend(self.heritage.procedures)
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),
@@ -214,6 +223,8 @@ class EngineInitialization:
         self.reward = RewardBus(cfg.get("reward_w_pop", 1.0), cfg.get("reward_w_isl", 1.0))
         self.intensity = IntensityEstimator()
         self.log = RunLog(os.path.join(run_dir, "sciel_events.jsonl"))
+        if self.heritage is not None:
+            self.log.decision(policy="heritage", action="inherit", **self.heritage.describe())
         from .llm.trace import TracedLLM
         llm = self.llm = TracedLLM(llm, run_dir, self._llm_trace_context, on_response=self._record_llm_accounting)
         self.sink = sink

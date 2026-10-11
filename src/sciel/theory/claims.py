@@ -9,7 +9,7 @@ from statistics import NormalDist
 from ..causal.estimators import action_effect
 from ..causal.ledger import HORIZON
 
-DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner")
+DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure")
 MIN_ROWS = 12
 MIN_TAKEN = 8
 SHIFT = 4.0
@@ -43,6 +43,7 @@ class Theory:
     def __init__(self):
         self.claims: list[Claim] = []
         self.outcome_model = None
+        self.shift, self.mix = SHIFT, MIX
 
     def update(self, ledger) -> list[Claim]:
         tested = []
@@ -68,9 +69,9 @@ class Theory:
                    if c.decision == decision and c.context == context and c.decided}
         if not effects:
             return dict(distribution)
-        shifted = {a: p * math.exp(SHIFT * effects.get(a, 0.0)) for a, p in distribution.items()}
+        shifted = {a: p * math.exp(self.shift * effects.get(a, 0.0)) for a, p in distribution.items()}
         total = sum(shifted.values())
-        return {a: (1 - MIX) * p + MIX * shifted[a] / total for a, p in distribution.items()}
+        return {a: (1 - self.mix) * p + self.mix * shifted[a] / total for a, p in distribution.items()}
 
     def refuted(self, decision: str, action: str) -> bool:
         decided = [c.effect for c in self.claims if c.decision == decision and c.action == action and c.decided]

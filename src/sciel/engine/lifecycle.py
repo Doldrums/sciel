@@ -249,6 +249,11 @@ class EngineLifecycle:
         if self.paired_batches is not None:
             from .repeat_population_support import export
             self._repeat_population_export = export(self)
+        from ..culture import export as export_repertoire
+        repertoire = export_repertoire(self)
+        self.log.decision(policy="heritage", action="export", path=str(repertoire),
+                          claims=sum(c.decided for c in self.theory.claims),
+                          strategies=sum(s.status != "retired" for s in self.strategies.pool))
         self.log.run_end(reason=reason, B_evals=self.B_evals,
                          checkpoint_id=self._saved_checkpoint["checkpoint_id"],
                          checkpoint_sha256=self._saved_checkpoint["checkpoint_sha256"],

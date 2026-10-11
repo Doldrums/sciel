@@ -97,6 +97,8 @@ def validate_experiments(cfg, defaults):
             value = cfg.get(route)
             if isinstance(value, dict) and value.get('enabled'):
                 raise ValueError('candidate_novelty does not support ' + route)
+    if cfg.get('inherit') is not None and (not isinstance(cfg['inherit'], str) or not cfg['inherit']):
+        raise ValueError('inherit must be the path of a repertoire file')
     if cfg.get('warm_start') is not None:
         from .engine.warm_start import validate_warm_start
         validate_warm_start(cfg['warm_start'])

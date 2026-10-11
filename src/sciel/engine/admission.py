@@ -252,10 +252,20 @@ class EngineAdmission:
             if self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm")):
                 self.log.decision(policy="swm", action="fit", iteration_no=self.iteration_no,
                                   actions=len(self.swm.vocab), uncertain_above=self.swm.uncertain_above)
+                if self.learner.fit(self.ledger, self.swm, self.rng.derive_seed("swm")):
+                    self.log.decision(policy="learner", action="fit", iteration_no=self.iteration_no,
+                                      actions=self.learner.actions)
         if self.iteration_no % THEORY_INTERVAL == 0:
             decided = self.theory.update(self.ledger)
             self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,
                               claims=[c.card() for c in decided])
+            for procedure in self.procedures.judge(self.theory):
+                self.log.decision(policy="procedure", action=procedure.status, iteration_no=self.iteration_no,
+                                  procedure=procedure.id, params=procedure.params())
+            proposed = self.procedures.propose(self.iteration_no, self.rng.stream("procedure"))
+            if proposed is not None:
+                self.log.decision(policy="procedure", action="propose", iteration_no=self.iteration_no,
+                                  procedure=proposed.id, parent=proposed.parent, params=proposed.params())
             for strategy in self.strategies.judge(self.theory):
                 self.log.decision(policy="strategy", action=strategy.status, iteration_no=self.iteration_no,
                                   strategy=strategy.id, text=strategy.text)

@@ -20,8 +20,25 @@ class EngineStepCycle:
         result = self._execute_step(plan)
         self._commit_step(plan, result)
 
+    def _planners(self) -> dict:
+        arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.learner.ready),
+                ("heritage", self.heritage is not None and self.heritage.ready)) if ready]
+        share = self._procedure.base_share
+        return {"base": share} | {a: (1 - share) / len(arms) for a in arms} if arms else {"base": 1.0}
+
+    def _plan_operator(self, planner, parent_id, context, distribution):
+        if planner == "swm":
+            return self.swm.tilt(parent_id, context, "operator", distribution)
+        if planner == "rl":
+            return self.learner.policy(self.swm, parent_id, context, distribution)
+        if planner == "heritage":
+            return self.heritage.operator(parent_id, context, distribution)
+        return distribution
+
     def _prepare_step(self, island: int, *, excluded_parents=(), spawn=True, iteration_no=None) -> dict:
         iteration_no = self.iteration_no if iteration_no is None else iteration_no
+        self._procedure = self.procedures.get(self.decisions.sample("procedure", self.procedures.distribution()))
+        self.theory.shift, self.theory.mix = self._procedure.shift, self._procedure.mix
         self._repeat_candidate = None
         self._repeat_candidate_origin = None
         if spawn:
@@ -125,7 +142,7 @@ class EngineStepCycle:
         parent = self.db.get(selected.parent_id)
         decision_context["parent_id"] = parent.id
         planner = self.decisions.sample("planner", self.experiments.allocate("planner", context,
-            self.theory.tilt("planner", context, {"base": 0.5, "swm": 0.5} if self.swm.ready else {"base": 1.0})))
+            self.theory.tilt("planner", context, self._planners())))
         fresh_failure = selected.parent_id in self.lineage_fail
         # Freeze usable donor inputs before choosing the operator. Scan the
         # ranked local pool before applying the three-source prompt limit, so
@@ -162,7 +179,7 @@ class EngineStepCycle:
                 fresh_failure, self.rng.stream("op"), intensify=refine,
                 cross_available=bool(inspirations),
                 adjust=lambda p: self.experiments.allocate("operator", context, self.theory.tilt(
-                    "operator", context, self.swm.tilt(parent.id, context, "operator", p) if planner == "swm" else p)))
+                    "operator", context, self._plan_operator(planner, parent.id, context, p))))
             op_selection = 'bandit'
         self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
                                else {op: 1.0}, op)
