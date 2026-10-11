@@ -87,6 +87,9 @@ def validate_experiments(cfg, defaults):
         raise ValueError('candidate_novelty max_resamples must be an integer from 0 to 2')
     if type(novelty['neighbors']) is not int or not 1 <= novelty['neighbors'] <= 10:
         raise ValueError('candidate_novelty neighbors must be an integer from 1 to 10')
+    cap = cfg.get('max_eval_cpu_seconds')
+    if cap is not None and (type(cap) is not int or cap < 1):
+        raise ValueError('max_eval_cpu_seconds must be a positive integer or null')
     swm = cfg.get('swm')
     if (type(swm) is not dict or set(swm) != {'embedding_api_base', 'embedding_model'}
             or type(swm['embedding_api_base']) is not str or type(swm['embedding_model']) is not str):

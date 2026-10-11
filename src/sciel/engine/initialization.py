@@ -27,6 +27,10 @@ class EngineInitialization:
     def _initialize(self, cfg, task, run_dir, llm, python, sink):
         from . import loop as _public
         self.cfg = cfg
+        cap = cfg.get("max_eval_cpu_seconds")
+        if cap is not None:
+            from dataclasses import replace
+            task = replace(task, cpu_seconds=min(task.cpu_seconds or cap, cap))
         self.task = task
         self.run_dir = run_dir
         self.llm = llm

@@ -28,7 +28,7 @@ KNOWN_KEYS = {
     "three_head", "three_head_path", "three_head_beta",
     "container", "max_iterations", "preset_selection", "preset_adaptive",
     "schedule_horizon", "checkpoint_interval", "warm_start", "candidate_novelty", "parallel_search",
-    "evaluation", "research_tools", "repeat_promotion", "swm",
+    "evaluation", "research_tools", "repeat_promotion", "swm", "max_eval_cpu_seconds",
 }
 
 # Accepted in old checkpoints, but no longer used.
@@ -41,6 +41,7 @@ DEFAULTS = {
     "budget": 100,
     "decision_epsilon": 0.1,
     "inherit": None,
+    "max_eval_cpu_seconds": None,
     "swm": {"embedding_api_base": "http://127.0.0.1:8001/v1", "embedding_model": "Qwen/Qwen3-Embedding-0.6B"},
     "random_seed": 0,
     "dup_cap": 4,
