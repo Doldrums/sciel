@@ -42,7 +42,7 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         self.config = validate_config(config)
         self.task_identity = deepcopy(task_identity)
         self.emit, self.charge = emit, charge
-        self.decide = bool
+        self.culture = None
         self.library = library or ToolLibrary(run_dir,
             {'image_id': self.config['image_id']}, library_limits(self.config))
         self.path = self.library.path / 'artifacts'

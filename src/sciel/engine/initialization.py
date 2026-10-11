@@ -287,6 +287,8 @@ class EngineInitialization:
             self.research_tools = ResearchTools(cfg['research_tools'], run_dir,
                 task_identity={'task': task.qualified_name, 'task_hash': task.task_hash},
                 emit=self.log.research_tool, charge=self._charge_research, **tool_options)
+            from .research_culture import ResearchCulture
+            self.research_tools.culture = ResearchCulture(self)
         self.idea = None
         if cfg.get('idea_two_stage', {}).get('enabled'):
             from .idea import TwoStageIdea

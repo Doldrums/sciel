@@ -132,6 +132,9 @@ Missing artifacts are unknown; timing/conditions are separate.
             maximum=cfg['max_scientific_steps'],budget=min(2200,cfg['max_prompt_chars']//8),
             canonical_evaluations=prior_evaluations[-2:]) + '\n'
         intro += state_part
+    if plan.get('suggested_tool_id'):
+        intro += ('SUGGESTED METHOD: published tool ' + plan['suggested_tool_id']
+                  + ' is offered for this question; use it if it fits before creating a new tool.\n')
     evidence = getattr(snapshot, 'research_search_evidence', None)
     if evidence:
         view = deepcopy(evidence)

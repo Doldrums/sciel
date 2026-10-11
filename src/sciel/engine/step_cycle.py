@@ -265,9 +265,7 @@ class EngineStepCycle:
                 max_chars=min(self.cfg['research_tools']['max_context_chars'], 10000))
             if snap.research_context is not None:
                 snap.research_context['research_cells_context'] = deepcopy(snap.research_cells_context)
-            self.research_tools.decide = lambda rule: self.decisions.sample("research_open",
-                self.experiments.allocate("research_open", context, self.theory.tilt("research_open", context,
-                    self.decisions.mix({"skip": float(not rule), "open": float(rule)})))) == "open"
+            self.research_tools.culture.context = context
             snap.tool_episode_plan = self.research_tools.prepare(snap, signals=signals)
         decision_context["decisions"] = self.decisions.drain()
         return {

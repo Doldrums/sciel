@@ -9,7 +9,7 @@ from statistics import NormalDist
 from ..causal.estimators import action_effect
 from ..causal.ledger import HORIZON
 
-DECISIONS = ("operator", "mode", "strategy", "research_open")
+DECISIONS = ("operator", "mode", "strategy", "research_open", "method")
 MIN_ROWS = 12
 MIN_TAKEN = 8
 SHIFT = 4.0
@@ -68,6 +68,10 @@ class Theory:
         shifted = {a: p * math.exp(SHIFT * effects.get(a, 0.0)) for a, p in distribution.items()}
         total = sum(shifted.values())
         return {a: (1 - MIX) * p + MIX * shifted[a] / total for a, p in distribution.items()}
+
+    def refuted(self, decision: str, action: str) -> bool:
+        decided = [c.effect for c in self.claims if c.decision == decision and c.action == action and c.decided]
+        return bool(decided) and max(decided) < 0
 
     def cards(self, context: str, k: int = 3) -> list[str]:
         decided = sorted((c for c in self.claims if c.context == context and c.decided),
