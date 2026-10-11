@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+
+from . import schools
 
 PROPOSE_INTERVAL = 50
 MAX_TRIALS = 2
 NONE_SHARE = 0.5
 STEP = 0.4
-BOUNDS = {"shift": (0.5, 16.0), "mix": (0.05, 0.9), "base_share": (0.1, 0.9)}
+BOUNDS = {"shift": (0.5, 16.0), "mix": (0.05, 0.9), "base_share": (0.1, 0.9), "theorist_interval": (10.0, 100.0),
+          "uncertainty_scale": (0.5, 2.0), "voi_scale": (0.25, 4.0)}
 
 
 @dataclass
@@ -18,12 +21,16 @@ class Procedure:
     shift: float = 4.0
     mix: float = 0.3
     base_share: float = 0.5
+    theorist_interval: float = 25.0
+    uncertainty_scale: float = 1.0
+    voi_scale: float = 1.0
     parent: str | None = None
     born: int = 0
     status: str = "trial"
+    local: dict = field(default_factory=dict)
 
     def params(self) -> dict:
-        return {"shift": self.shift, "mix": self.mix, "base_share": self.base_share}
+        return {name: getattr(self, name) for name in BOUNDS}
 
 
 class Procedures:
@@ -37,9 +44,10 @@ class Procedures:
     def get(self, procedure_id: str) -> Procedure:
         return next(p for p in self.pool if p.id == procedure_id)
 
-    def distribution(self) -> dict:
-        trials = [p for p in self.live() if p.status == "trial"]
-        incumbents = [p for p in self.live() if p.status == "culture"]
+    def distribution(self, island: int) -> dict:
+        trials = schools.trials(self.pool, island)
+        incumbents = [p for p in schools.available(self.pool, island)
+                      if p.status == "culture" or p.local.get(str(island)) == "culture"] or [self.pool[0]]
         if not trials:
             return {p.id: 1 / len(incumbents) for p in incumbents}
         return ({p.id: NONE_SHARE / len(incumbents) for p in incumbents}

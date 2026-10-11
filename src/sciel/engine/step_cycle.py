@@ -19,6 +19,22 @@ class EngineStepCycle:
         result = self._execute_step(plan)
         self._commit_step(plan, result)
 
+    def _idea_target(self, context: str) -> str:
+        """An idea-island proposal aims at a dense unexplored behavior, at an open question of the theory, or at neither."""
+        from ..swm import directive as behavior_directive, propose
+        from ..theory.claims import open_question, question_text
+        behavior = propose(self.db, self.rng.derive_seed("swm"), "kde")
+        claim = open_question(self.theory.claims, context)
+        arms = ["none"] + (["behavior"] if behavior else []) + (["claim"] if claim else [])
+        choice = self.decisions.sample("idea_target", self.experiments.allocate("idea_target", context,
+            self.theory.tilt("idea_target", context, {a: 1 / len(arms) for a in arms})))
+        if choice == "behavior":
+            return "\nIdea target: " + behavior_directive(behavior) + "\n"
+        if choice == "claim":
+            return "\nIdea target: design the new strategy so that its result answers this open question: " \
+                + question_text(claim) + "\n"
+        return ""
+
     def _planners(self) -> dict:
         arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.learner.ready),
                 ("heritage", self.heritage is not None and self.heritage.ready)) if ready]
@@ -36,7 +52,7 @@ class EngineStepCycle:
 
     def _prepare_step(self, island: int, *, excluded_parents=(), spawn=True, iteration_no=None) -> dict:
         iteration_no = self.iteration_no if iteration_no is None else iteration_no
-        self._procedure = self.procedures.get(self.decisions.sample("procedure", self.procedures.distribution()))
+        self._procedure = self.procedures.get(self.decisions.sample("procedure", self.procedures.distribution(island)))
         self.theory.shift, self.theory.mix = self._procedure.shift, self._procedure.mix
         self._repeat_candidate = None
         self._repeat_candidate_origin = None
@@ -194,11 +210,11 @@ class EngineStepCycle:
         self.decisions.observe("model", {m: w / sum(weights) for m, w in zip(models, weights)}
                                if models and weights and model in models else {model: 1.0}, model)
         strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
-            self.theory.tilt("strategy", context, self.strategies.distribution())))
+            self.theory.tilt("strategy", context, self.strategies.distribution(island))))
         finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
-            self.theory.tilt("finding", context, self.findings.distribution())))
+            self.theory.tilt("finding", context, self.findings.distribution(island))))
         theorist = None
-        if self.strategies.due(iteration_no):
+        if self.strategies.due(iteration_no, self._procedure.theorist_interval):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
                                                claims=self.theory.cards(context), findings=self.findings.top())
@@ -226,6 +242,8 @@ class EngineStepCycle:
         if strategy != "none":
             directive += "\nStrategy to try in this change: " + self.strategies.text(strategy) + "\n"
         directive += self.findings.deliver(finding, island)
+        if op == "idea":
+            directive += self._idea_target(context)
         directive += self.observed_changes.block(repair_code)
         repair_score = 0.0 if repair_code is not parent.code else parent.score
         snap = Snapshot(

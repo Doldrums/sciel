@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import asdict, dataclass
+from statistics import NormalDist
 
 from ..causal.sequential import contrasts, lond_level, sequence
+from .schools import DECISIONS as SCHOOL_DECISIONS, island_context
 
 DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
-             "eviction_planner", "inspiration_source", "finding")
+             "eviction_planner", "inspiration_source", "finding", "idea_target")
 ALPHA = 0.05
 MIN_ROWS = 12
 MIN_TAKEN = 8
@@ -45,6 +47,24 @@ class Claim:
                 f"{self.taken} trials)")
 
 
+def evpi(claim) -> float:
+    """Expected value of perfect information about a claim with estimate N(effect, se^2)."""
+    if claim.se <= 0:
+        return 0.0
+    z = abs(claim.effect) / claim.se
+    return claim.se * NormalDist().pdf(z) - abs(claim.effect) * NormalDist().cdf(-z)
+
+
+def open_question(claims: list, context: str):
+    undecided = [c for c in claims if c.context == context and not c.decided]
+    return max(undecided, key=evpi, default=None)
+
+
+def question_text(claim) -> str:
+    return (f"Does {claim.decision} '{claim.action}' change the chance that a child improves its island "
+            f"(current estimate {claim.effect:+.2f}, interval {claim.low:+.2f}..{claim.high:+.2f})?")
+
+
 def _closed(row) -> bool:
     return len(row.distribution) > 1 and (row.scope == "lineage" or row.outcome is not None)
 
@@ -61,6 +81,8 @@ class Theory:
         for row in ledger.rows:
             if row.decision in DECISIONS and _closed(row):
                 cells[(row.decision, row.context)].append(row)
+                if row.decision in SCHOOL_DECISIONS:
+                    cells[(row.decision, island_context(row.island))].append(row)
         known = {tuple(k) for k in self.order}
         for (decision, context), rows in cells.items():
             for action in dict.fromkeys(a for r in rows for a in r.distribution):

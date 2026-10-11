@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+
+from . import schools
 
 PREAMBLE = "You are the theorist of an automated program search."
 PROPOSE_INTERVAL = 25
@@ -17,6 +19,7 @@ class Strategy:
     text: str
     born: int
     status: str = "trial"
+    local: dict = field(default_factory=dict)
 
 
 def _excerpt(code: str, limit: int = 1500) -> str:
@@ -31,8 +34,8 @@ class Strategies:
     def live(self) -> list[Strategy]:
         return [s for s in self.pool if s.status != "retired"]
 
-    def distribution(self) -> dict:
-        live = self.live()
+    def distribution(self, island: int) -> dict:
+        live = schools.available(self.pool, island)
         if not live:
             return {"none": 1.0}
         return {"none": NONE_SHARE} | {s.id: (1 - NONE_SHARE) / len(live) for s in live}
@@ -40,9 +43,9 @@ class Strategies:
     def text(self, strategy_id: str) -> str | None:
         return next((s.text for s in self.pool if s.id == strategy_id), None)
 
-    def due(self, iteration: int) -> bool:
+    def due(self, iteration: int, interval: float = PROPOSE_INTERVAL) -> bool:
         trials = sum(s.status == "trial" for s in self.pool)
-        return trials < MAX_ACTIVE and iteration - self.last_request >= PROPOSE_INTERVAL
+        return trials < MAX_ACTIVE and iteration - self.last_request >= interval
 
     def request(self, iteration: int, *, task: str, programs: list, claims: list[str], findings: list[str]) -> str:
         self.last_request = iteration

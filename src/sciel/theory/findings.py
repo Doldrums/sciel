@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 
+from . import schools
+
 CANDIDATES = 4
 NONE_SHARE = 0.4
 MAX_CULTURE = 3
@@ -39,6 +41,7 @@ class Finding:
     created: int = 1
     delivered: int = 0
     islands: list = field(default_factory=list)
+    local: dict = field(default_factory=dict)
 
     def card(self) -> str:
         if self.kind == "lesson":
@@ -66,17 +69,19 @@ class Findings:
             added.append(finding)
         return added
 
-    def culture(self) -> list[Finding]:
-        return [f for f in self.pool if f.status == "culture"][-MAX_CULTURE:]
+    def culture(self, island: int) -> list[Finding]:
+        shown = [f for f in self.pool if f.status == "culture" or f in schools.local_culture(self.pool, island)]
+        return [f for f in shown if f.local.get(str(island)) != "retired"][-MAX_CULTURE:]
 
-    def distribution(self) -> dict:
-        trials = [f for f in self.pool if f.status == "trial"][-CANDIDATES:]
+    def distribution(self, island: int) -> dict:
+        trials = schools.trials(self.pool, island)[:CANDIDATES]
         if not trials:
             return {"none": 1.0}
         return {"none": NONE_SHARE} | {f.id: (1 - NONE_SHARE) / len(trials) for f in trials}
 
     def deliver(self, chosen: str, island: int) -> str:
-        shown = self.culture() + [f for f in self.pool if f.id == chosen and f.status == "trial"]
+        culture = self.culture(island)
+        shown = culture + [f for f in self.pool if f.id == chosen and f not in culture]
         for finding in shown:
             finding.delivered += 1
             if island not in finding.islands:
@@ -103,7 +108,7 @@ class Findings:
                  "islands": len(f.islands)} for f in self.pool]
 
     def top(self, k: int = 5) -> list[str]:
-        ranked = self.culture() + [f for f in reversed(self.pool) if f.status == "trial"]
+        ranked = [f for f in self.pool if f.status == "culture"] + [f for f in reversed(self.pool) if f.status == "trial"]
         return [f.text for f in ranked[:k]]
 
     def state(self) -> dict:
