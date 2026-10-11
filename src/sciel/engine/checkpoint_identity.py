@@ -18,7 +18,7 @@ class IdentityMismatch(Exception):
     so the population stops being a single comparable pool. Nothing in the journal
     would say so afterwards -- both identities would just appear in the same run."""
 
-_COMPONENTS = ("db", "schedule", "op_bandit", "reward", "selection", "intensity", "rng", "ledger", "theory", "experiments", "strategies", "swm", "learner", "procedures", "memory")
+_COMPONENTS = ("db", "schedule", "op_bandit", "reward", "selection", "intensity", "rng", "ledger", "theory", "experiments", "strategies", "swm", "learner", "procedures", "memory", "findings")
 
 _SCALARS = ("iteration_no", "B_evals", "budget", "seed_score", "cost_total", "llm_unpriced_calls",
             "n_events", "n_dups", "n_eval_fail", "n_nochild", "n_postmortems",

@@ -12,7 +12,7 @@ from ..components.kb.kb import KnowledgeBase
 from ..components.tail import BaseRate, BranchCalibration
 from .db import Database
 from ..causal import Ledger
-from ..theory import Experiments, Procedures, Strategies, Theory
+from ..theory import Experiments, Findings, Procedures, Strategies, Theory
 from .decisions import DecisionPolicy
 from .operators import OpBandit
 from .schedule import Schedule
@@ -181,6 +181,7 @@ class EngineInitialization:
         self.experiments = Experiments()
         self.strategies = Strategies()
         self.procedures = Procedures()
+        self.findings = Findings()
         self._procedure = self.procedures.get("p0")
         from ..swm import LatentArchive, PopulationLearner, SearchWorldModel
         from ..theory.claims import DECISIONS

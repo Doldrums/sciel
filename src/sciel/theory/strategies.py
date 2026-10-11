@@ -44,13 +44,15 @@ class Strategies:
         trials = sum(s.status == "trial" for s in self.pool)
         return trials < MAX_ACTIVE and iteration - self.last_request >= PROPOSE_INTERVAL
 
-    def request(self, iteration: int, *, task: str, programs: list, claims: list[str]) -> str:
+    def request(self, iteration: int, *, task: str, programs: list, claims: list[str], findings: list[str]) -> str:
         self.last_request = iteration
         best = "\n\n".join(f"Score {p.score:.4f}:\n```python\n{_excerpt(p.code)}\n```" for p in programs)
         tried = "\n".join(f"- [{s.status}] {s.text}" for s in self.pool) or "- none yet"
         known = "\n".join(f"- {c}" for c in claims) or "- none yet"
+        found = "\n".join(f"- {f}" for f in findings) or "- none yet"
         return (f"{PREAMBLE}\n\nTask:\n{task}\n\nBest programs so far:\n{best}\n\n"
-                f"Measured claims about the search:\n{known}\n\nStrategies already tried:\n{tried}\n\n"
+                f"Measured claims about the search:\n{known}\n\nFindings of research cells:\n{found}\n\n"
+                f"Strategies already tried:\n{tried}\n\n"
                 "Propose one new, concrete strategy for the next mutations: a specific algorithmic idea "
                 "or construction that the best programs do not use yet. It must differ from the strategies "
                 "already tried. Reply with the strategy only, in at most three sentences.")

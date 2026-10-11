@@ -278,6 +278,12 @@ class EngineAdmission:
                 self.log.decision(policy="method_credit", action="update", iteration_no=self.iteration_no,
                                   credit={t: round(v, 4) for t, v in culture.credit(published).items()},
                                   withdrawn=[t for t in published if culture.retired(t)])
+            for finding in self.findings.judge(self.theory):
+                self.log.decision(policy="finding", action=finding.status, iteration_no=self.iteration_no,
+                                  finding=finding.id, text=finding.text)
+            if self.findings.pool:
+                self.log.decision(policy="finding", action="counters", iteration_no=self.iteration_no,
+                                  counters=self.findings.counters())
             for procedure in self.procedures.judge(self.theory):
                 self.log.decision(policy="procedure", action=procedure.status, iteration_no=self.iteration_no,
                                   procedure=procedure.id, params=procedure.params())

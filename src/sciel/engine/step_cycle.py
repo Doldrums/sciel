@@ -218,11 +218,13 @@ class EngineStepCycle:
                                if models and weights and model in models else {model: 1.0}, model)
         strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
             self.theory.tilt("strategy", context, self.strategies.distribution())))
+        finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
+            self.theory.tilt("finding", context, self.findings.distribution())))
         theorist = None
         if self.strategies.due(iteration_no):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
-                                               claims=self.theory.cards(context))
+                                               claims=self.theory.cards(context), findings=self.findings.top())
         lessons, injected_ids = self.theory.cards(context), []
         if self.kb_on:
             picked = self.kb.retrieve(parent.score)
@@ -256,6 +258,7 @@ class EngineStepCycle:
         repair_code = failed_code if (op == "error_repair" and failed_code) else parent.code
         if strategy != "none":
             directive += "\nStrategy to try in this change: " + self.strategies.text(strategy) + "\n"
+        directive += self.findings.deliver(finding, island)
         directive += self.observed_changes.block(repair_code)
         repair_score = 0.0 if repair_code is not parent.code else parent.score
         snap = Snapshot(
@@ -338,7 +341,8 @@ class EngineStepCycle:
                 llm or self.llm, io=getattr(self, '_parallel_io', None),
                 candidate_evaluator=evaluate_tool_candidate)
         if self.research_tools is not None:
-            from .research_cells_context import merge_context, omit_last
+            from .research_cells_context import merge_context
+            from ..theory.findings import fresh
             context_limit = min(self.cfg['research_tools']['max_context_chars'], 10000)
             prior_cards = snapshot.research_cells_context
             fresh_cards = episode.get('cards', []) if episode else []
@@ -356,18 +360,8 @@ class EngineStepCycle:
             if snapshot.research_context is not None:
                 snapshot.research_context['research_cells_context'] = deepcopy(cards)
                 delivered_chars = len(json.dumps(cards, ensure_ascii=True))
-            elif cards['cards']:
-                formatted = self.research_tools.format_context(cards['cards'])
-                # The formatter includes its own heading and scope statement.
-                # Count that wrapper too, evicting older observations first.
-                while cards['cards'] and len(formatted) > context_limit:
-                    omit_last(cards, 'character_limit')
-                    formatted = self.research_tools.format_context(cards['cards'])
-                if cards['cards']:
-                    snapshot.directive += formatted
-                    delivered_chars = len(formatted)
-            # Untyped episode.context is audit prose, not an authenticated
-            # observation channel. Only retained/provenance-bound cards enter G.
+            elif episode is not None:
+                snapshot.directive += fresh(episode.get('findings', []))
         worker_options = {}
         if novelty_check is not None:
             worker_options["novelty_check"] = novelty_check
@@ -442,6 +436,10 @@ class EngineStepCycle:
             self.log.decision(policy="strategy", action="propose", iteration_no=self.iteration_no,
                               strategy=adopted.id if adopted else None, text=adopted.text if adopted else None)
         if self.research_tools is not None and res.meta.get('research_tools') is not None:
+            added = self.findings.add(res.meta['research_tools'].get('findings', []), self.iteration_no)
+            if added:
+                self.log.decision(policy="finding", action="add", iteration_no=self.iteration_no,
+                                  findings=[{"id": f.id, "text": f.text, "island": f.island} for f in added])
             self.research_tools.commit(res.meta['research_tools'], child_program_id=child_id,
                 link_kind='remeasurement' if res.meta.get('remeasurement') else 'mutation',
                 **({'candidate_binding': candidate_link, 'child_source': self.db._all[child_id].code}

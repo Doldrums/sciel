@@ -2,5 +2,6 @@
 
 from .claims import Claim, Theory
 from .experiments import Experiment, Experiments
+from .findings import Finding, Findings
 from .procedures import Procedure, Procedures
 from .strategies import Strategies, Strategy

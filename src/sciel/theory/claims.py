@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from ..causal.sequential import contrasts, lond_level, sequence
 
 DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
-             "eviction_planner", "inspiration_source")
+             "eviction_planner", "inspiration_source", "finding")
 ALPHA = 0.05
 MIN_ROWS = 12
 MIN_TAKEN = 8

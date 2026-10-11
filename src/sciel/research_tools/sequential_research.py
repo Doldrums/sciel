@@ -30,6 +30,7 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
     if plan['stage'] != 'research':
         return tools._assigned_episode(plan,snapshot,io)
     state = new_state(plan.get('research_state'))
+    findings = []
     work_kind = plan.get('work_kind', 'question')
     transfer_only = work_kind == 'method_transfer'
     if work_kind not in ('question','method_transfer'):
@@ -198,6 +199,10 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
             if getattr(response,'refusal',None):
                 raise ValueError('model refused this research proposal')
             action = parse_action(response.text,tools.config,visible_tool_ids=available)
+            if action['finding']:
+                findings.append({'text':action['finding'],'proposal_id':proposal_id,'cell_id':plan['cell_id'],
+                    'island_id':plan['island_id'],'receipt_id':next((row['receipt_id'] for row in reversed(state['steps'])
+                        if row.get('receipt_id') and row.get('status') == 'success'), None)})
             if tools.config.get('experimental_protocol'):
                 from .experiment_protocol import validate_dispatch
                 protocol_audit = validate_dispatch(action,evidence.dispatch_plan,selected['source_sha256'],
@@ -322,6 +327,7 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
                                    provider_abandonment=provider_abandonment,
                                    terminal_decision=terminal_decision)
     episode['research_state'] = finish_state(state,state['status'])
+    episode['findings'] = findings
     if submitted_jobs:
         episode['submitted_jobs'] = submitted_jobs
     if evidence.candidate_submission is not None:

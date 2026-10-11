@@ -10,6 +10,8 @@ from . import experiment_protocol
 from .observation_cards import _clip
 from .tool_protocol import _DEPENDENCY_GUIDANCE
 
+FINDING_CHARS = 400
+
 def _finite_json(text):
     def constant(_):
         raise ValueError('non-finite JSON is not supported')
@@ -63,6 +65,10 @@ def response_format(background=False, *, visible_tool_ids=None, sequential=False
         'Tool arguments encoded as a valid finite JSON object string. Use "{}" for no arguments; '
         'an empty string is not valid JSON. Do not encode null or an array.')
     properties['action'] = {'type': 'string', 'enum': ['create', 'use', 'skip']}
+    properties['finding'] = {'type': 'string', 'description': (
+        'One sentence: what the tool results you have seen so far establish about the task or candidate, with the '
+        'key numbers. It is delivered to the search that writes programs, so state the conclusion, not the plan. '
+        'Empty if there are no new results.')}
     if sequential:
         properties['action']['enum'] += ['finish', 'submit_candidate']
         properties['action']['description'] = (
@@ -131,13 +137,26 @@ def _tool_reference_error(field, values, available, problem):
         + visible + '.')
 
 
-def parse_action(text, config, *, visible_tool_ids=None):
-    if type(text) is not str or len(text) > config['max_response_chars']:
-        raise ValueError('tool response is missing or exceeds the response bound')
+def _unfence(text):
     stripped = text.strip()
     if stripped.startswith('```') and stripped.endswith('```'):
         stripped = stripped.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
-    action = _finite_json(stripped)
+    return stripped
+
+
+def parse_action(text, config, *, visible_tool_ids=None):
+    """The proposed action plus the cell's one-sentence finding about the results it has seen so far."""
+    action = _parse_action(text, config, visible_tool_ids=visible_tool_ids)
+    raw = _finite_json(_unfence(text))
+    finding = raw.get('finding') if type(raw) is dict else None
+    action['finding'] = _clip(finding.strip(), FINDING_CHARS) if type(finding) is str else ''
+    return action
+
+
+def _parse_action(text, config, *, visible_tool_ids=None):
+    if type(text) is not str or len(text) > config['max_response_chars']:
+        raise ValueError('tool response is missing or exceeds the response bound')
+    action = _finite_json(_unfence(text))
     sequential = config['max_scientific_steps'] > 1
     allowed = ('create', 'use', 'skip', 'poll', 'continue', 'cancel') if config['jobs']['enabled'] else ('create', 'use', 'skip')
     if sequential:

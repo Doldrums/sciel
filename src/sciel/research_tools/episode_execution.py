@@ -71,7 +71,7 @@ def _execute_single(tools, plan, snapshot, llm, *, io):
     if plan['stage'] != 'research':
         return tools._assigned_episode(plan, snapshot, io)
     available = list(plan['visible_tool_ids'])
-    registered, published, invocations, feedback = [], [], [], []
+    registered, published, invocations, feedback, findings = [], [], [], [], []
     known_cost = 0.0
     submitted_jobs = []
     provider_abandonment = None
@@ -117,6 +117,9 @@ def _execute_single(tools, plan, snapshot, llm, *, io):
             if getattr(response, 'refusal', None):
                 raise ValueError('model refused this research tool proposal')
             action = parse_action(response.text, tools.config, visible_tool_ids=available)
+            if action['finding']:
+                findings.append({'text': action['finding'], 'proposal_id': artifact, 'cell_id': plan['cell_id'],
+                                 'island_id': plan['island_id'], 'receipt_id': None})
             if action['action'] == 'skip':
                 feedback.append({'status': 'skipped', 'reason': action['reason']})
                 break
@@ -171,6 +174,7 @@ def _execute_single(tools, plan, snapshot, llm, *, io):
             break
     episode = tools._finish_episode(plan, registered, invocations, feedback, known_cost, attempt+1,
                                    provider_abandonment=provider_abandonment)
+    episode['findings'] = findings
     if submitted_jobs:
         episode['submitted_jobs'] = submitted_jobs
     return episode
