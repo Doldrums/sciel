@@ -190,6 +190,9 @@ def main():
         if not spec.endswith(".json"):
             arm["llm_usage"] = {Path(p).name: llm_usage(Path(p), runs.get(Path(p).name, [(0, 0)])[-1][0] if runs.get(Path(p).name) else 0)
                                 for p in sorted(glob.glob(spec.split("=", 1)[1])) if (Path(p) / "sciel_events.jsonl").exists()}
+            arm["approach_families"] = {Path(p).name: [(json.loads(l)["iteration_no"], json.loads(l)["cells"])
+                for l in (Path(p) / "sciel_events.jsonl").read_text().splitlines() if '"policy": "memory"' in l]
+                for p in sorted(glob.glob(spec.split("=", 1)[1])) if (Path(p) / "sciel_events.jsonl").exists()}
             arm["record_attribution"] = {Path(p).name: record_attribution(Path(p)) for p in sorted(glob.glob(spec.split("=", 1)[1]))
                                          if (Path(p) / "sciel_events.jsonl").exists()}
         if args.values and not spec.endswith(".json"):

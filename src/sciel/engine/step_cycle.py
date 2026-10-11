@@ -40,6 +40,12 @@ class EngineStepCycle:
         if not consistent:
             result.score = min(result.score, second) if second is not None else 0.0
 
+    def _families(self) -> list:
+        """One strategy card per latent archive cell, or per island best before the archive exists."""
+        ids = self.memory.elites if self.memory.ready else [i.best_id for i in self.db.islands if i.best_id]
+        cards = [self.db.get(pid).card for pid in ids if self.db.get(pid).card]
+        return list(dict.fromkeys(cards))[:8]
+
     def _idea_target(self, context: str) -> str:
         """An idea-island proposal aims at a dense unexplored behavior, at an open question of the theory, or at neither."""
         from ..swm import directive as behavior_directive, propose
@@ -238,7 +244,8 @@ class EngineStepCycle:
         if self.strategies.due(iteration_no, self._procedure.theorist_interval):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
-                                               claims=self.theory.cards(context), findings=self.findings.top())
+                                               claims=self.theory.cards(context), findings=self.findings.top(),
+                                               families=self._families())
         lessons, injected_ids = self.theory.cards(context), []
         # the binding cap on ONE run of the program
         # Population stall is not evidence that this particular lineage stalled.
