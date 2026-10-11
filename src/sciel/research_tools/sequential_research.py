@@ -228,6 +228,11 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
                 state['status'] = 'closed'
                 break
             if action['action'] == 'submit_candidate':
+                if 'refuted' in (state.get('conclusion'), action.get('conclusion')):
+                    raise ValueError('a candidate cannot rest on a conclusion this cell has refuted')
+                if action['candidate_receipt_id'] not in {row.get('receipt_id') for row in state['steps']
+                                                          if row.get('status') == 'success'}:
+                    raise ValueError('a candidate must come from a successful receipt of this cell')
                 evidence.submit_saved(action,proposal_id=proposal_id,cost=cost)
                 repairs = 0
                 continue
