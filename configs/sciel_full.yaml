@@ -1,15 +1,6 @@
 # Working profile for the complete hypothesis -> experiment -> knowledge loop.
 # A distinct profile keeps the earlier frozen container comparisons identifiable.
 extends: circle.yaml
-research:
-  enabled: true
-  reflection_interval: 10
-  max_aux_calls: 32
-  max_lessons: 50
-  max_experiments: 200
-  max_fragments: 20
-  retrieve_k: 3
-# Fixed population structure makes initial module verification interpretable.
 dynamic_islands: false
 portfolio_seed: false
 max_iterations: 96

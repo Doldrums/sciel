@@ -57,18 +57,9 @@ class RepeatPromotion(
         required = {"contract", "task", "task_hash", "canonical_initial_source_sha256",
                     "task_evaluator_sha256", "adapter"} | self.IDENTITY_REQUIRED_EXTRA
         if (not isinstance(identity, dict) or required - set(identity)
-                or set(identity) - required - {"integration_sha256", "execution_profile", "restart_trace"}
+                or set(identity) - required - {"integration_sha256"}
                 or identity["contract"] != self.CONTRACT):
             raise ValueError("repeat identity fields/contract differ")
-        if 'execution_profile' in identity or 'restart_trace' in identity:
-            from .repeat_support import traced_execution_policy, circle_initial_source_policy
-            if identity.get('execution_profile') not in ('paired_restart_trace/1', 'paired_restart_trace/2'):
-                raise ValueError('repeat traced execution policy differs')
-            policy = circle_initial_source_policy({'circle_generation': {
-                'enabled': True, 'execution_profile': identity.get('execution_profile')}})
-            expected = traced_execution_policy(policy)
-            if digest({key: identity.get(key) for key in expected}) != digest(expected):
-                raise ValueError('repeat traced execution policy differs')
         for key in ("task_hash", "canonical_initial_source_sha256", "task_evaluator_sha256"):
             if not isinstance(identity[key], str) or len(identity[key]) != 64 or any(c not in "0123456789abcdef" for c in identity[key]):
                 raise ValueError(f"invalid repeat identity {key}")

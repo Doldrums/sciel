@@ -9,9 +9,10 @@
 SCiEL — **Scientific Closed-Loop Evolution** — studies a specific question:
 **can a search system improve the methods it uses to make further progress?**
 
-The engine evolves programs against an executable task contract. It connects
-proposed changes to hypotheses, records what evaluation establishes, and brings
-that evidence into subsequent proposals. Persistent research cells can also
+The engine evolves programs against an executable task contract. Every search
+decision is randomized and logged with its probability; a theory of the search,
+tested anytime-validly on that log, and a learned world model of the search shape
+later decisions and proposals. Persistent research cells can also
 write tools, run numerical experiments, retain intermediate state, and share
 methods across branches of the search.
 
@@ -25,7 +26,7 @@ can survive that candidate and later be used on another branch.
 ## Architecture
 
 The architecture builds outward from an **Engine + Tree Search** core.
-**Knowledge Base + Hypothesis** form the scientific search loop around it.
+**Theory + World Model** form the scientific search loop around it.
 **Research Units + Tools** extend that loop with persistent investigations and
 reusable methods.
 
@@ -46,11 +47,12 @@ flowchart TB
                 TREE <-->|"Retain / sample"| STORE
                 ENGINE -->|"Feedback"| CONTROL
             end
-            KB["Knowledge Base"]
-            HYP["Hypothesis"]
-            KB -->|"Evidence"| HYP
-            HYP -->|"Testable changes"| SEARCH
-            SEARCH -->|"Measurements"| KB
+            KB["Theory<br/>claims · experiments · knowledge"]
+            HYP["World model"]
+            SEARCH -->|"Decision ledger"| KB
+            SEARCH -->|"Transitions"| HYP
+            KB -->|"Tilts · lessons · findings"| SEARCH
+            HYP -->|"Planner arms · niches · memory"| SEARCH
         end
         UNITS["Research Units"]
         TOOLS["Tools"]
@@ -74,8 +76,8 @@ flowchart TB
 
 **Tree Search** denotes evolutionary branching and selection over program
 lineages and island populations. **Research Units** are persistent research cells.
-Evaluations feed the knowledge base; evidence informs hypotheses and subsequent
-search proposals. Units create, run and revise tools, returning observations and
+The decision ledger feeds the theory and the world model; proven claims, findings
+and lessons reach later decisions only as randomized arms judged by the same ledger. Units create, run and revise tools, returning observations and
 saved artifacts to the scientific loop. Tool-produced candidates pass through the
 engine's source validation and ordinary task evaluation.
 
@@ -125,7 +127,7 @@ retention separately from these policies.
 | --- | --- |
 | **Population and diversity** | Island populations with MAP-Elites grids, learned descriptor grids, VQ niches, or other configured containers. Seeding, crossover and island creation are separate choices. |
 | **Search decisions** | Parent and operator selection, mode mixtures and online bandits. Optional trained policies influence decisions using their saved model weights. |
-| **Scientific memory** | Hypotheses, measurements, conclusions and lessons, with bounded views assembled for later model requests. |
+| **Theory of search** | Randomized decisions with logged probabilities; anytime-valid claims, discriminating experiments, theorist strategies, and a knowledge pool of cell findings and lessons. |
 | **Candidate novelty** | Run-wide SHA-256 and AST repeat detection, code-similarity context, and optional output-repeat checks. The registry survives eviction and checkpoint/resume. |
 | **Research cells** | Persistent questions, tool revisions, saved artifacts, sequential experiments, background jobs and cross-island method exchange. |
 | **Parallel execution** | Configured search workers and shared capacity limits for model requests, evaluators and research work. |
@@ -318,8 +320,11 @@ distribution, task bundle and checksums.
 | --- | --- |
 | [`engine/`](src/sciel/engine) | Search scheduling, population, generation, checkpoints and replay. |
 | [`eval/`](src/sciel/eval) | Task loading, execution, evaluation and result certification. |
-| [`hypothesis/`](src/sciel/hypothesis) | Proposal and conclusion protocols and evidence validation. |
-| [`knowledge_base/`](src/sciel/knowledge_base) | Experimental records, retrieval and bounded prompt views. |
+| [`causal/`](src/sciel/causal) | Decision ledger, off-policy estimators and anytime-valid inference. |
+| [`theory/`](src/sciel/theory) | Claims, experiments, strategies, procedures and the knowledge pool. |
+| [`swm/`](src/sciel/swm) | World model of the search, population learner, niches, archive and targets. |
+| [`culture/`](src/sciel/culture) | Repertoire exported by one generation and inherited by the next. |
+| [`evidence/`](src/sciel/evidence) | Measurement contracts and evidence codecs. |
 | [`research_tools/`](src/sciel/research_tools) | Research cells, experimental execution and evidence delivery. |
 | [`methods/`](src/sciel/methods) | Tool registries, resource budgets and method exchange. |
 | [`components/`](src/sciel/components) | Selection, population containers and learned policies. |

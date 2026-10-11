@@ -59,8 +59,6 @@ def _refresh(engine, saved, state, *, work_kind='question', pending_trial=None):
         snapshot.research_search_evidence = search_evidence(engine, parent)
     snapshot.research_cells_context = compact_context(tools.context_view(snapshot),
         max_chars=min(tools.config['max_context_chars'], 10000))
-    if snapshot.research_context is not None:
-        snapshot.research_context['research_cells_context'] = deepcopy(snapshot.research_cells_context)
     return snapshot
 
 

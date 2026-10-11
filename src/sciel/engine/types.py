@@ -37,9 +37,6 @@ class Snapshot:
     task_prompt: str = ""
     bet_enabled: bool = False
     required_entrypoints: list = field(default_factory=list)
-    research_context: dict | None = None
-    parent_card: str = ""
-    idea_cards: list = field(default_factory=list)
     tool_episode_plan: dict | None = None
     research_cells_context: dict | None = None
     research_targets: dict | None = None

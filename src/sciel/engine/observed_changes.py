@@ -279,10 +279,6 @@ class ObservedChanges:
                       **_compare(parent_observation, child), **structural)
         return self._insert(_validate_record(_seal(record)))
 
-    def observe_paired(self, group):
-        from .observed_paired import paired_record, validate_record
-        return self._insert(validate_record(paired_record(group)))
-
     def block(self, code, max_chars=4000):
         _require(type(max_chars) is int and max_chars >= 0, 'max_chars must be nonnegative integer')
         source_sha = _source_sha(code)
@@ -374,18 +370,14 @@ class ObservedChanges:
         _require(type(state['records']) is list and type(state['aliases']) is list, 'invalid observed changes records')
         restored = ObservedChanges(self._metric)
         for item in state['records']:
-            if type(item) is dict and item.get('scope') == 'paired':
-                from .observed_paired import validate_record
-                record = validate_record(item)
-            else:
-                record = _validate_record(item)
-                _require(record['child_observation']['validity_required'] == restored._validity_required(),
-                         'observation validity policy differs')
-                for obs in (record['child_observation'], record['parent_observation']):
-                    if obs is not None and obs.get('case_vector') is not None:
-                        _require(self._metric is not None and self._metric['task_hash'] is not None
-                                 and obs['case_vector']['metric_sha256'] == self._metric['sha256'],
-                                 'case vector metric binding differs')
+            record = _validate_record(item)
+            _require(record['child_observation']['validity_required'] == restored._validity_required(),
+                     'observation validity policy differs')
+            for obs in (record['child_observation'], record['parent_observation']):
+                if obs is not None and obs.get('case_vector') is not None:
+                    _require(self._metric is not None and self._metric['task_hash'] is not None
+                             and obs['case_vector']['metric_sha256'] == self._metric['sha256'],
+                             'case vector metric binding differs')
             _require((record['scope'], record['id']) not in restored._keys, 'duplicate observation identity in state')
             restored._insert(record)
         for alias in state['aliases']:

@@ -19,7 +19,6 @@ from sciel.cli.main import _run_engine
 from sciel.config import load_config, validate
 from sciel.engine import checkpoint
 from sciel.engine.factory import build_engine
-from sciel.engine.recovery import inspect_provider_stop, prepare_provider_recovery
 from sciel.engine.parallel_recovery import (inspect_parallel_stop, authorize_parallel_recovery,
                                            has_unabandoned_provider_failure)
 from sciel.engine.runtime import RuntimeStatus
@@ -103,9 +102,10 @@ def main():
     if cfg.get('budget') is not None or cfg.get('max_iterations') is not None:
         parser.error('This supervisor is only for explicitly unlimited live runs')
     ensure_credentials(cfg)
-    recover, legacy = args.abandon_provider_failure, args.abandon_provider_failure
+    if not cfg.get('parallel_search', {}).get('enabled'):
+        parser.error('This supervisor requires parallel_search')
+    recover = args.abandon_provider_failure
     failures = 0
-    parallel = bool(cfg.get('parallel_search', {}).get('enabled'))
     initial_resume = not fresh
     while True:
         engine = build_engine(cfg, str(root / 'tasks'), str(run_dir), python=sys.executable)
@@ -113,22 +113,13 @@ def main():
         try:
             if not fresh:
                 checkpoint.load(engine, str(ckpt))
-            if (initial_resume and parallel and not recover
+            if (initial_resume and not recover
                     and has_unabandoned_provider_failure(str(ckpt))):
                 parser.error('Parallel checkpoint has an existing unresolved provider failure; '
                              'use --abandon-provider-failure to explicitly abandon it')
             before = engine.iteration_no
-            # Automatic continuation applies to failures incurred by this
-            # invocation. An already sealed request requires the explicit flag.
-            if not recover and getattr(engine.research, 'stopped_reason', None):
-                parser.error('Checkpoint is already stopped; use --abandon-provider-failure '
-                             'to explicitly abandon an eligible unknown provider request')
             if recover:
-                if parallel:
-                    authorization = inspect_parallel_stop(str(ckpt))
-                    authorize_parallel_recovery(engine, str(ckpt), authorization)
-                else:
-                    prepare_provider_recovery(engine, str(ckpt), allow_legacy=legacy)
+                authorize_parallel_recovery(engine, str(ckpt), inspect_parallel_stop(str(ckpt)))
             fresh = False
             result = _run_engine(engine)
             print(json.dumps(result), flush=True)
@@ -138,12 +129,10 @@ def main():
                 # A graceful pause returns normally. A simultaneous stop request
                 # cannot certify this failure or erase an unknown paid outcome.
                 raise
-            receipt = (inspect_parallel_stop(str(ckpt)) if parallel else
-                       inspect_provider_stop(str(ckpt), allow_legacy=False))
+            receipt = inspect_parallel_stop(str(ckpt))
             if not receipt.get('auto_recoverable'):
                 raise
-            if parallel:
-                authorize_parallel_recovery(engine, str(ckpt), receipt)
+            authorize_parallel_recovery(engine, str(ckpt), receipt)
             failures = 1 if engine.iteration_no > before else failures + 1
             delay = min(300, 30 * (2 ** min(failures - 1, 4)))
             print(f'Provider failure sealed; continuation after {delay}s without retrying the failed call. '
@@ -152,9 +141,7 @@ def main():
             engine.close()
         if not backoff(run_dir, delay):
             return 0
-        # Parallel authorization is already durable and consumed by exact call
-        # replay; a new baseline must not be passed through serial recovery.
-        recover, legacy = not parallel, False
+        recover = False
         initial_resume = False
 
 

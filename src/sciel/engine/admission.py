@@ -185,12 +185,7 @@ class EngineAdmission:
             self._last_pop_improve = self.B_evals
             self._last_pop_improve_iteration = self.iteration_no
         from .prompt.parse import extract_card
-        if self.idea is not None and res.meta.get('idea_card') is not None:
-            from .idea import card_text
-            saved_card = card_text(res.meta['idea_card'])
-        else:
-            saved_card = ((res.meta.get('hypothesis') or {}).get('text', '')[:200]
-                          if self.research is not None else extract_card(res.response or ""))
+        saved_card = extract_card(res.response or "")
         child_prog = self.db.add(res.child_code, res.score, res.cases, res.island,
                                  origin=res.origin, parent_id=res.parent_id,
                                  card=saved_card)

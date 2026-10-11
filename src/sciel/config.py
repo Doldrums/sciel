@@ -28,11 +28,13 @@ KNOWN_KEYS = {
     "three_head", "three_head_path", "three_head_beta",
     "container", "max_iterations", "preset_selection", "preset_adaptive",
     "schedule_horizon", "checkpoint_interval", "warm_start", "candidate_novelty", "parallel_search",
-    "evaluation", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation",
+    "evaluation", "research_tools", "repeat_promotion",
 }
 
 # Accepted in old checkpoints, but no longer used.
-DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval", "log_evictions", "bet_enabled", "c2_event_bets", "kb_free"}
+DEPRECATED_KEYS = {"inject_entrypoints", "reflection_interval", "log_evictions", "bet_enabled", "c2_event_bets", "kb_free",
+                   "research", "idea_two_stage", "idea_card_selection", "repeat_population",
+                   "circle_intervention", "circle_generation"}
 
 DEFAULTS = {
     "num_islands": 3,

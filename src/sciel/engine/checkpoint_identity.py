@@ -184,51 +184,9 @@ def _identity(engine) -> dict:
             "tau_floor": cfg.get("tau_floor", 1e-3)}
     if cfg.get("preset_selection"):
         identity["presets"] = {"enabled": True, "adaptive": cfg.get("preset_adaptive", True)}
-    if cfg.get('research', {}).get('enabled'):
-        from ..hypothesis import CONTRACT
-        from ..evidence.measurement import metric_context
-        from ..hypothesis.rendering import presentation_identity
-        identity['research'] = {'contract': CONTRACT, 'config': cfg['research'],
-                                'metric': metric_context(engine.task),
-                                'presentation': presentation_identity(
-                                    batch_only_lessons=cfg['research'].get('batch_only_lessons', False),
-                                    comparison_reviews=cfg['research'].get('comparison_reviews', False),
-                                    compact_lesson_memory=cfg['research'].get('compact_lesson_memory', False))}
-        from ..knowledge_base.retrieval import selection_identity
-        lesson_selection = selection_identity(cfg['research'])
-        if lesson_selection is not None:
-            identity['research']['lesson_selection'] = lesson_selection
-        if 'external_history_sha256' in cfg['research']:
-            from .external_research import identity as external_identity
-            identity['research']['external_history_identity'] = external_identity()
-    if cfg.get('idea_two_stage', {}).get('enabled'):
-        from .idea import CONTRACT
-        identity['idea_two_stage'] = {'contract': CONTRACT, 'config': cfg['idea_two_stage']}
-    if cfg.get('idea_card_selection', {}).get('enabled'):
-        from ..components.selection.idea_cards import CONTRACT, EPSILON, REPRESENTATION
-        identity['idea_card_selection'] = {
-            'contract': CONTRACT, 'representation': REPRESENTATION, 'epsilon': EPSILON,
-            'config': cfg['idea_card_selection'], 'island': engine._idea_island,
-            'selection_floor': cfg.get('selection_floor', 1e-3),
-            'tau_floor': cfg.get('tau_floor', 1e-3)}
     repeat = getattr(engine, 'repeat_promotion', None)
     if repeat is not None:
         identity['repeat_promotion'] = {'config': cfg['repeat_promotion'], 'identity': repeat.identity}
-    population = getattr(engine, 'repeat_population', None)
-    if population is not None:
-        from ..campaign.identity import safe_config
-        identity['repeat_population'] = {'config': cfg['repeat_population'],
-            'population': population.identity, 'batches': engine.paired_batches.identity,
-            'search': {'config': safe_config(cfg),
-                       'models': list(getattr(engine.llm, 'models', [])),
-                       'weights': deepcopy(getattr(engine.llm, 'weights', None))}}
-    intervention = getattr(engine, 'intervention', None)
-    if intervention is not None:
-        identity['circle_intervention'] = {'config': cfg['circle_intervention'],
-                                           'identity': intervention.identity}
-    generation = getattr(engine, 'circle_generation', None)
-    if generation is not None:
-        identity['circle_generation'] = {'config': cfg['circle_generation'], 'identity': generation.identity}
     return identity
 
 def check_identity(engine, state: dict) -> list[str]:
@@ -248,7 +206,7 @@ def check_identity(engine, state: dict) -> list[str]:
     for key in ("task", "task_hash", "engine_contract"):
         if want.get(key) and want.get(key) != have.get(key):
             out.append(f"{key}: checkpoint {want.get(key)!r} != now {have.get(key)!r}")
-    for key in ("llm_transport", "warm_start", "unlimited_search", "parallel_search", "candidate_novelty", "output_novelty", "observed_changes", "container", "presets", "frozen_policies", "research", "research_tools", "idea_two_stage", "idea_card_selection", "repeat_promotion", "repeat_population", "circle_intervention", "circle_generation"):
+    for key in ("llm_transport", "warm_start", "unlimited_search", "parallel_search", "candidate_novelty", "output_novelty", "observed_changes", "container", "presets", "frozen_policies", "research_tools", "repeat_promotion"):
         if want.get(key) != have.get(key):
             out.append(f"{key}: checkpoint configuration differs from current configuration")
     a = (want.get("descriptor") or {}).get("kind")

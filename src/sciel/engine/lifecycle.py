@@ -79,9 +79,6 @@ class EngineLifecycle:
                 self.close()
 
     def _run_dispatch(self) -> dict:
-        if self.paired_batches is not None:
-            from .repeat_population_support import run
-            return run(self)
         return self._run()
 
     def _run(self) -> dict:
@@ -110,26 +107,17 @@ class EngineLifecycle:
                                'execution_identity': self.evaluation_backend.identity}
                                if self.evaluation_backend is not None else _evaluator_metadata(self.task, self.cfg)),
                            config=self.cfg)
-        from .recovery import apply_provider_recovery
-        apply_provider_recovery(self)
         if self.cfg.get('parallel_search', {}).get('enabled'):
             from .parallel import run_parallel
             return run_parallel(self)
-        if self.research is not None and self.research.stopped_reason:
-            raise CampaignStopped(self.research.stopped_reason)
         if self.repeat_promotion is not None:
             self.repeat_promotion.start(self.log.run_id)
             self._run_repeat_pending()
-        try:
-            if self.db.pop_best_id is None:
-                self.seed()
-            elif self._portfolio_bootstrap is not None:
-                warm = self.cfg.get('warm_start')
-                self._portfolio_seed(warm['source'] if warm else _read(self.task.initial_program_path))
-        except CampaignStopped as exc:
-            if self.research is not None and not getattr(exc, 'current_call_cost_unknown', False):
-                self._finish('research_stopped')
-            raise
+        if self.db.pop_best_id is None:
+            self.seed()
+        elif self._portfolio_bootstrap is not None:
+            warm = self.cfg.get('warm_start')
+            self._portfolio_seed(warm['source'] if warm else _read(self.task.initial_program_path))
         if self.repeat_promotion is not None and not self.repeat_promotion.stopped_reason:
             if self.repeat_promotion.plan_bootstrap(_read(self.task.initial_program_path)):
                 self._run_repeat_pending()
@@ -163,25 +151,15 @@ class EngineLifecycle:
                 if self.repeat_promotion is not None and self._repeat_candidate is not None:
                     code, cases, program_id = self._repeat_candidate
                     self.repeat_promotion.note_unexamined_candidate(code, cases, program_id,
-                        reason='post_evaluation_research_stopped:' + type(exc).__name__)
+                        reason='post_evaluation_stopped:' + type(exc).__name__)
                     self._repeat_candidate = None
-                if self.research is not None and not getattr(exc, 'current_call_cost_unknown', False):
-                    self._finish('research_stopped')
                 raise
             if self.repeat_promotion is not None and self._repeat_candidate is not None:
                 code, cases, program_id = self._repeat_candidate
                 self._repeat_candidate = None
-                repeat_options = {}
-                if self.research is not None:
-                    repeat_options['research_context'] = self._repeat_research_binding(
-                        program_id, self._repeat_candidate_origin)
                 self._repeat_candidate_origin = None
-                if self.repeat_promotion.plan_candidate(code, cases, program_id, **repeat_options):
+                if self.repeat_promotion.plan_candidate(code, cases, program_id):
                     self._run_repeat_pending()
-            if self.repeat_promotion is not None:
-                # A rejected/unplanned candidate or NoChild has no pending
-                # numeric batch, but can still complete the ordinary cadence.
-                self._complete_repeat_research()
             self._maybe_milestone()
             interval = self.cfg.get("checkpoint_interval")
             if interval and self.iteration_no % interval == 0:
@@ -196,14 +174,6 @@ class EngineLifecycle:
                 "n_evaluation_results": self.n_evaluation_results,
                 "n_output_repeats": self.n_output_repeats,
                 **self.record_stats()}
-        if self.research is not None:
-            result['research'] = self.research.summary()
-        if self.idea is not None:
-            result['idea_two_stage'] = self.idea.summary()
-        if self.intervention is not None:
-            result['circle_intervention'] = self.intervention.summary()
-        if self.circle_generation is not None:
-            result['circle_generation'] = self.circle_generation.summary()
         if self.repeat_promotion is not None:
             result['repeat_promotion'] = self._repeat_export
         return result
@@ -246,9 +216,6 @@ class EngineLifecycle:
         if self.repeat_promotion is not None:
             from .repeat_support import export
             self._repeat_export = export(self)
-        if self.paired_batches is not None:
-            from .repeat_population_support import export
-            self._repeat_population_export = export(self)
         from ..culture import export as export_repertoire
         repertoire = export_repertoire(self)
         self.log.decision(policy="heritage", action="export", path=str(repertoire),

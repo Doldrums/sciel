@@ -1,4 +1,4 @@
-"""Prompt assembly from templates and research context."""
+"""Prompt assembly from templates."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import ast
 import os
 
 from .budget import fit
-from .sources import source_bundle, source_catalog_block, source_reference
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
@@ -164,11 +163,6 @@ def compose_directive(effective_timeout: float, parent_timing: float | None,
     return "\n".join(parts)
 
 
-def source_bundle_for_prompt(op: str, snapshot):
-    """The same source roles as the resolved template, for trace diagnostics."""
-    return source_bundle(snapshot, include_inspirations='{inspirations}' in _load_template(op))
-
-
 def build_fix(code: str, error: str, lineno: int | None) -> str:
     """Short syntax-repair turn: the error and the lines around it, not the whole task."""
     lines = code.split("\n")
@@ -183,28 +177,18 @@ def build(op: str, snapshot, *, edits: bool = False) -> str:
     template = _load_template(op)
     lessons = "\n".join(f"- {ls}" for ls in snapshot.kb_lessons) or "(none)"
     artifacts = "\n".join(f"{k}: {v}" for k, v in snapshot.artifacts.items()) or "(none)"
-    research = getattr(snapshot, 'research_context', None) is not None
-    bundle = (source_bundle(snapshot, include_inspirations='{inspirations}' in template)
-              if research else None)
     parent_code = snapshot.parent_code
     inspirations = snapshot.inspirations
-    if bundle is not None:
-        # Change only the trusted template BEFORE inserting arbitrary task/code/
-        # artifact text. A reference is prose, not an executable Python fence.
-        template = template.replace('```python\n{parent_code}\n```', '{parent_code}')
-        parent_code = source_reference(bundle['target_ref'])
-        inspirations = [{**row, 'code': source_reference(row['source_ref'])}
-                        for row in bundle['inspirations']]
     prompt = template.format(
         task_prompt=snapshot.task_prompt,
         parent_code=parent_code,
         parent_score=f"{snapshot.parent_score:.4f}",
-        inspirations=fit("inspirations", _summarize_inspirations(inspirations) if bundle is None and op != "cross"
+        inspirations=fit("inspirations", _summarize_inspirations(inspirations) if op != "cross"
                          else _format_inspirations(inspirations)),
         directive=fit("directive", snapshot.directive or "(none)"),
         lessons=fit("lessons", lessons),
         artifacts=fit("artifacts", artifacts),
         bet_block=_BET_BLOCK,
-        output_contract=EDIT_CONTRACT if edits and bundle is None else _FULL_CONTRACT.get(op, ""),
+        output_contract=EDIT_CONTRACT if edits else _FULL_CONTRACT.get(op, ""),
     )
-    return prompt + '\n' + source_catalog_block(bundle) if bundle is not None else prompt
+    return prompt

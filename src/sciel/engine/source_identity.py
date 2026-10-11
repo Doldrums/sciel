@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 
 
-def package_source_hashes(*, files=(), packages=('engine', 'hypothesis', 'knowledge_base')):
+def package_source_hashes(*, files=(), packages=('engine', 'evidence')):
     """Bind every Python helper in the selected packages and explicit leaves."""
     root = Path(__file__).resolve().parents[1]
     names = set(files)

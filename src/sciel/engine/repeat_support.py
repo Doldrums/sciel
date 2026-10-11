@@ -81,81 +81,25 @@ def validate_registered_native_task(task):
     return {'task_hash': task.task_hash, 'evaluator_sha256': evaluator_sha}
 
 
-def circle_initial_source_policy(cfg):
-    """Resolve the explicit execution profile without running task code."""
-    circle = cfg.get('circle_generation', {})
-    if 'execution_profile' in circle:
-        if (circle.get('enabled') is not True or
-                type(circle['execution_profile']) is not str or
-                circle['execution_profile'] not in (TRACED_EXECUTION_PROFILE, OPTIMIZER_TRACED_EXECUTION_PROFILE)):
-            raise ValueError('unknown or disabled Circle execution profile')
-        from ..hypothesis.circle_source_family import builder_for_profile
-        return builder_for_profile(circle['execution_profile']).OPERATION
-    return 'circle_restart_body/1' if circle.get('enabled') else None
-
-
-def traced_execution_policy(initial_source_policy):
-    """Identity extension for same-source, repeat-only diagnostic capture.
-
-    Absent on legacy paths, including their draw keyword arguments. This policy
-    does not assert diagnostics succeeded or change numerical admission.
-    """
-    if initial_source_policy in (None, 'circle_restart_body/1'):
-        return {}
-    if initial_source_policy not in ('circle_restart_body_traced/1', 'circle_restart_body_traced/2'):
-        raise ValueError('unknown Circle initial source policy')
-    from ..hypothesis.circle_source_family import builder_for_operation
-    builder = builder_for_operation(initial_source_policy)
-    identity = builder.identity()
-    return {'execution_profile': builder.EXECUTION_PROFILE,
-        'restart_trace': {'enabled': True, 'capture': 'paired_draws_only',
-            'ordinary_evaluation': 'disabled',
-            'scaffold_sha256': identity['common_scaffold_sha256'],
-            'collector_sha256': identity['dependencies']['collector_sha256']}}
-
-
-def validate_circle_task(task, *, initial_source_policy=None):
-    """Accept one pinned task/seed pair, never an arbitrary named Circle task.
-
-    The opt-in body mode changes only the initial source. Its task hash still
-    binds the complete canonical YAML, evaluator and assets. A generated warm
-    start is not admitted here; checkpoint restore owns continuation sources.
-    """
+def validate_circle_task(task):
+    """Accept one pinned task/seed pair, never an arbitrary named Circle task."""
     from ..eval.registry import load_task
-    expected_task, expected_source = CANONICAL_TASK_HASH, INITIAL_SHA
-    if initial_source_policy == 'circle_restart_body/1':
-        from ..hypothesis import circle_restart_body as builder
-        expected_task, expected_source = BODY_TASK_HASH, BODY_INITIAL_SHA
-    elif initial_source_policy is not None:
-        if initial_source_policy not in ('circle_restart_body_traced/1', 'circle_restart_body_traced/2'):
-            raise ValueError('unknown Circle initial source policy')
-        from ..hypothesis.circle_source_family import builder_for_operation
-        builder = builder_for_operation(initial_source_policy)
-        expected_task, expected_source = ((TRACED_BODY_TASK_HASH, TRACED_BODY_INITIAL_SHA)
-            if initial_source_policy == 'circle_restart_body_traced/1' else
-            (OPTIMIZER_TRACED_TASK_HASH, OPTIMIZER_TRACED_INITIAL_SHA))
-    if initial_source_policy is not None:
-        if _sha(builder.source_for().encode()) != expected_source:
-            raise ValueError('Circle body control differs from pinned source')
     current = load_task(task.root)
-    if initial_source_policy in ('circle_restart_body_traced/1', 'circle_restart_body_traced/2') and task != current:
-        raise ValueError('traced Circle task metadata differs from pinned task files')
     initial = Path(task.initial_program_path).read_bytes()
     evaluator = Path(task.evaluator_path).read_bytes()
-    if (task.qualified_name != 'oe/circle_packing' or current.task_hash != expected_task
-            or task.task_hash != current.task_hash or _sha(initial) != expected_source
+    if (task.qualified_name != 'oe/circle_packing' or current.task_hash != CANONICAL_TASK_HASH
+            or task.task_hash != current.task_hash or _sha(initial) != INITIAL_SHA
             or _sha(evaluator) != EVALUATOR_SHA):
         raise ValueError('repeat_promotion requires the pinned canonical Circle task and initial source')
     return initial, evaluator
 
 
-def create(config, task, run_dir, python, *, initial_source_policy=None):
+def create(config, task, run_dir, python):
     from ..eval.repeat_draw import adapter_identity, draw
     from .repeat_promotion import CONTRACT, RepeatPromotion
 
     runtime = config.get('runtime', {'backend': 'native'})
-    initial, evaluator = validate_circle_task(task, initial_source_policy=initial_source_policy)
-    trace_policy = traced_execution_policy(initial_source_policy)
+    initial, evaluator = validate_circle_task(task)
     # Runtime/source hashes belong to this enabled mode's identity, not to the
     # default Engine contract or any historical experimental manifest.
     here = Path(__file__).resolve().parent
@@ -164,12 +108,10 @@ def create(config, task, run_dir, python, *, initial_source_policy=None):
         'adapter': adapter_identity(python=python, runtime=runtime),
         'integration_sha256': {name: _sha((here / name).read_bytes()) for name in
                               ('repeat_support.py', 'repeat_promotion.py', 'repeat_journal.py',
-                               'loop.py', 'checkpoint.py', '../config.py', '../run_log.py')},
-        **trace_policy}
+                               'loop.py', 'checkpoint.py', '../config.py', '../run_log.py')}}
     return RepeatPromotion(run_dir, config, identity,
                            partial(draw, python=python, runtime=runtime,
-                                   expected_identity=identity['adapter'],
-                                   **({'restart_trace': True} if trace_policy else {})))
+                                   expected_identity=identity['adapter']))
 
 
 def assert_search_anchor(log_path, anchor):

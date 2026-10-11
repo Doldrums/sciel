@@ -27,21 +27,6 @@ embed_niche: false
 three_head: false
 policy:
   enabled: true
-research:
-  enabled: true
-  compact_lesson_memory: true
-  conclusion_source_refs: true
-  conclusion_repair_attempts: 1
-  conclusion_max_tokens: 4096
-  reflection_interval: 10
-  max_aux_calls: null
-  max_lessons: 50
-  max_experiments: 200
-  max_fragments: 20
-  retrieve_k: 3
-  inject_lessons: true
-  structured_auxiliary: true
-  incomplete_auxiliary: skip
 wandb:
   enabled: false
 llm:

@@ -24,11 +24,8 @@ class EngineBootstrap:
                               schema=warm['schema'], source_sha256=warm['source_sha256'],
                               parent=warm['parent'], task_hash=self.task.task_hash)
         outcome = self._evaluate(initial)
-        if (self.research is not None or warm) and not outcome.result.ok:
-            reason = 'search requires a valid evaluated initial baseline'
-            if self.research is not None:
-                self.research.stopped_reason = reason
-            raise CampaignStopped(reason)
+        if warm and not outcome.result.ok:
+            raise CampaignStopped('search requires a valid evaluated initial baseline')
         self.seed_score = outcome.result.score if outcome.result.ok else 0.0
         for isl in range(len(self.db.islands)):
             prog = self.db.add(initial, self.seed_score, outcome.result.cases,
@@ -56,8 +53,6 @@ class EngineBootstrap:
         """One LLM shot at a paradigm-specific program for `island`; adds it on a
         successful eval. Returns True on success. Costs one call + one eval that
         do NOT count toward B_evals (seeding, like the initial eval)."""
-        if getattr(self, 'research', None) is not None:
-            return self._research_paradigm_child(base_code, paradigm, island, origin)
         if getattr(self, 'candidate_novelty', None) is not None:
             return self._novelty_paradigm_child(base_code, paradigm, island, origin)
         from .prompt.parse import extract_card, extract_code
@@ -126,47 +121,6 @@ class EngineBootstrap:
                           score=outcome.result.score, paradigm=paradigm[:40], **trace_fields)
         return True
 
-    def _research_paradigm_child(self, base_code, paradigm, island, origin):
-        # Bootstrap/spawn proposals carry the same C2/C3 evidence as ordinary
-        # mutations, while retaining their existing exclusion from B_evals.
-        from . import loop as _public
-        programs = self.db.islands[island].programs.values()
-        parent = next((p for p in programs if p.code == base_code), None)
-        if parent is None:
-            parent = self.db.get(self.db.pop_best_id)
-        ctx = self.research.context(self.db, parent, island, self.iteration_no)
-        lessons = ctx['lesson_texts']
-        model = self.llm.choose_model(self.rng.stream('prompt'))
-        snap = Snapshot(island=island, op='full_rewrite', model=model,
-            iteration_no=self.iteration_no, parent_id=parent.id,
-            parent_code=base_code, parent_score=parent.score,
-            directive=(f'Bootstrap {origin}: write a new program using {paradigm}.\n'
-                       + compose_directive(self._per_run_budget(), None, plateau=False)
-                       + self.observed_changes.block(base_code)),
-            kb_lessons=lessons, task_prompt=self.task_prompt,
-            required_entrypoints=self.required_entrypoints, research_context=ctx)
-        options = {'research': self.research}
-        novelty_check = self._candidate_novelty_callback(island)
-        if novelty_check is not None:
-            options['novelty_check'] = novelty_check
-        result = _public.run_worker('full_rewrite', snap, self.llm, self._evaluation_callback(island),
-                            dup_cap=1, base_temp=0.9, **options)
-        self.cost_total += result.cost
-        ok = not isinstance(result, NoChild) and result.ok
-        if ok:
-            program = self.db.add(result.child_code, result.score, result.cases,
-                island, origin='remeasurement' if result.meta.get('remeasurement') else origin,
-                parent_id=None if result.meta.get('remeasurement') else parent.id,
-                card=(result.meta.get('hypothesis') or {}).get('text', '')[:200])
-            self._bind_novelty_program(program, evaluation_id=result.meta.get('evaluation_id'))
-            self._observe_program(program, result,
-                parent=None if result.meta.get('remeasurement') else parent)
-        self.log.decision(policy='portfolio_seed', action=origin, island=island,
-                          research=True, ok=ok, cost=result.cost,
-                          meta=result.meta, model_used=model)
-        self._complete_research_step()
-        return ok
-
     def _novelty_paradigm_child(self, base_code, paradigm, island, origin):
         """Portfolio/spawn uses the same bounded novelty retry protocol as search."""
         from . import loop as _public
@@ -196,7 +150,7 @@ class EngineBootstrap:
             self._bind_novelty_program(program, evaluation_id=result.meta.get('evaluation_id'))
             self._observe_program(program, result, parent=None if measured_again else parent)
         self.log.decision(policy='portfolio_seed', action=origin, island=island,
-            research=False, ok=ok, cost=result.cost, meta=result.meta, model_used=model)
+            ok=ok, cost=result.cost, meta=result.meta, model_used=model)
         return ok
 
     def _portfolio_seed(self, initial: str) -> None:

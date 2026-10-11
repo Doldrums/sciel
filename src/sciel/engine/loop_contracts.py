@@ -73,16 +73,9 @@ def _paradigm_prompt(task_prompt: str, base_code: str, paradigm: str) -> str:
 
 def _preflight_task(cfg, task):
     """Pure task/source checks precede even creation of the run lock file."""
-    if any(cfg.get(name, {}).get('enabled') for name in
-           ('circle_generation', 'repeat_population', 'repeat_promotion')):
-        from .repeat_support import validate_circle_task, circle_initial_source_policy
-        validate_circle_task(task, initial_source_policy=circle_initial_source_policy(cfg))
-    if cfg.get('circle_intervention', {}).get('enabled'):
-        from .intervention import DEFAULT_OPERATION, builder_for
-        if task.qualified_name != 'oe/circle_packing':
-            raise ValueError('circle_intervention supports only oe/circle_packing')
-        builder_for(cfg['circle_intervention'].get('operation', DEFAULT_OPERATION)).policy_of(
-            _read(task.initial_program_path))
+    if cfg.get('repeat_promotion', {}).get('enabled'):
+        from .repeat_support import validate_circle_task
+        validate_circle_task(task)
 
 def _snapshot_config(cfg: dict, path: str) -> None:
     import yaml

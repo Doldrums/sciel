@@ -40,17 +40,9 @@ class EngineInitialization:
         self._repeat_candidate = None
         self._repeat_candidate_origin = None
         self._repeat_export = None
-        self.repeat_population = None
-        self.paired_batches = None
-        self._repeat_population_export = None
-        if cfg.get('repeat_population', {}).get('enabled'):
-            from .repeat_population_support import create_batches
-            self.paired_batches = create_batches(cfg, task, run_dir, python)
         if cfg.get('repeat_promotion', {}).get('enabled'):
-            from .repeat_support import create, circle_initial_source_policy
-            repeat_options = ({'initial_source_policy': circle_initial_source_policy(cfg)}
-                              if cfg.get('circle_generation', {}).get('enabled') else {})
-            self.repeat_promotion = create(cfg['repeat_promotion'], task, run_dir, python, **repeat_options)
+            from .repeat_support import create
+            self.repeat_promotion = create(cfg['repeat_promotion'], task, run_dir, python)
         os.makedirs(run_dir, exist_ok=True)
         # Construction for resume is read-only with respect to recorded config.
         # New starts in an existing journal are rejected before runtime or calls.
@@ -63,8 +55,7 @@ class EngineInitialization:
         if warm is not None:
             from .warm_start import validate_warm_start
             validate_warm_start(warm)
-            if any(cfg.get(name, {}).get('enabled') for name in (
-                    'repeat_promotion', 'repeat_population', 'circle_generation', 'circle_intervention')):
+            if cfg.get('repeat_promotion', {}).get('enabled'):
                 raise ValueError('warm_start supports only ordinary search')
         self.rng = RngHub(cfg["random_seed"])
         descriptor_fn = None
@@ -122,7 +113,7 @@ class EngineInitialization:
                            cfg.get("archive_size", 20), cfg.get("grid_bins", 10),
                            descriptor_fn=descriptor_fn, niche_fn=niche_fn)
         container = cfg.get("container", {})
-        if container.get("kind", "legacy") != "legacy" and self.paired_batches is None:
+        if container.get("kind", "legacy") != "legacy":
             from .container_db import ContainerDatabase
             vector_fn = None
             if container["kind"] in {"cvt", "vq", "annealed"}:
@@ -135,10 +126,6 @@ class EngineInitialization:
                 cfg["num_islands"], cfg.get("pop_cap", 50),
                 cfg.get("archive_size", 20), cfg.get("grid_bins", 10),
                 descriptor_fn=descriptor_fn, container=container, vector_fn=vector_fn)
-        if self.paired_batches is not None:
-            from .repeat_population_db import RepeatPopulationDatabase
-            self.db = RepeatPopulationDatabase(cfg['num_islands'], cfg.get('pop_cap', 50))
-            self.descriptor_info = {'kind': 'repeat_ranked_pool', 'ordinary_scores': 'immutable_history'}
         self.novelty_gate = None
         if container.get("kind") == "pool_novelty":
             from ..components.code_novelty import CodeNoveltyGate
@@ -283,12 +270,6 @@ class EngineInitialization:
                                        min_n=pol["plateau_min_n"])
              for i in range(cfg["num_islands"])}
             if (bool(pol.get("plateau_shadow")) or self.oc_shift) else None)
-        self.research = None
-        if cfg.get('research', {}).get('enabled'):
-            from .research import ResearchController
-            from ..evidence.measurement import metric_context
-            self.research = ResearchController(cfg['research'], llm, self.log,
-                                               self._charge_research, metric=metric_context(task))
         self.research_tools = None
         if cfg.get('research_tools', {}).get('enabled'):
             from ..research_tools.controller import ResearchTools
@@ -304,22 +285,6 @@ class EngineInitialization:
                 imported = import_methods(self.research_tools, self.heritage.methods, len(self.db.islands))
                 self.log.decision(policy="heritage", action="methods", offered=len(self.heritage.methods),
                                   imported=imported)
-        self.idea = None
-        if cfg.get('idea_two_stage', {}).get('enabled'):
-            from .idea import TwoStageIdea
-            self.idea = TwoStageIdea(self.research,
-                card_repair_attempts=cfg['idea_two_stage'].get('card_repair_attempts', 0))
-        self.intervention = None
-        if cfg.get('circle_intervention', {}).get('enabled'):
-            from .intervention import CircleIntervention, DEFAULT_OPERATION
-            self.intervention = CircleIntervention(self.research,
-                operation=cfg['circle_intervention'].get('operation', DEFAULT_OPERATION))
-        self.circle_generation = None
-        if cfg.get('circle_generation', {}).get('enabled'):
-            from .circle_generation import CircleGeneration
-            self.circle_generation = CircleGeneration(self.research,
-                proposal_policy=cfg['circle_generation'].get('proposal_policy'),
-                execution_profile=cfg['circle_generation'].get('execution_profile'))
         from ..eval.task_prompt import compose_task_prompt
         self.task_prompt = compose_task_prompt(task, cfg.get("llm", {}).get("system_message"))
         req = set(_required_entrypoints(getattr(task, "evaluator_path", None)))
@@ -334,6 +299,3 @@ class EngineInitialization:
                 "functions by name -- your program MUST keep each one, with the same name and "
                 "return signature as in the current program. Renaming or removing any scores 0: "
                 f"{', '.join(self.required_entrypoints)}.")
-        if self.paired_batches is not None:
-            from .repeat_population_support import initialize
-            initialize(self)

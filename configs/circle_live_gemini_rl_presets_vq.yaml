@@ -28,5 +28,3 @@ policy:
   plateau_shift: false
   plateau_shadow: true
 three_head: false
-idea_card_selection:
-  enabled: false

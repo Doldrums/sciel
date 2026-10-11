@@ -21,19 +21,8 @@ policy:
   plateau_shift: false
   plateau_shadow: true
 
-idea_two_stage:
-  enabled: true
-  card_repair_attempts: 1
-# Card-diversity tilts require all other mode controllers to be disabled.
-idea_card_selection:
-  enabled: false
 
-research:
-  lesson_selection:
-    mode: source_diverse_guarded
-    diversity_weight: 0.5
 
 plateau_shadow: true
 log_population: true
 
-# Full G/C/R already replaces these legacy knowledge and prediction routes.

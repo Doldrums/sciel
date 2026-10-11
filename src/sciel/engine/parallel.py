@@ -103,7 +103,6 @@ def _intent(engine, key, plan):
     snap = plan['snap']
     return {'schema': CONTRACT, 'job_id': key, 'snapshot': _snapshot(snap),
         'parent_source_sha256': hashlib.sha256(snap.parent_code.encode()).hexdigest(),
-        'knowledge_sha256': digest(snap.research_context),
         'selection': asdict(plan['selected']) if plan.get('selected') is not None else None,
         'attribution': {name: plan.get(name) for name in ('mode', 'mode_prop', 'eff_mode',
             'phase', 'mode_on_policy', 'op_prop', 'op_stat', 'model', 'model_prop',
@@ -129,7 +128,6 @@ def _prepare_seed(engine, island):
     code = initial['source'] if initial else _read(engine.task.initial_program_path)
     parent = next(program for program in engine.db.islands[island].programs.values()
                   if program.code == code)
-    context = engine.research.context(engine.db, parent, island, engine.iteration_no) if engine.research else None
     model = engine.llm.choose_model(engine.rng.stream('prompt'))
     snap = Snapshot(island=island, op='full_rewrite', model=model,
         iteration_no=engine.iteration_no, parent_id=parent.id,
@@ -138,8 +136,7 @@ def _prepare_seed(engine, island):
                    + _PARADIGMS[island % len(_PARADIGMS)] + '.\n'
                    + compose_directive(engine._per_run_budget(), None, plateau=False)
                    + engine.observed_changes.block(code)),
-        kb_lessons=context['lesson_texts'] if context else [], task_prompt=engine.task_prompt,
-        required_entrypoints=engine.required_entrypoints, research_context=context)
+        task_prompt=engine.task_prompt, required_entrypoints=engine.required_entrypoints)
     return {'snap': snap, 'op': 'full_rewrite', 'parent': parent, 'model': model}
 
 
@@ -150,45 +147,12 @@ def _commit_seed(engine, plan, result):
         repeated = result.meta.get('remeasurement')
         program = engine.db.add(result.child_code, result.score, result.cases,
             plan['snap'].island, origin='remeasurement' if repeated else 'portfolio',
-            parent_id=None if repeated else plan['parent'].id,
-            card=(result.meta.get('hypothesis') or {}).get('text', '')[:200])
+            parent_id=None if repeated else plan['parent'].id)
         engine._bind_novelty_program(program, evaluation_id=result.meta.get('evaluation_id'))
         engine._observe_program(program, result, parent=None if repeated else plan['parent'])
     engine.log.decision(policy='portfolio_seed', action='portfolio', island=plan['snap'].island,
-        research=engine.research is not None, ok=ok, cost=result.cost,
+        ok=ok, cost=result.cost,
         meta=result.meta, model_used=plan['model'])
-
-
-def _merge_ideas(engine, instances):
-    if engine.idea is None:
-        return
-    fields = ('attempts', 'finished', 'calls_started', 'calls_returned', 'card_invalid',
-              'card_duplicates', 'evaluations', 'known_cost', 'code_retries', 'card_retries')
-    for idea in instances:
-        for field in fields:
-            setattr(engine.idea, field, getattr(engine.idea, field) + getattr(idea, field))
-        if idea.stopped_reason:
-            engine.idea.stopped_reason = idea.stopped_reason
-
-
-def _research_wave(engine, io):
-    research = engine.research
-    if research is None:
-        return []
-    jobs = research.prepare_conclusions()
-    _status(engine, phase='conclusion')
-    # All G has resolved before C starts. Frozen evidence remains retained until
-    # all C is applied; no new G or reflection can evict another job's memory.
-    results, errors = io.run([(f'C:{job["evidence"]["id"]}',
-        lambda job=job: research._request_conclusion(job)) for job in jobs])
-    for job in jobs:
-        key = f'C:{job["evidence"]["id"]}'
-        if key in results:
-            research.apply_conclusion(job, *results[key])
-    if not errors:
-        _status(engine, phase='reflection')
-        _, errors = io.run([('R', lambda: research.finish_conclusions(reflect=True))])
-    return list(errors.values())
 
 
 def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit=None):
@@ -231,9 +195,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
     original_llm = engine.llm
     engine.llm = WaveLLM(engine, original_llm, io)
     engine._parallel_io = io
-    if engine.research:
-        engine.research.llm = engine.llm
-    errors, ideas = [], []
+    errors = []
     try:
         if portfolio_allocation.enabled(engine.cfg):
             # Bind the allocation choice before any background poll or paid call.
@@ -310,22 +272,15 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 workers=config['workers'], commit_order=[key for key, _ in plans + research_jobs])
             functions = []
             for key, plan in plans:
-                idea = None
-                if not bootstrap and engine.idea is not None and plan['op'] == 'idea':
-                    from .idea import TwoStageIdea
-                    idea = TwoStageIdea(engine.research, card_repair_attempts=engine.idea.card_repair_attempts)
-                    # Namespaced idea IDs keep simultaneous per-job counters distinct.
-                    idea.id_prefix = key
-                    ideas.append(idea)
                 if bootstrap:
                     def execute(plan=plan):
                         return run_worker('full_rewrite', plan['snap'], engine.llm,
                             engine._evaluation_callback(plan['snap'].island),
-                            dup_cap=1, base_temp=.9, research=engine.research,
+                            dup_cap=1, base_temp=.9,
                             novelty_check=engine._candidate_novelty_callback(plan['snap'].island))
                 else:
-                    def execute(plan=plan, idea=idea):
-                        return engine._execute_step(plan, idea=idea)
+                    def execute(plan=plan):
+                        return engine._execute_step(plan)
                 functions.append((key, execute))
             functions.extend((key, lambda snapshot=snapshot: research_queue.execute(engine, snapshot))
                              for key, snapshot in research_jobs)
@@ -340,7 +295,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 if bootstrap:
                     _commit_seed(engine, plan, result)
                 else:
-                    engine._commit_step(plan, result, complete_research=False)
+                    engine._commit_step(plan, result)
                 engine.log.decision(policy='parallel_search', action='job_committed', wave=wave, job_id=key)
             for key, snapshot in research_jobs:
                 if key not in results:
@@ -350,7 +305,6 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                     {'type': type(result).__name__, 'result': asdict(result)})
                 research_queue.commit(engine, snapshot, result)
                 engine.log.decision(policy='parallel_search', action='job_committed', wave=wave, job_id=key)
-            _merge_ideas(engine, ideas)
             if bootstrap:
                 engine._portfolio_bootstrap['next_island'] += len(plans)
             _raise_errors(errors)
@@ -358,8 +312,6 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 raise CampaignStopped('Parallel I/O aborted after a terminal failure')
             if io.paused or engine._pause_requested():
                 raise ParallelWavePaused('Parallel work paused with durable receipts')
-            if not errors:
-                errors.extend(_research_wave(engine, io))
             if not bootstrap and not errors and not pending_initial:
                 engine._maybe_milestone()
         # All submitted work has drained. Returned receipts stay in the WAL;
@@ -409,8 +361,6 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
     finally:
         engine.llm = original_llm
         engine._parallel_io = None
-        if engine.research:
-            engine.research.llm = original_llm
         io.close()
 
 
@@ -418,8 +368,6 @@ def run_parallel(engine):
     engine._parallel_wave = getattr(engine, '_parallel_wave', 0)
     if portfolio_allocation.enabled(engine.cfg) and getattr(engine, '_portfolio_allocation', None) is None:
         engine._portfolio_allocation = portfolio_allocation.initial()
-    if engine.research is not None and engine.research.stopped_reason:
-        raise CampaignStopped(engine.research.stopped_reason)
     cfg = engine.cfg['parallel_search']
     provider = urlsplit(engine.cfg.get('llm', {}).get('api_base', 'https://local')).hostname or 'local'
     capacity = HostCapacity(cfg['capacity_dir'], llm_slots=cfg['host_llm_slots'],
@@ -479,8 +427,4 @@ def run_parallel(engine):
         'n_output_repeats': engine.n_output_repeats,
         'parallel_search': {'contract': CONTRACT, 'workers': cfg['workers'],
                             'waves': engine._parallel_wave}, **engine.record_stats()}
-    if engine.research:
-        result['research'] = engine.research.summary()
-    if engine.idea:
-        result['idea_two_stage'] = engine.idea.summary()
     return result

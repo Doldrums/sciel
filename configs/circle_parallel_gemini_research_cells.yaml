@@ -1,4 +1,4 @@
-# Native SCiEL Engine + existing RL/G/C/R, with dynamic research cells.
+# Native SCiEL Engine + existing RL, with dynamic research cells.
 # Fresh experiment example; does not import the best Program of an earlier run.
 extends: circle_parallel_gemini_rl_full.yaml
 warm_start: null

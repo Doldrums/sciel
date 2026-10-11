@@ -19,14 +19,6 @@ container:
   kind: legacy
 policy:
   enabled: false
-research:
-  enabled: true
-  reflection_interval: 2
-  max_aux_calls: 12
-  max_lessons: 20
-  max_experiments: 20
-  max_fragments: 10
-  retrieve_k: 3
 wandb:
   enabled: false
 llm:

@@ -1,7 +1,6 @@
 """Preparation, execution and commit phases of one ordinary search step."""
 from __future__ import annotations
 
-import json
 from copy import deepcopy
 from ..causal import context_of
 from ..components.policy.mode_features import mode_features
@@ -93,24 +92,6 @@ class EngineStepCycle:
                 mode_on_policy = False
                 tilt = head_tilt
                 mode = "exploit"      # a promise tilt IS an exploit, name it honestly
-        card_before_visit = None
-        card_cfg = self.cfg.get('idea_card_selection', {})
-        if card_cfg.get('enabled') and island == self._idea_island:
-            from ..components.selection.idea_cards import prepare_card_tilt
-            tilt, card_details = prepare_card_tilt(
-                view, {pid: self.db.get(pid).card for pid in view.ids}, self.selection.visits,
-                beta=card_cfg['beta'], neighbors=card_cfg['neighbors'])
-            if tilt is not None:
-                mode_on_policy = False
-                mode, mode_prop = 'card_diversity', 1.0
-
-            def card_before_visit(pid, distribution, kernel_details):
-                self.log.decision(
-                    policy='card_diversity', action='tilt' if tilt is not None else 'fallback',
-                    island=island, iteration_no=iteration_no,
-                    parent_id=pid, propensity=distribution[pid], distribution=distribution,
-                    selection_floor=self.selection.floor, tau_floor=self.selection.tau_floor,
-                    **kernel_details, **card_details)
         # Effective mode for reward attribution: a warmup-gated exploit (tilt dropped)
         # actually executed base selection, so its reward belongs to base.
         eff_mode = mode if tilt is not None else "base"
@@ -132,11 +113,7 @@ class EngineStepCycle:
                 propensity=selected.propensity, island=island, iteration_no=iteration_no,
                 **selected.debug)
         else:
-            if card_before_visit is None:
-                selected = self.selection.select(view, tilt=tilt, rng=self.rng.stream("parent"))
-            else:
-                selected = self.selection.select(view, tilt=tilt, rng=self.rng.stream("parent"),
-                                                 before_visit=card_before_visit)
+            selected = self.selection.select(view, tilt=tilt, rng=self.rng.stream("parent"))
         parent_distribution = (None if self.cfg.get("container", {}).get("selection") == "centres"
                                else getattr(self.selection, "last_distribution", None))
         if parent_distribution is not None and selected.parent_id in parent_distribution:
@@ -226,12 +203,6 @@ class EngineStepCycle:
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
                                                claims=self.theory.cards(context), findings=self.findings.top())
         lessons, injected_ids = self.theory.cards(context), []
-        research_context = None
-        if self.research is not None:
-            research_context = self.research.context(self.db, parent, island, iteration_no + 1,
-                **({'reserve_aux_chars': min(self.cfg['research_tools']['max_context_chars'], 10000)}
-                   if self.research_tools is not None else {}))
-            lessons = research_context['lesson_texts']
         # the binding cap on ONE run of the program
         # Population stall is not evidence that this particular lineage stalled.
         # Competitive parents may receive refinement in base/exploit mode;
@@ -268,14 +239,6 @@ class EngineStepCycle:
             task_prompt=self.task_prompt, bet_enabled=True,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
-        if research_context is not None:
-            snap.research_context = research_context
-        if self.idea is not None:
-            from .idea import digest
-            snap.parent_card = parent.card
-            snap.idea_cards = [{"program_id": p.id, "card": p.card,
-                                "source_sha256": digest(p.code)}
-                               for p in self.db.islands[island].programs.values() if p.card]
         if self.research_tools is not None:
             from .research_tool_signals import snapshot_signals
             from .research_targets import freeze_targets
@@ -289,8 +252,6 @@ class EngineStepCycle:
                 stall=stall, stalled=stalled, controller_plateau=controller_plateau)
             snap.research_cells_context = compact_context(getattr(self.research_tools, 'context_view', self.research_tools.context)(snap),
                 max_chars=min(self.cfg['research_tools']['max_context_chars'], 10000))
-            if snap.research_context is not None:
-                snap.research_context['research_cells_context'] = deepcopy(snap.research_cells_context)
             self.research_tools.culture.context = context
             self.research_tools.culture.state = parent.id
             snap.tool_episode_plan = self.research_tools.prepare(snap, signals=signals)
@@ -315,7 +276,7 @@ class EngineStepCycle:
             "theorist": theorist,
         }
 
-    def _execute_step(self, plan, *, llm=None, evaluate_fn=None, idea=None):
+    def _execute_step(self, plan, *, llm=None, evaluate_fn=None):
         from . import loop as _public
         snapshot = plan['snap']
         episode = None
@@ -352,23 +313,11 @@ class EngineStepCycle:
                 for_current.append(context)
             cards = merge_context(*for_current, max_chars=context_limit)
             snapshot.research_cells_context = cards
-            delivered_chars = 0
-            if snapshot.research_context is not None:
-                snapshot.research_context['research_cells_context'] = deepcopy(cards)
-                delivered_chars = len(json.dumps(cards, ensure_ascii=True))
-            elif episode is not None:
+            if episode is not None:
                 snapshot.directive += fresh(episode.get('findings', []))
         worker_options = {}
         if novelty_check is not None:
             worker_options["novelty_check"] = novelty_check
-        if self.research is not None:
-            worker_options['research'] = self.research
-        if self.idea is not None:
-            worker_options['idea'] = idea or self.idea
-        if self.intervention is not None:
-            worker_options['intervention'] = self.intervention
-        if self.circle_generation is not None:
-            worker_options['circle_generation'] = self.circle_generation
         result = submitted[-1] if submitted else _public.run_worker(plan["op"], snapshot, llm or self.llm,
                             evaluator,
                          dup_cap=self.cfg["dup_cap"], base_temp=self.cfg.get("base_temp", 0.7),
@@ -382,8 +331,6 @@ class EngineStepCycle:
             for index, attempt in enumerate(attempts, 1):
                 attempt['attempt'] = index
             result.meta['validation_trace']['attempts'] = attempts
-        # Specialized idea/intervention generators return before the ordinary
-        # worker loop; retain the same frozen selection attribution for them.
         if snapshot.operator_decision is not None:
             decision = snapshot.operator_decision
             for key, value in dict(op_requested=decision['requested'],
@@ -399,7 +346,7 @@ class EngineStepCycle:
             result.cost += reply.cost or 0.0
         return result
 
-    def _commit_step(self, plan, res, *, complete_research=True):
+    def _commit_step(self, plan, res):
         selected = plan["selected"]
         op_prop = plan["op_prop"]
         op_stat = plan["op_stat"]
@@ -440,25 +387,10 @@ class EngineStepCycle:
                 link_kind='remeasurement' if res.meta.get('remeasurement') else 'mutation',
                 **({'candidate_binding': candidate_link, 'child_source': self.db._all[child_id].code}
                    if child_id is not None and candidate_link is not None else {}))
-        if self.research_tools is not None:
-            for record in res.meta.get('method_followup_records', []):
-                final_attempt = record['id'] == res.meta.get('research_id')
-                admitted = child_id if final_attempt else None
-                self.research_tools.record_followup(record, child_program_id=admitted,
-                    link_kind='remeasurement' if final_attempt and res.meta.get('remeasurement') else 'mutation',
-                    observed_record=self.observed_changes.record_for_program(admitted) if admitted else None)
         if (preset is not None and self.cfg.get("preset_adaptive", True)
                 and not res.meta.get('remeasurement') and not res.meta.get('research_candidate')):
-            # The evaluated search result already commits above. A later C/R
-            # transport failure must not erase its earned learning update.
             self.preset_weights.update(preset, float(self.db.pop_best > pre_best), preset_prop)
-        if complete_research and self.research is not None:
-            self._complete_research_step(reflect=self.repeat_promotion is None)
         # Once per iteration, whatever the outcome. Emitting only from the success
         # path -- which sets health=0 immediately before -- pinned health/status to 0
         # in every run, so the board could never show a degraded state.
         self._emit_metrics()
-
-    @observed_stage("research")
-    def _complete_research_step(self, **options):
-        return self.research.complete_step(**options)

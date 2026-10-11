@@ -161,40 +161,6 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
                 or measured['exact_recorded_repeat'] + measured.get('non_improving_near_repeat', 0)
                     != state['n_output_repeats']):
             raise IdentityMismatch('output novelty history differs from measured evaluation counters')
-    generation = getattr(engine, 'circle_generation', None)
-    generation_bound = (generation is not None or 'circle_generation' in state
-        or bool((state.get('identity') or {}).get('circle_generation'))
-        or bool(((state.get('config') or {}).get('circle_generation') or {}).get('enabled')))
-    restored_generation, restored_research = None, None
-    if generation_bound:
-        if (generation is None or 'circle_generation' not in state or problems
-                or not (state.get('identity') or {}).get('circle_generation') or not provenance):
-            raise IdentityMismatch('cannot force or change circle generation checkpoint identity/state')
-        try:
-            from copy import copy
-            from .journal_anchor import assert_no_uncheckpointed_research
-            if 'research' not in state:
-                raise ValueError('checkpoint has no full research state')
-            assert_no_uncheckpointed_research(engine.log.path, provenance.get('journal_anchor'))
-            restored_research = copy(engine.research)
-            restored_research.load_state(state['research'])
-            # Generation restore only replaces its own counters/lists after
-            # validation. Check source proofs and the anchored journal on a
-            # detached component before loading Research or taking repeat locks.
-            restored_generation = copy(generation)
-            restored_generation.research = restored_research
-            restored_generation.load_state(state['circle_generation'])
-            restored_generation.assert_journal(engine.log.path, provenance.get('journal_anchor'))
-        except (ValueError, KeyError, TypeError, OSError) as exc:
-            raise IdentityMismatch(f'cannot resume circle generation: {exc}') from exc
-    intervention = getattr(engine, 'intervention', None)
-    intervention_bound = (intervention is not None or 'circle_intervention' in state
-        or bool((state.get('identity') or {}).get('circle_intervention'))
-        or bool(((state.get('config') or {}).get('circle_intervention') or {}).get('enabled')))
-    if intervention_bound:
-        if (intervention is None or 'circle_intervention' not in state or problems
-                or not (state.get('identity') or {}).get('circle_intervention') or not provenance):
-            raise IdentityMismatch('cannot force or change circle intervention checkpoint identity/state')
     repeat = getattr(engine, 'repeat_promotion', None)
     repeat_bound = (repeat is not None or 'repeat_promotion' in state
                     or bool((state.get('identity') or {}).get('repeat_promotion'))
@@ -211,75 +177,12 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
             rollback.callback(repeat.close)
         except (ValueError, KeyError, TypeError, OSError) as exc:
             raise IdentityMismatch(f'cannot resume repeat promotion: {exc}') from exc
-    population = getattr(engine, 'repeat_population', None)
-    batches = getattr(engine, 'paired_batches', None)
-    population_bound = (population is not None or 'repeat_population' in state or 'paired_batches' in state
-        or bool((state.get('identity') or {}).get('repeat_population'))
-        or bool(((state.get('config') or {}).get('repeat_population') or {}).get('enabled')))
-    restored_population = None
-    if population_bound:
-        if (population is None or batches is None or 'repeat_population' not in state
-                or 'paired_batches' not in state or problems or not provenance
-                or not (state.get('identity') or {}).get('repeat_population')):
-            raise IdentityMismatch('cannot force or change repeat population checkpoint identity/state')
-        try:
-            from .repeat_support import assert_search_anchor
-            from .repeat_population_db import RepeatPopulationDatabase
-            assert_search_anchor(engine.log.path, provenance.get('journal_anchor'))
-            batches.load_state(state['paired_batches'])
-            rollback.callback(batches.close)
-            restored_db = RepeatPopulationDatabase(len(engine.db.islands), engine.db.pop_cap)
-            restored_db.load_state(state['db'])
-            restored_population = deepcopy(population)
-            restored_population.load_state(state['repeat_population'], restored_db._all)
-            restored_population.assert_batches(batches.terminal_batches())
-            saved_batches = state['paired_batches']['data']['batches']
-            pending_plan = (saved_batches[-1]['plan'] if saved_batches
-                            and saved_batches[-1]['decision'] is None else None)
-            restored_population.assert_pending(pending_plan)
-            from .repeat_population_support import validate_history
-            validate_history(restored_population, restored_db, state['seed_score'],
-                             engine.log.path, provenance['journal_anchor'])
-            for island in restored_db.islands:
-                if list(island.programs) != restored_population.active_ids(island.idx):
-                    raise ValueError('stored DB projection differs from repeat membership')
-        except (ValueError, KeyError, TypeError, OSError) as exc:
-            raise IdentityMismatch(f'cannot resume repeat population: {exc}') from exc
     if problems and not allow_identity_mismatch:
         raise IdentityMismatch(
             "refusing to resume: this run was produced under a different identity.\n  "
             + "\n  ".join(problems)
             + "\nThe archived programs and the new children would not be comparable. "
               "Start a new run, or pass --force-identity if you know why the change is safe.")
-    research = getattr(engine, 'research', None)
-    if research is not None:
-        if 'research' not in state:
-            raise IdentityMismatch('checkpoint has no full research state; start a new run')
-        try:
-            from .journal_anchor import assert_no_uncheckpointed_research
-            assert_no_uncheckpointed_research(engine.log.path, (provenance or {}).get('journal_anchor'))
-            if restored_research is None:
-                research.load_state(state['research'])
-            else:
-                research.__dict__.update(restored_research.__dict__)
-        except (ValueError, KeyError, TypeError, OSError) as exc:
-            raise IdentityMismatch(f'cannot resume research: {exc}') from exc
-    if getattr(engine, 'idea', None) is not None:
-        try:
-            engine.idea.load_state(state['idea_two_stage'])
-        except (ValueError, KeyError, TypeError) as exc:
-            raise IdentityMismatch(f'cannot resume two-stage idea: {exc}') from exc
-    if intervention is not None:
-        try:
-            intervention.load_state(state['circle_intervention'])
-            intervention.assert_journal(engine.log.path, provenance.get('journal_anchor'))
-        except (ValueError, KeyError, TypeError, OSError) as exc:
-            raise IdentityMismatch(f'cannot resume circle intervention: {exc}') from exc
-    if restored_generation is not None:
-        # Retain the Engine's component object and shared Research reference;
-        # install only the already validated detached generation state.
-        restored_generation.research = research
-        generation.__dict__.update(restored_generation.__dict__)
     if restored_tools is not None:
         tools.__dict__.update(restored_tools.__dict__)
     engine.llm_unpriced_calls = unpriced
@@ -312,9 +215,6 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
         novelty.__dict__.update(restored_novelty.__dict__)
     if restored_outputs is not None:
         outputs.__dict__.update(restored_outputs.__dict__)
-    if restored_population is not None:
-        restored_population.load_state(state['repeat_population'], engine.db._all)
-        engine.repeat_population = restored_population
     if getattr(engine, "preset_weights", None) is not None:
         if "preset_weights" not in state:
             raise IdentityMismatch("checkpoint is missing enabled preset selection state")

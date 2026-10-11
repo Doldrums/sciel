@@ -94,11 +94,6 @@ def cmd_resume(args) -> int:
     DEPRECATED_KEYS, the mechanism that exists to keep old snapshots resumable."""
     from ..config import validate
     from ..engine import checkpoint
-    from ..engine.recovery import ProviderRecoveryError, prepare_provider_recovery
-    abandon = getattr(args, 'abandon_provider_failure', False)
-    if abandon and getattr(args, 'force_identity', False):
-        print('--abandon-provider-failure cannot be combined with --force-identity', file=sys.stderr)
-        return 2
     run_dir = args.run_dir
     ckpt = os.path.join(run_dir, "checkpoint.json")
     with open(ckpt) as f:
@@ -109,10 +104,8 @@ def cmd_resume(args) -> int:
     try:
         checkpoint.load(engine, ckpt,
                         allow_identity_mismatch=getattr(args, "force_identity", False))
-        if abandon:
-            prepare_provider_recovery(engine, ckpt)
         summary = _run_engine(engine)
-    except (checkpoint.IdentityMismatch, ProviderRecoveryError) as e:
+    except checkpoint.IdentityMismatch as e:
         print(str(e), file=sys.stderr)
         return 2
     finally:
@@ -202,10 +195,6 @@ def main(argv=None) -> int:
                           "children will not be comparable)")
     prs.add_argument("run_dir")
     prs.add_argument("--tasks-root", default=None)
-    prs.add_argument('--abandon-provider-failure', action='store_true',
-                     help='explicitly abandon a finalized unknown-charge provider request; '
-                          'preserve its unresolved cost and continue without replaying it '
-                          '(unlimited ordinary research only)')
     prs.set_defaults(func=cmd_resume)
 
     pt = sub.add_parser("tasks")

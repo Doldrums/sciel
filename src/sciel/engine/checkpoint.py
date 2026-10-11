@@ -78,26 +78,11 @@ def save(engine, milestone, *, path=None) -> str:
         state[name] = getattr(engine, name).state()
     if getattr(engine, "preset_weights", None) is not None:
         state["preset_weights"] = engine.preset_weights.state()
-    if getattr(engine, 'research', None) is not None:
-        state['research'] = engine.research.state()
     if getattr(engine, 'research_tools', None) is not None:
         state['research_tools'] = engine.research_tools.state()
-    if getattr(engine, 'idea', None) is not None:
-        state['idea_two_stage'] = engine.idea.state()
-    if getattr(engine, 'intervention', None) is not None:
-        state['circle_intervention'] = engine.intervention.state()
-    if getattr(engine, 'circle_generation', None) is not None:
-        state['circle_generation'] = engine.circle_generation.state()
     repeat = getattr(engine, 'repeat_promotion', None)
     if repeat is not None:
         state['repeat_promotion'] = repeat.state()
-    population = getattr(engine, 'repeat_population', None)
-    batches = getattr(engine, 'paired_batches', None)
-    if population is not None:
-        from .repeat_population_support import validate_projection
-        validate_projection(engine)
-        state['repeat_population'] = population.state()
-        state['paired_batches'] = batches.state()
     controller = getattr(engine, "controller", None)
     if controller is not None and getattr(controller, "enabled", False):
         state["controller"] = controller.state()
@@ -114,11 +99,11 @@ def save(engine, milestone, *, path=None) -> str:
     data = json.dumps(state).encode("utf-8")
     with open(tmp, "wb") as f:
         f.write(data)
-        if repeat is not None or batches is not None or engine.cfg.get('parallel_search', {}).get('enabled'):
+        if repeat is not None or engine.cfg.get('parallel_search', {}).get('enabled'):
             f.flush()
             os.fsync(f.fileno())
     os.replace(tmp, path)
-    if repeat is not None or batches is not None or engine.cfg.get('parallel_search', {}).get('enabled'):
+    if repeat is not None or engine.cfg.get('parallel_search', {}).get('enabled'):
         directory = os.open(os.path.dirname(path), os.O_RDONLY)
         try:
             os.fsync(directory)
@@ -126,8 +111,6 @@ def save(engine, milestone, *, path=None) -> str:
             os.close(directory)
         if repeat is not None:
             repeat.checkpoint_ack(state['repeat_promotion']['ledger_anchor'])
-        if batches is not None:
-            batches.checkpoint_ack(state['paired_batches']['ledger_anchor'])
     engine._saved_checkpoint = {"checkpoint_id": provenance["checkpoint_id"],
         "checkpoint_sha256": hashlib.sha256(data).hexdigest(), "provenance": provenance}
     return path
