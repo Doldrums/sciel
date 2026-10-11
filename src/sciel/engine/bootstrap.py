@@ -251,11 +251,13 @@ class EngineBootstrap:
             else _read(self.task.initial_program_path)
         paradigm = _PARADIGMS[idx % len(_PARADIGMS)]
         context = context_of({"phase": self.schedule.phase_code(), "progress": self._progress()})
-        target = propose(self.db, self.rng.derive_seed("swm"))
+        seed = self.rng.derive_seed("swm")
+        targets = {m: propose(self.db, seed, m) for m in ("kde", "diffusion")}
+        arms = ["paradigm"] + [m for m, t in targets.items() if t is not None]
         source, record = self.decisions.pick("spawn_target", self.experiments.allocate("spawn_target", context,
-            self.theory.tilt("spawn_target", context,
-                             {"paradigm": 0.5, "behavior": 0.5} if target else {"paradigm": 1.0})))
-        if source == "behavior":
+            self.theory.tilt("spawn_target", context, {a: 1 / len(arms) for a in arms})))
+        target = targets.get(source)
+        if target is not None:
             paradigm = directive(target)
         ok = self._paradigm_child(base, paradigm, idx, origin="spawn")
         seed = next(iter(self.db.islands[idx].programs.values()), None) if ok else None
@@ -263,7 +265,7 @@ class EngineBootstrap:
                         parent=self.db.pop_best_id, event=False,
                         decision_context={"phase": self.schedule.phase_code(), "progress": self._progress(),
                                           "parent_id": self.db.pop_best_id, "decisions": [record]})
-        self.log.decision(policy="spawn_target", action=source, island=idx, target=target,
+        self.log.decision(policy="spawn_target", action=source, island=idx, target=target, candidates=targets,
                           propensity=record["propensity"])
         if not ok:
             # Fall back to this run's retained baseline, including a warm start.

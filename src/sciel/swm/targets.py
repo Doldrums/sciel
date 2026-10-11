@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..components.policy.code_embed import BEHAVIOR_EXTRA_KEYS, behavior_value
+from .diffusion import sample
 
 DESCRIPTIONS = {
     "b_dispersion": "spread of the solution's parts (sizes, areas, positions)",
@@ -15,6 +16,7 @@ DESCRIPTIONS = {
     "b_structure": "structural diversity of the parts (distinct sizes, rank, discreteness)",
 }
 MIN_ELITES = 8
+MIN_DIFFUSION = 24
 CANDIDATES = 256
 BANDWIDTH = 0.08
 TEMPERATURE = 0.1
@@ -31,9 +33,10 @@ def _log_density(points: np.ndarray, centres: np.ndarray, weights: np.ndarray) -
     return np.log(kernel.sum(1) + 1e-12)
 
 
-def propose(db, seed: int) -> dict | None:
+def propose(db, seed: int, method: str = "kde") -> dict | None:
+    """Candidate behaviors from an elite-weighted KDE or a rank-guided diffusion model, scored by density and novelty."""
     programs = [p for p in db._all.values() if np.isfinite(p.score) and _behavior(p).any()]
-    if len(programs) < MIN_ELITES:
+    if len(programs) < (MIN_DIFFUSION if method == "diffusion" else MIN_ELITES):
         return None
     rng = np.random.default_rng(seed)
     behaviors = np.stack([_behavior(p) for p in programs])
@@ -41,8 +44,11 @@ def propose(db, seed: int) -> dict | None:
     ranks = scores.argsort().argsort() / max(len(scores) - 1, 1)
     weights = np.exp((ranks - 1) / TEMPERATURE)
     weights /= weights.sum()
-    picks = rng.choice(len(programs), size=CANDIDATES, p=weights)
-    candidates = np.clip(behaviors[picks] + rng.normal(0, BANDWIDTH, size=(CANDIDATES, behaviors.shape[1])), 0, 1)
+    if method == "diffusion":
+        candidates = sample(behaviors, ranks, CANDIDATES, seed)
+    else:
+        picks = rng.choice(len(programs), size=CANDIDATES, p=weights)
+        candidates = np.clip(behaviors[picks] + rng.normal(0, BANDWIDTH, size=(CANDIDATES, behaviors.shape[1])), 0, 1)
     occupied = np.stack([np.stack([_behavior(p) for p in island.programs.values()]).mean(0)
                          for island in db.islands if island.programs])
     distance = np.sqrt(((candidates[:, None] - occupied[None]) ** 2).sum(-1)).min(1)
