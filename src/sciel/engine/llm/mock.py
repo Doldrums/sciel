@@ -29,8 +29,32 @@ def _fill(schema: dict):
     if kind == "array":
         return []
     if kind == "string":
-        return "mock"
+        return "mock" if "pattern" in schema else ""
     return None
+
+
+_TOOL = (
+    "def run(payload):\n"
+    "    return {'schema': 'sciel-tool-result/1', 'status': 'success',\n"
+    "            'observations': {'payload_keys': sorted(payload)}, 'diagnostics': {}, 'error': None}\n"
+)
+
+
+def _structured(schema: dict, n: int) -> str:
+    action = _fill(schema)
+    properties = schema["properties"]
+    actions = properties.get("action", {}).get("enum", [])
+    visible = properties.get("parents", {}).get("items", {}).get("enum", [])
+    if "use" in actions and visible and n % 3 == 1:
+        action.update(action="use", tool_id=visible[0])
+    elif "create" in actions and n % 3 == 2:
+        action.update(action="create", name="payload_probe", code=_TOOL,
+                      description="Lists the payload fields supplied to the tool.")
+    if "arguments_json" in action:
+        action["arguments_json"] = "{}"
+    if "replay_policy" in action:
+        action["replay_policy"] = "independent_execution"
+    return json.dumps(action)
 
 
 class MockLLM:
@@ -48,10 +72,8 @@ class MockLLM:
     def generate(self, prompt: str, model: str,
                  temperature: float | None = None, response_format=None, **options) -> LLMResponse:
         if response_format is not None:
-            action = _fill(response_format["json_schema"]["schema"])
-            if "arguments_json" in action:
-                action["arguments_json"] = "{}"
-            text = json.dumps(action)
+            n = int.from_bytes(hashlib.sha256(prompt.encode()).digest()[:8], "big")
+            text = _structured(response_format["json_schema"]["schema"], n)
             return LLMResponse(text=text, model="mock-model", cost=0.0,
                                prompt_tokens=len(prompt) // 4, completion_tokens=len(text) // 4)
         keyed = f"{prompt}\x00temp={temperature}"
