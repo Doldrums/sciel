@@ -15,6 +15,8 @@ MIN_ROWS = 60
 FIT_INTERVAL = 20
 MAX_WEIGHT = 20.0
 BETA = 8.0
+GAMMA = 0.9
+BONUS = 1.0
 UNCERTAIN_QUANTILE = 0.75
 
 
@@ -96,10 +98,13 @@ class SearchWorldModel:
         return {a: {name: float(out[name][i]) for name in out} for i, a in enumerate(actions)}
 
     def tilt(self, pid: str, context: str, decision: str, distribution: dict) -> dict:
-        out = self.predict(pid, context, decision, list(distribution))
-        if out is None:
+        x = self._x(pid, context)
+        keys = [f"{decision}:{a}" for a in distribution]
+        if not self.ready or x is None or any(k not in self.vocab for k in keys):
             return dict(distribution)
-        values = np.array([out[a]["value"] for a in distribution])
+        index = {k: i for i, k in enumerate(self.vocab)}
+        values = model.lookahead(self.net, ((x - self.mean) / self.std).astype(np.float32),
+                                 np.array([index[k] for k in keys]), GAMMA, BONUS)
         shifted = np.array(list(distribution.values())) * np.exp(BETA * (values - values.mean()))
         return {a: float(p) for a, p in zip(distribution, shifted / shifted.sum())}
 
