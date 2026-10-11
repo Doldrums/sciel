@@ -112,14 +112,14 @@ class EngineBootstrap:
                               **trace_fields)
             return False
         attempt["evaluation"] = {"ok": True, "disposition": "admit"}
-        outcome.result.score = self._rechecked(code, outcome.result.score, base_code)
-        prog = self.db.add(code, outcome.result.score, outcome.result.cases,
+        admitted = self._rechecked(code, outcome.result.score, base_code)
+        prog = self.db.add(code, admitted, outcome.result.cases,
                            island, origin=origin, card=extract_card(resp.text))
         self._bind_novelty_program(prog, evaluation_id=getattr(outcome, 'evaluation_id', None))
         parent = next((p for p in self.db._all.values() if p.id != prog.id and p.code == base_code), None)
         self._observe_program(prog, outcome, parent=parent)
         self.log.decision(policy="portfolio_seed", action=origin, island=island,
-                          score=outcome.result.score, paradigm=paradigm[:40], **trace_fields)
+                          score=admitted, paradigm=paradigm[:40], **trace_fields)
         return True
 
     def _rechecked(self, code: str, score: float, base_code: str) -> float:
@@ -152,9 +152,8 @@ class EngineBootstrap:
         if ok:
             from .prompt.parse import extract_card
             measured_again = result.meta.get('remeasurement', False)
-            if not measured_again:
-                result.score = self._rechecked(result.child_code, result.score, base_code)
-            program = self.db.add(result.child_code, result.score, result.cases, island,
+            admitted = result.score if measured_again else self._rechecked(result.child_code, result.score, base_code)
+            program = self.db.add(result.child_code, admitted, result.cases, island,
                 origin='remeasurement' if measured_again else origin,
                 parent_id=None if measured_again or parent is None else parent.id,
                 card=extract_card(result.response))

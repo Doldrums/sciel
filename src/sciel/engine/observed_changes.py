@@ -124,7 +124,7 @@ class ObservedChanges:
             return None
         _require(observed['child_source_sha256'] == source_sha, 'migrant reference source differs')
         alias = dict(program_id=program.id, reference_program_id=reference.id, source_sha256=source_sha,
-                     reference_record_sha256=observed['record_sha256'], score=program.score,
+                     reference_record_sha256=observed['record_sha256'], score=observed['child_observation']['score'],
                      cases_sha256=_digest(program.cases))
         return self._insert_alias(alias)
 

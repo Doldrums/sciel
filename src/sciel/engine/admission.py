@@ -166,8 +166,9 @@ class EngineAdmission:
                 on_policy=mode_on_policy)
             return
 
+        score = res.meta.get('confirmation', {}).get('admitted', res.score)
         pre = self.db.pre_snapshot(res.island)
-        ev = self.reward.improvement_event(res.score, pre, origin="gen",
+        ev = self.reward.improvement_event(score, pre, origin="gen",
                                             iter_ref=self.iteration_no)
         if not res.meta["escalated"] and res.meta.get('op_on_policy', True):
             self.op_bandit.observe(res.meta["op_used"], ev)
@@ -192,7 +193,7 @@ class EngineAdmission:
         if res.meta.get('confirmation') is not None:
             self.log.decision(policy="confirmation", action="consistent" if res.meta['confirmation']['consistent']
                               else "inconsistent", iteration_no=self.iteration_no, **res.meta['confirmation'])
-        child_prog = self.db.add(res.child_code, res.score, res.cases, res.island,
+        child_prog = self.db.add(res.child_code, score, res.cases, res.island,
                                  origin=res.origin, parent_id=res.parent_id,
                                  card=saved_card)
         self._bind_novelty_program(child_prog, evaluation_id=res.meta.get('evaluation_id'))
@@ -227,7 +228,7 @@ class EngineAdmission:
         if ev.is_island_event and mechanism:
             from ..theory.findings import lesson
             before = (decision_context or {}).get("baseline", parent.score if parent is not None else 0.0)
-            self.findings.add([{"text": lesson(mechanism, before, res.score), "island_id": res.island,
+            self.findings.add([{"text": lesson(mechanism, before, score), "island_id": res.island,
                                 "kind": "lesson"}], self.iteration_no)
         if ev.is_island_event:
             self.n_events += 1
@@ -251,7 +252,8 @@ class EngineAdmission:
         """The generator's forecast scored by the engine, next to the world model's forecast for the same step."""
         parent = self.db._all.get(res.parent_id)
         baseline = (decision_context or {}).get("baseline", parent.score if parent is not None else None)
-        delta = res.score - baseline if baseline is not None and res.ok else None
+        score = res.meta.get('confirmation', {}).get('admitted', res.score)
+        delta = score - baseline if baseline is not None and res.ok else None
         bet, covered = res.bet, None
         if bet.delta_low is not None and delta is not None:
             covered = bet.delta_low <= delta <= bet.delta_high

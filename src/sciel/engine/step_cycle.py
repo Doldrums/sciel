@@ -40,9 +40,9 @@ class EngineStepCycle:
     def _confirm(self, result, pop_best, parent_score) -> None:
         if not getattr(result, 'ok', False) or result.meta.get('remeasurement'):
             return
-        result.score, info = self._recheck(result.child_code, result.score, pop_best, parent_score)
+        admitted, info = self._recheck(result.child_code, result.score, pop_best, parent_score)
         if info is not None:
-            result.meta['confirmation'] = info
+            result.meta['confirmation'] = {**info, 'admitted': admitted}
 
     def _add_findings(self, episode) -> None:
         added = self.findings.add((episode or {}).get('findings', []), self.iteration_no)
