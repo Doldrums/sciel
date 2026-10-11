@@ -48,9 +48,11 @@ class Network(nn.Module):
         self.valid = _mlp(4 * LATENT, 1)
 
     def context(self, batch: dict):
+        """Programs are encoded once from the shared table; rows index into it (the last row is padding)."""
+        table = self.encoder(batch["table"])
         z = self.encoder(batch["x"])
-        pop = self.population(self.encoder(batch["pop"]), batch["pop_mask"])
-        lin = self.lineage(self.encoder(batch["lin_x"]), batch["lin_a"], batch["lin_r"], batch["lin_mask"])
+        pop = self.population(table[batch["pop"]], batch["pop_mask"])
+        lin = self.lineage(table[batch["lin"]], batch["lin_a"], batch["lin_r"], batch["lin_mask"])
         return z, torch.cat([pop, lin], -1)
 
     def joint(self, z, context, a):
@@ -86,9 +88,14 @@ def tensors(data: dict) -> dict:
     for key in ("pop_mask", "lin_mask", "has_child"):
         if key in out:
             out[key] = out[key].bool()
-    for key in ("a", "lin_a"):
-        out[key] = out[key].long()
+    for key in ("a", "lin_a", "pop", "lin", "child"):
+        if key in out:
+            out[key] = out[key].long()
     return out
+
+
+def rows(batch: dict, index) -> dict:
+    return {k: v if k == "table" else v[index] for k, v in batch.items()}
 
 
 def _loss(net, batch, bce):
@@ -101,7 +108,7 @@ def _loss(net, batch, bce):
     has_child = batch["has_child"]
     if has_child.any():
         with torch.no_grad():
-            goal = net.target(batch["child"][has_child])
+            goal = net.target(batch["table"])[batch["child"][has_child]]
         loss = loss + _nll(*net.density(h[has_child]), goal).mean() / LATENT
     return loss
 
@@ -127,7 +134,7 @@ def fit(train_data: dict, valid_data: dict, actions: int, seed: int, steps: int 
     best, best_state = float("inf"), deepcopy(net.state_dict())
     for step in range(1, steps + 1):
         net.train()
-        batch = {k: v[torch.randint(n, (size,), generator=generator)] for k, v in train.items()} if n > size else train
+        batch = rows(train, torch.randint(n, (size,), generator=generator)) if n > size else train
         opt.zero_grad()
         _loss(net, batch, bce).backward()
         opt.step()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 HORIZON = 20
-MAX_ROWS = 20000
+MAX_ROWS = 100000
 
 
 @dataclass

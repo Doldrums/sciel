@@ -15,7 +15,7 @@ from ..components.policy.code_embed import featurize
 from . import model
 
 MIN_ROWS = 60
-MAX_TRAIN = 3000
+MAX_TRAIN = 50000
 FIT_INTERVAL = 20
 MAX_WEIGHT = 3.0
 MIN_HELD = 50
@@ -92,24 +92,37 @@ class SearchWorldModel:
             node = self.db._all[node.parent_id]
         return chain[::-1]
 
-    def _batch(self, states: list, contexts: list, populations: list, actions: list) -> dict:
-        n, width = len(states), len(self.mean)
-        pop = np.zeros((n, model.POPULATION, width), np.float32)
-        pop_mask = np.ones((n, model.POPULATION), bool)
-        lin = np.zeros((n, model.LINEAGE, width), np.float32)
+    def _batch(self, states: list, contexts: list, populations: list, actions: list, children=None) -> dict:
+        """Rows reference a shared table of context-free program features; index len(table) is padding."""
+        ids: dict[str, int] = {}
+
+        def slot(pid):
+            if pid not in ids:
+                ids[pid] = len(ids)
+            return ids[pid]
+
+        n = len(states)
+        pop = np.full((n, model.POPULATION), -1)
+        lin = np.full((n, model.LINEAGE), -1)
         lin_a = np.full((n, model.LINEAGE), len(self.vocab))
         lin_r = np.zeros((n, model.LINEAGE), np.float32)
-        lin_mask = np.ones((n, model.LINEAGE), bool)
-        for i, (pid, context, members) in enumerate(zip(states, contexts, populations)):
+        for i, (pid, members) in enumerate(zip(states, populations)):
             members = [m for m in members if self._program(m) is not None][:model.POPULATION]
-            for j, member in enumerate(members):
-                pop[i, j], pop_mask[i, j] = self._norm(member, context), False
+            pop[i, :len(members)] = [slot(m) for m in members]
             for j, (parent, child) in enumerate(self._lineage(pid)):
-                action, reward = self.edges.get(child, (len(self.vocab), 0.0))
-                lin[i, j], lin_a[i, j], lin_r[i, j], lin_mask[i, j] = self._norm(parent, context), action, reward, False
-        return {"x": np.stack([self._norm(p, c) for p, c in zip(states, contexts)]),
-                "a": np.asarray(actions), "pop": pop, "pop_mask": pop_mask,
-                "lin_x": lin, "lin_a": lin_a, "lin_r": lin_r, "lin_mask": lin_mask}
+                lin[i, j] = slot(parent)
+                lin_a[i, j], lin_r[i, j] = self.edges.get(child, (len(self.vocab), 0.0))
+        child = np.array([slot(c) if c else -1 for c in children]) if children is not None else None
+        table = np.zeros((len(ids) + 1, len(self.mean)), np.float32)
+        for pid, k in ids.items():
+            table[k] = self._norm(pid, "phase=0|third=0")
+        pad = len(ids)
+        batch = {"x": np.stack([self._norm(p, c) for p, c in zip(states, contexts)]), "a": np.asarray(actions),
+                 "table": table, "pop": np.where(pop < 0, pad, pop), "pop_mask": pop < 0,
+                 "lin": np.where(lin < 0, pad, lin), "lin_a": lin_a, "lin_r": lin_r, "lin_mask": lin < 0}
+        if child is not None:
+            batch["child"] = np.where(child < 0, pad, child)
+        return batch
 
     @staticmethod
     def _weights(rows) -> np.ndarray:
@@ -135,14 +148,12 @@ class SearchWorldModel:
         children = [r.child if r.child and self._program(r.child) is not None else None for r in rows]
         data = self._batch([r.state for r in rows], [r.context for r in rows],
                            [r.population or self._population(r.state) for r in rows],
-                           [index[f"{r.decision}:{r.choice}"] for r in rows])
+                           [index[f"{r.decision}:{r.choice}"] for r in rows], children)
         data.update(
             y=np.array([r.outcome for r in rows], dtype=np.float32),
             w=self._weights(rows),
             valid=np.array([r.child is not None for r in rows], dtype=np.float32),
             boot=np.random.default_rng(seed).poisson(1.0, size=(len(rows), model.HEADS)).astype(np.float32),
-            child=np.stack([self._norm(c, r.context) if c else np.zeros(x.shape[1], np.float32)
-                            for c, r in zip(children, rows)]),
             has_child=np.array([c is not None for c in children]))
         islands = sorted({r.island for r in rows})
         out = islands[(iteration // FIT_INTERVAL) % len(islands)]
@@ -151,12 +162,11 @@ class SearchWorldModel:
         if len(islands) < 2 or len(kept) < MIN_ROWS // 2 or len(held) < MIN_HELD:
             self.net = None
             return False
-        net, _ = model.fit({k: v[kept] for k, v in data.items()}, {k: v[held] for k, v in data.items()},
-                           len(self.vocab), seed)
+        net, _ = model.fit(model.rows(data, kept), model.rows(data, held), len(self.vocab), seed)
         self.cells = _outcome_model([SimpleNamespace(context=rows[i].context, choice=f"{rows[i].decision}:{rows[i].choice}",
                                                      outcome=rows[i].outcome) for i in kept])
         y = data["y"][held]
-        learned = model.predict(net, {k: v[held] for k, v in data.items()})["value"]
+        learned = model.predict(net, model.rows(data, held))["value"]
         cell = np.array([self._cell(rows[i].context, f"{rows[i].decision}:{rows[i].choice}") for i in held])
         losses = {a: _log_loss(1 / (1 + np.exp(-(a * _logit(learned) + (1 - a) * _logit(cell)))), y) for a in SHRINKS}
         self.shrink = min(SHRINKS, key=lambda a: (losses[a], a))
@@ -205,7 +215,7 @@ class SearchWorldModel:
         batch = self._query(pid, context, decision, list(distribution))
         if batch is None:
             return dict(distribution)
-        values = model.lookahead(self.net, {k: v[:1] for k, v in batch.items()}, batch["a"], GAMMA, BONUS)
+        values = model.lookahead(self.net, model.rows(batch, slice(0, 1)), batch["a"], GAMMA, BONUS)
         shifted = np.array(list(distribution.values())) * np.exp(BETA * self.shrink * (values - values.mean()))
         return {a: float(p) for a, p in zip(distribution, shifted / shifted.sum())}
 
