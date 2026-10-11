@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
 from .client import LLMResponse
 
@@ -18,6 +19,20 @@ _FAIL_PROGRAM = (
 )
 
 
+def _fill(schema: dict):
+    kind = schema.get("type")
+    kind = next((k for k in kind if k != "null"), None) if isinstance(kind, list) else kind
+    if "enum" in schema:
+        return "skip" if "skip" in schema["enum"] else schema["enum"][0]
+    if kind == "object":
+        return {key: _fill(value) for key, value in schema.get("properties", {}).items()}
+    if kind == "array":
+        return []
+    if kind == "string":
+        return "mock"
+    return None
+
+
 class MockLLM:
     def __init__(self, dup_modulo: int = 23, fail_modulo: int = 19,
                  bet_marker: str = "BET:"):
@@ -31,7 +46,14 @@ class MockLLM:
         return "mock-model"
 
     def generate(self, prompt: str, model: str,
-                 temperature: float | None = None) -> LLMResponse:
+                 temperature: float | None = None, response_format=None, **options) -> LLMResponse:
+        if response_format is not None:
+            action = _fill(response_format["json_schema"]["schema"])
+            if "arguments_json" in action:
+                action["arguments_json"] = "{}"
+            text = json.dumps(action)
+            return LLMResponse(text=text, model="mock-model", cost=0.0,
+                               prompt_tokens=len(prompt) // 4, completion_tokens=len(text) // 4)
         keyed = f"{prompt}\x00temp={temperature}"
         digest = hashlib.sha256(keyed.encode()).digest()
         n = int.from_bytes(digest[:8], "big")
