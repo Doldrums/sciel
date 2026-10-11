@@ -14,6 +14,7 @@ llm:
 
 research_tools:
   enabled: true
+  independent_research: true  # Cells run as research-queue jobs; a slow cell model never holds a generation wave.
   # First eligible cell is immediate; later episodes wait four selected-island
   # opportunities after their last actual plan. Stagnation or pending evidence
   # is still required; fresh collected results can bypass this interval.
