@@ -53,6 +53,8 @@ class CellLifecycle:
                     and (value.get('mode') != 'shadow' or self.config['allow_shadow_triggers']))
             if detected:
                 names.append(name)
+        if type(signals.get('open_claim')) is str:
+            names.append('open_claim')
         return names
 
     def prepare(self, snapshot, signals, *, maintenance=False, proactive=False, renew_closed=False):
@@ -110,6 +112,8 @@ class CellLifecycle:
                         'would affect the next search decision, and what reusable check can investigate it? '
                         f'Trigger context: island {snapshot.island}, record evaluation {anchor}; '
                         'this explains scheduling only.')
+            if type(signals.get('open_claim')) is str:
+                question += ' Open claim of the search theory worth resolving: ' + signals['open_claim']
             if previous_closed is not None:
                 question += (' New question after closed cell ' + previous_closed['id'][:12]
                              + '; allocate a different uncertainty using its retained evidence.')

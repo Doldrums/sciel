@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import math
 
+from ..theory.claims import evpi, open_question, question_text
+
 SUGGEST_SHARE = 0.5
+VOI_THRESHOLD = 1.0
+RECENT = 500
 DECAY = 0.5
 CREDIT_SHIFT = 4.0
 
@@ -18,6 +22,7 @@ class ResearchCulture:
         self.engine = engine
         self.context = None
         self.state = None
+        self.question = None
         self._links: dict[str, set] = {}
 
     def _adjust(self, decision: str, distribution: dict) -> dict:
@@ -25,8 +30,27 @@ class ResearchCulture:
         return engine.experiments.allocate(decision, self.context,
                                            engine.theory.tilt(decision, self.context, distribution))
 
+    def voi(self):
+        """Largest expected value of perfect information over undecided claims of the current context.
+
+        EVPI of a claim N(effect, se^2) is scaled by the decisions still to come in this context, so the value is
+        in expected extra improving children.
+        """
+        engine = self.engine
+        recent = engine.ledger.rows[-RECENT:]
+        share = sum(r.context == self.context for r in recent) / max(len(recent), 1)
+        remaining = (engine.budget - engine.B_evals) if engine.budget is not None else RECENT
+        claim = open_question(engine.theory.claims, self.context)
+        return (evpi(claim) * remaining * share, claim) if claim is not None else (0.0, None)
+
     def open(self, rule: bool) -> bool:
-        rule = rule or self.engine.swm.uncertain(self.state, self.context, "operator", self.engine.op_bandit.arms)
+        value, claim = self.voi()
+        self.question = None
+        if claim is not None and value > VOI_THRESHOLD * self.engine._procedure.voi_scale:
+            rule = True
+            self.question = question_text(claim)
+        rule = rule or self.engine.swm.uncertain(self.state, self.context, "operator", self.engine.op_bandit.arms,
+                                                 self.engine._procedure.uncertainty_scale)
         base = self.engine.decisions.mix({"skip": float(not rule), "open": float(rule)})
         return self.engine.decisions.sample("research_open", self._adjust("research_open", base)) == "open"
 

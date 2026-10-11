@@ -223,9 +223,9 @@ class SearchWorldModel:
         out = self.predict(pid, context, decision, actions)
         return None if out is None else float(np.mean([v["value"] for v in out.values()]))
 
-    def uncertain(self, pid: str, context: str, decision: str, actions: list) -> bool:
+    def uncertain(self, pid: str, context: str, decision: str, actions: list, scale: float = 1.0) -> bool:
         out = self.predict(pid, context, decision, actions)
-        return out is not None and np.mean([v["epistemic"] for v in out.values()]) > self.uncertain_above
+        return out is not None and np.mean([v["epistemic"] for v in out.values()]) > scale * self.uncertain_above
 
     def q(self, row, action: str) -> float | None:
         out = self.predict(row.state, row.context, row.decision, [action]) if row.state else None
