@@ -22,12 +22,23 @@ def _record(name: str, distribution: dict, choice) -> dict:
 
 
 class DecisionPolicy:
-    def __init__(self, epsilon: float, rng):
+    def __init__(self, epsilon: float, rng, floored: tuple = ()):
         if type(epsilon) not in (int, float) or not 0.0 < epsilon <= 0.5:
             raise ValueError("decision_epsilon must be in (0, 0.5]")
         self.epsilon = float(epsilon)
         self.rng = rng
+        self.floored = frozenset(floored)
         self.pending: list[dict] = []
+
+    def floor(self, name: str, distribution: dict) -> dict:
+        """Decisions the theory reasons about keep every action at probability >= epsilon/|A|."""
+        return self.mix(distribution) if name in self.floored else dict(distribution)
+
+    def _check(self, name: str, distribution: dict) -> None:
+        if name in self.floored and len(distribution) > 1:
+            minimum = self.epsilon / len(distribution) * (1 - 1e-9)
+            if min(distribution.values()) < minimum:
+                raise ValueError(f"{name} decision falls below its probability floor")
 
     def mix(self, distribution: dict) -> dict:
         n = len(distribution)
@@ -48,6 +59,7 @@ class DecisionPolicy:
         return choice
 
     def pick(self, name: str, distribution: dict):
+        distribution = self.floor(name, distribution)
         options = list(distribution)
         choice = self.rng.choices(options, weights=[distribution[o] for o in options], k=1)[0]
         return choice, _record(name, distribution, choice)
@@ -62,6 +74,7 @@ class DecisionPolicy:
 
     def observe(self, name: str, distribution: dict, choice) -> None:
         """A choice already sampled by a stochastic component from this distribution."""
+        self._check(name, distribution)
         self.pending.append(_record(name, distribution, choice))
 
     def drain(self) -> list[dict]:

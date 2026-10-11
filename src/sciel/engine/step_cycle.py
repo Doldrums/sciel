@@ -62,7 +62,8 @@ class EngineStepCycle:
         context = context_of(decision_context)
         mode, mode_prop, tilt, mix = self.controller.pick_mode(
             island, iteration_no, self.rng.stream("policy"), view, phase, features,
-            adjust=lambda m: self.experiments.allocate("mode", context, self.theory.tilt("mode", context, m)))
+            adjust=lambda m: self.decisions.floor("mode", self.experiments.allocate("mode", context,
+                                                                                     self.theory.tilt("mode", context, m))))
         # Capture the action's source before the worker advances iteration_no or
         # result handling changes the plateau window.
         mode_on_policy = (self.controller.enabled
@@ -113,7 +114,8 @@ class EngineStepCycle:
         # Effective mode for reward attribution: a warmup-gated exploit (tilt dropped)
         # actually executed base selection, so its reward belongs to base.
         eff_mode = mode if tilt is not None else "base"
-        self.decisions.observe("mode", mix if isinstance(mix, dict) and mode in mix else {mode: 1.0}, mode)
+        self.decisions.observe("mode", mix if isinstance(mix, dict) and mode in mix and preset is None
+                               else {mode: 1.0}, mode)
         if self.controller.enabled:
             # mix is the distribution actually sampled from this iteration (learned,
             # plateau, or static) -- not the bandit's estimate when plateau overrode it.
@@ -183,8 +185,8 @@ class EngineStepCycle:
             op, op_prop, op_stat = self.op_bandit.pick(
                 fresh_failure, self.rng.stream("op"), intensify=refine,
                 cross_available=bool(inspirations),
-                adjust=lambda p: self.experiments.allocate("operator", context, self.theory.tilt(
-                    "operator", context, self._plan_operator(planner, parent.id, context, p))))
+                adjust=lambda p: self.decisions.floor("operator", self.experiments.allocate("operator", context,
+                    self.theory.tilt("operator", context, self._plan_operator(planner, parent.id, context, p)))))
             op_selection = 'bandit'
         self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
                                else {op: 1.0}, op)

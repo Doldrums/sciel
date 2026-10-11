@@ -172,7 +172,8 @@ class EngineInitialization:
                                  if cfg['parallel_search']['enabled'] else cfg["inflight_cap"],
                                  cfg["sh_min_fair_evals"],
                                  fair_dispatch=cfg['parallel_search']['enabled'])
-        self.decisions = DecisionPolicy(cfg.get("decision_epsilon", 0.1), self.rng.stream("decision"))
+        from ..theory.claims import DECISIONS
+        self.decisions = DecisionPolicy(cfg.get("decision_epsilon", 0.1), self.rng.stream("decision"), DECISIONS)
         self.schedule.decisions = self.decisions
         self.db.decisions = self.decisions
         self.ledger = Ledger()
