@@ -1,15 +1,19 @@
-"""Claims "in this context, this action changes the lineage-event rate" estimated from the decision ledger."""
+"""Claims "in this context, this action changes the child's event rate against the other actions", tested anytime-validly.
+
+Each claim is a betting e-process on DR contrasts (causal/sequential.py); rejections are controlled online with e-LOND
+in the order claims first appear, and the reported interval is a confidence sequence at the false-coverage level.
+"""
 
 from __future__ import annotations
 
-import math
+from collections import defaultdict
 from dataclasses import asdict, dataclass
-from statistics import NormalDist
 
-from ..causal.estimators import action_effect
-from ..causal.ledger import HORIZON
+from ..causal.sequential import contrasts, lond_level, sequence
 
-DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure", "eviction_planner", "inspiration_source")
+DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
+             "eviction_planner", "inspiration_source")
+ALPHA = 0.05
 MIN_ROWS = 12
 MIN_TAKEN = 8
 SHIFT = 4.0
@@ -27,41 +31,61 @@ class Claim:
     n: int
     taken: int
     se: float = 0.0
+    e: float = 1.0
+    rejected: bool = False
 
     @property
     def decided(self) -> bool:
-        return self.taken >= MIN_TAKEN and (self.low > 0.0 or self.high < 0.0)
+        return self.rejected and self.taken >= MIN_TAKEN and (self.low > 0.0 or self.high < 0.0)
 
     def card(self) -> str:
         verb = "raises" if self.effect > 0 else "lowers"
-        return (f"{self.decision} '{self.action}' {verb} the chance of an island improvement within "
-                f"{HORIZON} steps by {abs(self.effect):.2f} (family-wise 95% CI {self.low:+.2f}..{self.high:+.2f}, "
+        return (f"{self.decision} '{self.action}' {verb} the chance that a child improves its island by "
+                f"{abs(self.effect):.2f} against the alternatives (anytime 95% interval {self.low:+.2f}..{self.high:+.2f}, "
                 f"{self.taken} trials)")
+
+
+def _closed(row) -> bool:
+    return len(row.distribution) > 1 and (row.scope == "lineage" or row.outcome is not None)
 
 
 class Theory:
     def __init__(self):
         self.claims: list[Claim] = []
-        self.outcome_model = None
+        self.order: list[list] = []
+        self.rejected: set = set()
         self.shift, self.mix = SHIFT, MIX
 
     def update(self, ledger) -> list[Claim]:
+        cells = defaultdict(list)
+        for row in ledger.rows:
+            if row.decision in DECISIONS and _closed(row):
+                cells[(row.decision, row.context)].append(row)
+        known = {tuple(k) for k in self.order}
+        for (decision, context), rows in cells.items():
+            for action in dict.fromkeys(a for r in rows for a in r.distribution):
+                if (decision, context, action) not in known:
+                    self.order.append([decision, context, action])
+                    known.add((decision, context, action))
         tested = []
-        model = self.outcome_model
-        q = model.q if model is not None and model.ready else None
-        for decision in DECISIONS:
-            rows = [r for r in ledger.labeled(decision) if len(r.distribution) > 1]
-            for context in sorted({r.context for r in rows}):
-                local = [r for r in rows if r.context == context]
-                if len(local) < MIN_ROWS:
-                    continue
-                for action in sorted({a for r in local for a in r.distribution}):
-                    e = action_effect(local, action, q)
-                    if e["taken"]:
-                        tested.append((decision, context, action, e))
-        z = NormalDist().inv_cdf(1 - 0.025 / max(len(tested), 1))
-        self.claims = [Claim(d, c, a, e["effect"], e["effect"] - z * e["se"], e["effect"] + z * e["se"],
-                             e["n"], e["taken"], e["se"]) for d, c, a, e in tested]
+        for index, (decision, context, action) in enumerate(self.order, 1):
+            rows = cells.get((decision, context), [])
+            if len(rows) < MIN_ROWS:
+                continue
+            psi, bound = contrasts(rows, action)
+            if not len(psi):
+                continue
+            key = f"{decision}|{context}|{action}"
+            peak = sequence(psi, bound, ALPHA)["e_peak"]
+            if key not in self.rejected and peak >= 1.0 / lond_level(ALPHA, index, len(self.rejected)):
+                self.rejected.add(key)
+            tested.append((decision, context, action, key, psi, bound, sum(r.choice == action for r in rows)))
+        level = ALPHA * max(len(self.rejected), 1) / max(len(tested), 1)
+        self.claims = []
+        for decision, context, action, key, psi, bound, taken in tested:
+            s = sequence(psi, bound, level)
+            self.claims.append(Claim(decision, context, action, s["mean"], s["low"], s["high"], s["n"], taken,
+                                     s["se"], s["e_peak"], key in self.rejected))
         return [c for c in self.claims if c.decided]
 
     def tilt(self, decision: str, context: str, distribution: dict) -> dict:
@@ -83,7 +107,9 @@ class Theory:
         return [c.card() for c in decided[:k]]
 
     def state(self) -> dict:
-        return {"claims": [asdict(c) for c in self.claims]}
+        return {"claims": [asdict(c) for c in self.claims], "order": self.order, "rejected": sorted(self.rejected)}
 
     def load_state(self, data: dict) -> None:
         self.claims = [Claim(**c) for c in data["claims"]]
+        self.order = [list(k) for k in data["order"]]
+        self.rejected = set(data["rejected"])
