@@ -223,6 +223,8 @@ class EngineAdmission:
         if res.meta["dup_attempts"] > 0:
             self.n_dups += 1
         self.intensity.observe(ev.is_island_event)
+        if ev.is_island_event and saved_card:
+            self.findings.add([{"text": saved_card, "island_id": res.island, "kind": "lesson"}], self.iteration_no)
         if ev.is_island_event:
             self.n_events += 1
         if self.plateau_shadow:

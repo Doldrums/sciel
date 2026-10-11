@@ -1,4 +1,7 @@
-"""Findings of research cells: compact conclusions delivered to program generation as randomized arms on every island."""
+"""Knowledge delivered to program generation: findings of research cells and lessons from island events.
+
+Every item reaches every island only as a randomized arm judged by the ledger; proven items become culture.
+"""
 
 from __future__ import annotations
 
@@ -27,16 +30,19 @@ def fresh(items: list) -> str:
 class Finding:
     id: str
     text: str
-    cell_id: str
+    cell_id: str | None
     island: int
     receipt_id: str | None
     born: int
     status: str = "trial"
+    kind: str = "finding"
     created: int = 1
     delivered: int = 0
     islands: list = field(default_factory=list)
 
     def card(self) -> str:
+        if self.kind == "lesson":
+            return f"- {self.text} (strategy of a program that improved island {self.island})"[:MAX_CHARS]
         source = f" [receipt {self.receipt_id[:12]}]" if self.receipt_id else ""
         return f"- {self.text} (research cell on island {self.island}{source})"[:MAX_CHARS]
 
@@ -53,8 +59,9 @@ class Findings:
             if same is not None:
                 same.created += 1
                 continue
-            finding = Finding(id=f"f{len(self.pool) + 1}", text=text, cell_id=item["cell_id"],
-                              island=int(item["island_id"]), receipt_id=item.get("receipt_id"), born=iteration)
+            finding = Finding(id=f"f{len(self.pool) + 1}", text=text, cell_id=item.get("cell_id"),
+                              island=int(item["island_id"]), receipt_id=item.get("receipt_id"), born=iteration,
+                              kind=item.get("kind", "finding"))
             self.pool.append(finding)
             added.append(finding)
         return added
@@ -76,7 +83,7 @@ class Findings:
                 finding.islands.append(island)
         if not shown:
             return ""
-        return "\nFindings of research cells in this run (measured by tools, not by the task evaluator):\n" + "\n".join(
+        return "\nKnowledge from this run (cell findings are measured by tools, not by the task evaluator):\n" + "\n".join(
             f.card() for f in shown) + "\n"
 
     def judge(self, theory) -> list[Finding]:
@@ -92,7 +99,7 @@ class Findings:
         return changed
 
     def counters(self) -> list[dict]:
-        return [{"id": f.id, "status": f.status, "created": f.created, "delivered": f.delivered,
+        return [{"id": f.id, "kind": f.kind, "status": f.status, "created": f.created, "delivered": f.delivered,
                  "islands": len(f.islands)} for f in self.pool]
 
     def top(self, k: int = 5) -> list[str]:

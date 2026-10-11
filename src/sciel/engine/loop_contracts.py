@@ -39,7 +39,7 @@ def _internal_contract(program_code: str) -> list:
         return []
     return sorted(in_defs & out_calls)
 
-ENGINE_CONTRACT = "espalier-3.85"
+ENGINE_CONTRACT = "espalier-3.86"
 
 def _evaluator_metadata(task, cfg):
     """Declared ordinary cascade limits, not a claim about candidate isolation."""
