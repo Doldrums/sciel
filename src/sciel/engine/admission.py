@@ -259,6 +259,12 @@ class EngineAdmission:
             decided = self.theory.update(self.ledger)
             self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,
                               claims=[c.card() for c in decided])
+            if self.research_tools is not None and self.research_tools._state['published']:
+                culture = self.research_tools.culture
+                published = list(self.research_tools._state['published'])
+                self.log.decision(policy="method_credit", action="update", iteration_no=self.iteration_no,
+                                  credit={t: round(v, 4) for t, v in culture.credit(published).items()},
+                                  withdrawn=[t for t in published if culture.retired(t)])
             for procedure in self.procedures.judge(self.theory):
                 self.log.decision(policy="procedure", action=procedure.status, iteration_no=self.iteration_no,
                                   procedure=procedure.id, params=procedure.params())
