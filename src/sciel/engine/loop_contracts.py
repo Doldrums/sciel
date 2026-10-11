@@ -39,7 +39,7 @@ def _internal_contract(program_code: str) -> list:
         return []
     return sorted(in_defs & out_calls)
 
-ENGINE_CONTRACT = "espalier-3.93"
+ENGINE_CONTRACT = "espalier-3.94"
 
 def _evaluator_metadata(task, cfg):
     """Declared ordinary cascade limits, not a claim about candidate isolation."""
@@ -54,15 +54,18 @@ def _evaluator_metadata(task, cfg):
     }
 
 _PARADIGMS = [
-    "a CONSTRUCTIVE/GEOMETRIC approach: an explicit closed-form or pattern-based "
-    "construction (grids, rings, symmetry groups, known record structures)",
-    "a LOCAL-OPTIMIZER approach: a good initialization plus a strong nonlinear "
-    "refinement (e.g. scipy.optimize with explicit constraints, joint optimization "
-    "of all variables)",
-    "a GLOBAL-STOCHASTIC approach: multi-restart from varied initializations with "
-    "basin hopping / simulated annealing style moves, keeping the best under the "
-    "time budget",
+    "a DIRECT approach: build the answer explicitly from the structure of the task, "
+    "with rules or formulas derived from what the task specifies",
+    "a MODEL-AND-OPTIMIZE approach: parameterize the answer and fit or optimize the "
+    "parameters directly against the task's objective",
+    "a SEARCH approach: generate many varied candidate answers and keep the best one "
+    "found within the time budget",
 ]
+
+
+def paradigms(task) -> list:
+    """Island seeding paradigms declared by the task, or task-neutral ones."""
+    return list(getattr(task, "paradigms", None) or _PARADIGMS)
 
 def _paradigm_prompt(task_prompt: str, base_code: str, paradigm: str) -> str:
     return (f"You are writing a Python program for the following task.\n\nTASK:\n"

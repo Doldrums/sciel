@@ -45,6 +45,7 @@ class TaskSpec:
     output_identity: dict | None = None
     # Public objective/interface/measurement rules, never hidden instance data.
     task_prompt: str | None = None
+    paradigms: list = field(default_factory=list)
 
     @property
     def evaluator_path(self) -> str:
@@ -88,6 +89,12 @@ def compute_task_hash(root: str, cfg: dict) -> str:
                     h.update(rel.encode())
                     h.update(f.read())
     return h.hexdigest()
+
+
+def _paradigms(value) -> list:
+    if type(value) is not list or not all(type(v) is str and v.strip() for v in value):
+        raise ValueError("task.yaml paradigms must be a list of non-empty strings")
+    return list(value)
 
 
 def load_task(root: str) -> TaskSpec:
@@ -156,6 +163,7 @@ def load_task(root: str) -> TaskSpec:
         research_metric=validate_research_metric(cfg.get("research_metric")),
         output_identity=validate_output_identity_config(cfg.get('output_identity')),
         task_prompt=validate_task_prompt(cfg.get('task_prompt')),
+        paradigms=_paradigms(cfg.get('paradigms', [])),
     )
     _validate_files(spec)
     return spec

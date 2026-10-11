@@ -137,7 +137,7 @@ def compose_directive(effective_timeout: float, parent_timing: float | None,
             "state what could affect the measured objective.")
     if refine:
         parts.append(
-            "REFINEMENT: for this proposal, KEEP this construction and investigate "
+            "REFINEMENT: for this proposal, KEEP this design and investigate "
             "improvements within its family. This is a search instruction; the cause "
             "of stalled progress has not been established. Where applicable, consider "
             "a smooth surrogate for a nonsmooth min/max objective (soft-min/soft-max "
@@ -145,7 +145,7 @@ def compose_directive(effective_timeout: float, parent_timing: float | None,
             "with smooth constraints. Other possibilities are a change of variables "
             "that removes constraints or a final high-precision polish pass (tighter "
             "tolerance, more iterations, an exact local solve). Treat these as "
-            "hypotheses to test. Do NOT switch to a different construction family.")
+            "hypotheses to test. Do NOT switch to a different design family.")
     elif plateau:
         observation = (
             "the population best has not improved within the configured evaluation window. "
@@ -155,11 +155,10 @@ def compose_directive(effective_timeout: float, parent_timing: float | None,
         parts.append(
             f"STAGNATION: {observation}; it does not establish stagnation in this "
             "particular lineage. For this proposal, do not micro-tune constants. "
-            "Make a STRUCTURAL change: a different "
-            "construction/initialization family, a different optimizer class "
-            "(joint or global optimization -- basin hopping, simulated annealing, "
-            "multi-start), or a different move/neighborhood design. A first try "
-            "in a new basin may score worse; that is acceptable.")
+            "Make a STRUCTURAL change: a different design or modelling family, a "
+            "different optimization or search method, or a different representation "
+            "of the problem. A first try in a new direction may score worse; that is "
+            "acceptable.")
     return "\n".join(parts)
 
 

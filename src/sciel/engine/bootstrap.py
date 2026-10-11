@@ -10,7 +10,7 @@ from ..swm import directive, propose
 from .prompt.build import compose_directive
 from .types import NoChild, Snapshot
 from .runtime import observed_stage
-from .loop_contracts import (_PARADIGMS, _paradigm_prompt, _read, _trunc)
+from .loop_contracts import (_paradigm_prompt, _read, _trunc, paradigms)
 
 
 class EngineBootstrap:
@@ -164,7 +164,7 @@ class EngineBootstrap:
             if self._pause_requested():
                 break
             isl = state['next_island']
-            paradigm = _PARADIGMS[isl % len(_PARADIGMS)]
+            paradigm = paradigms(self.task)[isl % len(paradigms(self.task))]
             # A provider stop seals this attempt, including an unknown request
             # or a child whose later conclusion failed. Recovery must not replay
             # it; the remaining directions are still required before search.
@@ -203,7 +203,7 @@ class EngineBootstrap:
             self.plateau_monitors[idx] = PlateauMonitor()
         base = self.db._all[self.db.pop_best_id].code if self.db.pop_best_id \
             else _read(self.task.initial_program_path)
-        paradigm = _PARADIGMS[idx % len(_PARADIGMS)]
+        paradigm = paradigms(self.task)[idx % len(paradigms(self.task))]
         context = context_of({"phase": self.schedule.phase_code(), "progress": self._progress()})
         seed = self.rng.derive_seed("swm")
         targets = {m: propose(self.db, seed, m) for m in ("kde", "diffusion")}

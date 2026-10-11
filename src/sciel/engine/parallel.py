@@ -123,7 +123,7 @@ def _save_intents(directory, intents):
 
 
 def _prepare_seed(engine, island):
-    from .loop import _PARADIGMS, _read
+    from .loop_contracts import _read, paradigms
     initial = engine.cfg.get('warm_start')
     code = initial['source'] if initial else _read(engine.task.initial_program_path)
     parent = next(program for program in engine.db.islands[island].programs.values()
@@ -133,7 +133,7 @@ def _prepare_seed(engine, island):
         iteration_no=engine.iteration_no, parent_id=parent.id,
         parent_code=code, parent_score=parent.score,
         directive=('Bootstrap portfolio: write a new program using '
-                   + _PARADIGMS[island % len(_PARADIGMS)] + '.\n'
+                   + paradigms(engine.task)[island % len(paradigms(engine.task))] + '.\n'
                    + compose_directive(engine._per_run_budget(), None, plateau=False)
                    + engine.observed_changes.block(code)),
         task_prompt=engine.task_prompt, required_entrypoints=engine.required_entrypoints)

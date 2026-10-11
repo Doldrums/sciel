@@ -19,8 +19,8 @@ LESSONS:
 {lessons}
 
 Step 1: in one sentence, state a strategy MATERIALLY DIFFERENT from the current
-program's -- a different construction family, a different optimizer class, or a
-different problem framing. Do not merely tune the current approach.
+program's -- a different design family, a different optimization or search method,
+or a different problem framing. Do not merely tune the current approach.
 Step 2: implement that strategy as a complete program. Keep the entry-point
 function name(s) and their return interface EXACTLY as in the current program.
 Output the COMPLETE program in a single ```python code block.

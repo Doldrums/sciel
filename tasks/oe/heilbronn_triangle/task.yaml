@@ -59,3 +59,7 @@ smoke_timeout: 30.0
 full_timeout: 90.0
 confirm_timeout: 120.0
 license: "Apache-2.0 (openevolve examples)"
+paradigms:
+  - "a CONSTRUCTIVE/GEOMETRIC approach: an explicit closed-form or pattern-based construction (grids, rings, symmetry groups, known record structures)"
+  - "a LOCAL-OPTIMIZER approach: a good initialization plus a strong nonlinear refinement (e.g. scipy.optimize with explicit constraints, joint optimization of all variables)"
+  - "a GLOBAL-STOCHASTIC approach: multi-restart from varied initializations with basin hopping / simulated annealing style moves, keeping the best under the time budget"

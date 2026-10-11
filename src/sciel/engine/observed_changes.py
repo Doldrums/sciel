@@ -22,6 +22,7 @@ from .observed_schema import (
     _HASH,
     _MATCH_RULES,
     _OBS_FIELDS,
+    _GEOMETRY_RULES,
     _PREFIX,
     _RECORD_FIELDS,
     _SUFFIX,
@@ -295,6 +296,8 @@ class ObservedChanges:
         def render(records):
             payload = _canonical(records).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
             rules = _MATCH_RULES if any('history_matches' in item for item in records) else ''
+            if any(item.get('geometry_comparison') not in (None, 'unavailable') for item in records):
+                rules += _GEOMETRY_RULES
             return _PREFIX + rules + payload + _SUFFIX
 
         def projections(record):

@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path
 
-CANONICAL_TASK_HASH = '86fe9a3ea046a1714b9e67f67b8ca916addaaadcf998e1a5260578f6c4e2489a'
+CANONICAL_TASK_HASH = '4c05620badb39a891c3fbf3fb6db1e6140f67bad08bb730bb6c04efaeb0d843b'
 INITIAL_SHA = 'd432ec2da7c307180a4dafff1be1ca47cf37be07c40b12c5fedae69417fd639e'
 EVALUATOR_SHA = 'e996baad4acf38ebe8faab8fb2e5d91bb691c7255e26257bdaa4d8efc9494f85'
 BODY_TASK_HASH = '6aea22dd864e8788a5e58a4aac257bbd4451ba9cfa4a6f4f97d487f39665420a'
