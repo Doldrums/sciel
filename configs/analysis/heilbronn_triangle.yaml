@@ -1,0 +1,4 @@
+threshold: 0.85
+reference: 1.0
+budgets: [150, 500, 1000, 2000]
+seeds_k: [1, 2, 4]
