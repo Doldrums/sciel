@@ -1,7 +1,8 @@
 """Run-level randomized comparison of engine revisions or configurations.
 
-Each arm is NAME=REVISION or NAME=REVISION:OVERLAY.yaml. Every revision runs from its own Git worktree, so local
-uncommitted changes never enter a run. Seeds form blocks; the arm order inside each block is randomized from
+Each arm is NAME=REVISION or NAME=REVISION:OVERLAY.yaml. Every revision runs from its own Git worktree with that
+revision's base config, defaults and tasks, so local uncommitted changes never enter a run; --tasks-root pins one task
+tree for every arm instead. Seeds form blocks; the arm order inside each block is randomized from
 --assignment-seed and recorded, together with the host load when each run starts and ends, because arms share the
 LLM server. Every run gets a private host-capacity directory and single-threaded numerics.
 Analyse the result with scripts/analyze_runs.py, one NAME=OUT/NAME/* argument per arm.
@@ -42,7 +43,7 @@ def merge(base: dict, over: dict) -> dict:
     return out
 
 
-def run(arm: dict, seed: int, out: Path, tasks: Path) -> dict:
+def run(arm: dict, seed: int, out: Path, tasks: Path | None) -> dict:
     run_id = f"{arm['name']}_s{seed}"
     folder = out / arm["name"]
     folder.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,7 @@ def run(arm: dict, seed: int, out: Path, tasks: Path) -> dict:
            "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
     started, load_start = time.time(), os.getloadavg()[0]
     with open(folder / f"{run_id}.log", "w") as log:
-        code = subprocess.run([sys.executable, "-m", "sciel.cli.main", "run", str(path), "--tasks-root", str(tasks),
+        code = subprocess.run([sys.executable, "-m", "sciel.cli.main", "run", str(path), "--tasks-root", str(tasks or arm["checkout"] / "tasks"),
                                "--seed", str(seed), "--outputs", str(folder), "--run-id", run_id],
                               cwd=arm["checkout"], env=env, stdout=log, stderr=subprocess.STDOUT).returncode
     return {"arm": arm["name"], "seed": seed, "exit": code, "started": started, "seconds": time.time() - started,
@@ -68,11 +69,11 @@ def main():
     parser.add_argument("--outputs", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--assignment-seed", type=int, default=0)
-    parser.add_argument("--tasks-root", type=Path, default=ROOT / "tasks")
+    parser.add_argument("--tasks-root", type=Path)
     args = parser.parse_args()
     out = args.outputs.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    base = load(args.config.resolve())
+    relative = args.config.resolve().relative_to(ROOT)
     with tempfile.TemporaryDirectory(prefix="sciel_ladder_") as temp:
         arms, trees = [], {}
         for spec in args.arms:
@@ -83,7 +84,8 @@ def main():
                 trees[sha] = Path(temp) / sha[:12]
                 subprocess.run(["git", "worktree", "add", "--quiet", "--detach", str(trees[sha]), sha],
                                cwd=ROOT, check=True)
-            config = merge(base, load(Path(overlay).resolve())) if overlay else dict(base)
+            base = load(trees[sha] / relative)
+            config = merge(base, load(Path(overlay).resolve())) if overlay else base
             arms.append({"name": name, "revision": sha, "overlay": overlay or None, "checkout": trees[sha],
                          "config": config})
         rng = random.Random(args.assignment_seed)
@@ -97,9 +99,11 @@ def main():
                     "seeds": args.seeds, "assignment_seed": args.assignment_seed,
                     "order": [[a["name"], s] for a, s in schedule]}
         (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        results = []
+        tasks = args.tasks_root.resolve() if args.tasks_root else None
         try:
             with ThreadPoolExecutor(args.workers) as pool:
-                results = list(pool.map(lambda job: run(job[0], job[1], out, args.tasks_root.resolve()), schedule))
+                results = list(pool.map(lambda job: run(job[0], job[1], out, tasks), schedule))
         finally:
             for tree in trees.values():
                 subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=ROOT, check=False)

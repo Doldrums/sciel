@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -50,11 +51,15 @@ def evaluate(run: Path, seed: int) -> dict:
     active = world.fit(train, 0, seed)
     if not active or not test:
         return {"run": run.name, "active": False, "gate": world.gate}
-    baseline = _outcome_model([r for r in train.rows if usable(r)])
+    index = {k: i for i, k in enumerate(world.vocab)}
+    world.edges = {r.child: (index[f"operator:{r.choice}"], r.reward) for r in ledger.rows
+                   if r.decision == "operator" and r.child and f"operator:{r.choice}" in index}
+    baseline = _outcome_model([SimpleNamespace(context=r.context, choice=f"{r.decision}:{r.choice}", outcome=r.outcome)
+                               for r in train.rows if usable(r)])
     y = [r.outcome for r in test]
     learned = [world.q(r, r.choice) for r in test]
     kept = [i for i, v in enumerate(learned) if v is not None]
-    cells = [_q(baseline, test[i].context, test[i].choice) for i in kept]
+    cells = [_q(baseline, test[i].context, f"{test[i].decision}:{test[i].choice}") for i in kept]
     model = [learned[i] for i in kept]
     truth = [y[i] for i in kept]
     return {"run": run.name, "active": True, "gate": world.gate, "train_rows": len(train.rows),
