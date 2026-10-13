@@ -255,6 +255,7 @@ def add_missing_imports(code: str) -> tuple[str, list[str]]:
     """Import well-known modules that the code uses at module or function scope but never binds."""
     try:
         tree = ast.parse(code)
+        compile(tree, "<candidate>", "exec")
     except SyntaxError:
         return code, []
     bound = set()
