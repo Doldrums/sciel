@@ -180,7 +180,7 @@ class EngineInitialization:
         from ..theory.assumptions import Assumptions
         self.assumptions = Assumptions()
         self._procedure = self.procedures.get("p0")
-        from ..swm import CodeEmbedder, LatentArchive, PopulationLearner, SearchWorldModel
+        from ..swm import CodeEmbedder, LatentArchive, SearchWorldModel
         self.embedder = CodeEmbedder(cfg["swm"]["embedding_api_base"], cfg["swm"]["embedding_model"],
                                      mock=bool(cfg.get("llm", {}).get("mock")))
         self.embedder.check()
@@ -189,7 +189,8 @@ class EngineInitialization:
         if type(self.db) is Database and self.db.niche_fn is None:
             from ..swm.niches import LatentNiches
             self.db.niche_fn = LatentNiches(self.swm)
-        self.learner = PopulationLearner()
+        from ..rl import StepPolicy
+        self.policy = StepPolicy()
         self.memory = LatentArchive()
         from .eviction_planner import EvictionPlanner
         self.db.eviction_rule = EvictionPlanner(self)

@@ -2,6 +2,5 @@
 
 from .archive import LatentArchive
 from .embedding import CodeEmbedder
-from .learner import PopulationLearner
 from .targets import directive, propose
 from .world import SearchWorldModel

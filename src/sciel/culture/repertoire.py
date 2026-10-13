@@ -6,11 +6,12 @@ import hashlib
 import json
 from pathlib import Path
 
-from ..swm import PopulationLearner, SearchWorldModel
+from ..rl import StepPolicy
+from ..swm import SearchWorldModel
 from ..theory import Claim, Finding, Procedure, Strategy, Theory
 from .methods import export_methods
 
-SCHEMA = "sciel-repertoire/2"
+SCHEMA = "sciel-repertoire/3"
 FILE = "repertoire.json"
 
 
@@ -30,7 +31,7 @@ def export(engine) -> Path:
              "procedures": [p.params() for p in engine.procedures.pool
                             if p.status == "culture" and p.params() != Procedure(id="p0").params()],
              "methods": export_methods(engine),
-             "swm": engine.swm.state(), "learner": engine.learner.state(),
+             "swm": engine.swm.state(), "policy": engine.policy.state(),
              "evidence": evidence(engine)}
     path = Path(engine.run_dir) / FILE
     path.write_text(json.dumps(value, sort_keys=True))
@@ -53,7 +54,7 @@ class Heritage:
         raw = Path(path).read_bytes()
         value = json.loads(raw)
         if value.get("schema") != SCHEMA:
-            raise ValueError("inherit must name a sciel-repertoire/2 file")
+            raise ValueError("inherit must name a sciel-repertoire/3 file")
         self.path, self.sha256 = str(path), hashlib.sha256(raw).hexdigest()
         self.generation = int(value["generation"])
         self.source = {"run_id": value["run_id"], "task": value["task"], "task_hash": value["task_hash"]}
@@ -71,20 +72,16 @@ class Heritage:
         self.swm = SearchWorldModel(db, (), embedder)
         self.swm.load_state(value["swm"])
         self.swm.edges = {}
-        self.learner = PopulationLearner()
-        self.learner.load_state(value["learner"])
+        self.policy = StepPolicy()
+        self.policy.load_state(value["policy"])
+        self.policy.world = self.swm
 
     @property
     def ready(self) -> bool:
-        return self.swm.ready
-
-    def operator(self, parent_id: str, context: str, distribution: dict) -> dict:
-        planned = (self.learner.policy(self.swm, parent_id, context, distribution) if self.learner.current(self.swm)
-                   else self.swm.tilt(parent_id, context, "operator", distribution))
-        return self.theory.tilt("operator", context, planned)
+        return self.policy.ready
 
     def describe(self) -> dict:
         return {"path": self.path, "sha256": self.sha256, "generation": self.generation, **self.source,
                 "claims": len(self.theory.claims), "strategies": len(self.strategies),
                 "procedures": len(self.procedures), "knowledge": len(self.knowledge), "methods": len(self.methods),
-                "swm": self.swm.ready, "learner": self.learner.ready}
+                "swm": self.swm.ready, "policy": self.policy.ready}

@@ -296,13 +296,13 @@ class EngineAdmission:
             if self.memory.ready:
                 self.log.decision(policy="memory", action="rebuild", iteration_no=self.iteration_no,
                                   cells=self.memory.k, elites=self.memory.elites)
-            if fitted:
-                if self.learner.fit(self.ledger, self.swm, self.rng.derive_seed("swm")):
-                    self.log.decision(policy="learner", action="fit", iteration_no=self.iteration_no,
-                                      actions=self.learner.actions)
+            report = self.policy.fit(self, self.rng.derive_seed("swm"))
+            self.log.decision(policy="step_policy", action="fit", iteration_no=self.iteration_no, **report)
         if self.iteration_no % THEORY_INTERVAL == 0:
             self.swm.prefetch()
             self.assumptions.weigh(self.db)
+            if self.policy.check(self.ledger):
+                self.log.decision(policy="step_policy", action="stand_down", iteration_no=self.iteration_no)
             for trial in self.trials.update(self.siblings.pairs):
                 self.log.decision(policy="trial", action=trial.status, iteration_no=self.iteration_no,
                                   item=trial.item, kind=trial.kind, n=trial.n, mean=trial.mean, e=trial.e,

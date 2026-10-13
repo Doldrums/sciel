@@ -51,7 +51,7 @@ RULES = {
     "certify": lambda r: {**r, "strategies": _accept(r["strategies"], lambda i: i["donor_status"] == "culture"),
                           "knowledge": _accept(r["knowledge"], lambda i: i["donor_status"] == "culture"),
                           "procedures": _accept(r["procedures"], lambda i: True),
-                          "swm": {**r["swm"], "weights": None}, "learner": {**r["learner"], "weights": None}},
+                          "swm": {**r["swm"], "weights": None}, "policy": {**r["policy"], "weights": None}},
     "replay": lambda r: {**r, "claims": [], "strategies": [], "knowledge": [], "procedures": [], "methods": [],
                          "evidence": {"claims": {}, "items": {}, "programmes": []}},
 }

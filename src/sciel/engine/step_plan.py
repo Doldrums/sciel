@@ -45,19 +45,22 @@ class EngineStepPlan:
         return ""
 
     def _planners(self) -> dict:
-        arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.learner.current(self.swm)),
+        arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.policy.ready),
                 ("heritage", self.heritage is not None and self.heritage.ready)) if ready]
         share = self._procedure.base_share
         return {"base": share} | {a: (1 - share) / len(arms) for a in arms} if arms else {"base": 1.0}
 
-    def _plan_operator(self, planner, parent_id, context, distribution):
-        if planner == "swm":
-            return self.swm.tilt(parent_id, context, "operator", distribution)
-        if planner == "rl":
-            return self.learner.policy(self.swm, parent_id, context, distribution)
-        if planner == "heritage":
-            return self.heritage.operator(parent_id, context, distribution)
-        return distribution
+    def _steered(self, decision, planner, parent_id, context, distribution):
+        """The planner arm shapes a covered decision: a step policy (own or inherited) replaces the theory's tilt; the
+        world model's arm tilts only the operator."""
+        if planner in ("rl", "heritage"):
+            policy = self.policy if planner == "rl" else self.heritage.policy
+            steered = policy.steer(self, decision, parent_id, context, distribution, self.decisions.pending)
+        elif planner == "swm" and decision == "operator":
+            steered = self.theory.tilt(decision, context, self.swm.tilt(parent_id, context, decision, distribution))
+        else:
+            steered = self.theory.tilt(decision, context, distribution)
+        return self.experiments.allocate(decision, context, steered)
 
     def _prepare_step(self, island: int, *, excluded_parents=(), spawn=True, iteration_no=None,
                       block_room=1 + ITEMS) -> dict:
@@ -156,9 +159,8 @@ class EngineStepPlan:
         # Freeze usable donor inputs before choosing the operator. Scan the
         # ranked local pool before applying the three-source prompt limit, so
         # exact-source aliases at its head cannot hide a later distinct donor.
-        source = self.decisions.sample("inspiration_source", self.experiments.allocate("inspiration_source",
-            context, self.theory.tilt("inspiration_source", context,
-                {"island": 0.5, "archive": 0.5} if self.memory.ready else {"island": 1.0})))
+        source = self.decisions.sample("inspiration_source", self._steered("inspiration_source", planner, parent.id,
+            context, {"island": 0.5, "archive": 0.5} if self.memory.ready else {"island": 1.0}))
         donors = (self.db.inspirations(island, selected.parent_id, k=len(self.db.islands[island].programs))
                   if source == "island" else [self.db.get(pid) for pid in self.memory.neighbours(
                       self.swm, parent.id, {parent.id})])
@@ -191,8 +193,8 @@ class EngineStepPlan:
             op, op_prop, op_stat = self.op_bandit.pick(
                 fresh_failure, self.rng.stream("op"), intensify=refine,
                 cross_available=bool(inspirations),
-                adjust=lambda p: self.decisions.floor("operator", self.experiments.allocate("operator", context,
-                    self.theory.tilt("operator", context, self._plan_operator(planner, parent.id, context, p)))))
+                adjust=lambda p: self.decisions.floor("operator", self._steered("operator", planner, parent.id,
+                                                                                context, p)))
             op_selection = 'bandit'
         self.decisions.observe("operator", self.op_bandit.last_distribution if op_selection == 'bandit'
                                else {op: 1.0}, op)
@@ -229,10 +231,10 @@ class EngineStepPlan:
             strategy = culture[iteration_no % len(culture)] if culture else "none"
             self.decisions.observe("strategy", {strategy: 1.0}, strategy)
         else:
-            strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
-                self.theory.tilt("strategy", context, self.strategies.distribution(island))))
-            finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
-                self.theory.tilt("finding", context, self.findings.distribution(island))))
+            strategy = self.decisions.sample("strategy", self._steered("strategy", planner, parent.id, context,
+                                                                       self.strategies.distribution(island)))
+            finding = self.decisions.sample("finding", self._steered("finding", planner, parent.id, context,
+                                                                     self.findings.distribution(island)))
         theorist = None
         if self.strategies.due(iteration_no, self._procedure.theorist_interval):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
@@ -267,9 +269,9 @@ class EngineStepPlan:
         failure_ref = failure.pop("_failure_provenance", None)
         # error_repair repairs the program that FAILED, which is the child, not the
         # parent that is still sitting in the population with a valid score
-        origin = self.decisions.sample("origin", self.experiments.allocate("origin", context,
-            self.theory.tilt("origin", context, {"parent": 1 - FRESH_SHARE, "fresh": FRESH_SHARE}
-                             if op in ("diff", "full_rewrite", "cross") else {"parent": 1.0})))
+        origin = self.decisions.sample("origin", self._steered("origin", planner, parent.id, context,
+            {"parent": 1 - FRESH_SHARE, "fresh": FRESH_SHARE} if op in ("diff", "full_rewrite", "cross")
+            else {"parent": 1.0}))
         if origin == "fresh":
             from .loop_contracts import _read
             op, op_prop, inspirations = "full_rewrite", None, []
