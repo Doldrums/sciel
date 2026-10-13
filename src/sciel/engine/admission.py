@@ -246,7 +246,7 @@ class EngineAdmission:
                             pre=pre, phase_pre=obs_phase, effective_mode=eff_mode,
                             decision_context=decision_context)
         self._record_decisions(res.island, decision_context, child_prog.id, res.parent_id,
-                               ev.is_island_event, research=bool(res.meta.get('research_candidate')))
+                               ev.is_island_event, research=bool(res.meta.get('research_candidate')), score=score)
         return child_prog.id
 
     def _log_forecast(self, res, event, brier, decision_context):
@@ -268,17 +268,18 @@ class EngineAdmission:
                           event=event, brier=brier, delta=delta,
                           interval=[bet.delta_low, bet.delta_high], covered=covered, swm_value=world)
 
-    def _record_decisions(self, island, decision_context, child, parent, event, research=False):
+    def _record_decisions(self, island, decision_context, child, parent, event, research=False, score=None):
         if not decision_context:
             return
         if decision_context.get("origin") == "fresh":
             parent = None
+        gain = self.ledger.path_gain(parent, child, score, self.seed_score)
         if research:
             from .research_culture import DECISIONS
             decision_context = {**decision_context,
                                 "decisions": [r for r in decision_context["decisions"] if r["decision"] in DECISIONS]}
         self.ledger.add(iteration=self.iteration_no, island=island, decision_context=decision_context,
-                        child=child, parent=parent, event=event)
+                        child=child, parent=parent, event=event, gain=gain)
         if self.swm.due(self.iteration_no):
             fitted = self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm"))
             if self.swm.gate is not None:

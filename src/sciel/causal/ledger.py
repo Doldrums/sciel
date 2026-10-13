@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass, field
 
 HORIZON = 20
@@ -22,6 +23,7 @@ class Row:
     reward: float = 0.0
     scope: str = "lineage"
     population: list = field(default_factory=list)
+    gain: float = 0.0
 
 
 def context_of(decision_context: dict) -> str:
@@ -36,9 +38,22 @@ class Ledger:
         self.rows: list[Row] = []
         self.parent: dict[str, str] = {}
         self.now = 0
+        self.path_best: dict[str, float] = {}
+
+    def path_gain(self, parent: str | None, child: str | None, score: float | None, origin: float) -> float:
+        """Rise of the best score on the root-to-child path, on a log scale above the starting program's score;
+        it telescopes along every lineage, so a copy adds nothing and siblings never take each other's credit."""
+        before = self.path_best.get(parent, origin) if parent is not None else origin
+        if child is None or score is None:
+            return 0.0
+        after = max(before, score)
+        self.path_best[child] = after
+        scale = max(abs(origin), 1e-9)
+        potential = lambda b: math.log1p(max(b - origin, 0.0) / scale)
+        return potential(after) - potential(before)
 
     def add(self, *, iteration: int, island: int, decision_context: dict, child: str | None,
-            parent: str | None, event: bool) -> None:
+            parent: str | None, event: bool, gain: float = 0.0) -> None:
         self.now = max(self.now, iteration)
         context = context_of(decision_context)
         decided = int(decision_context.get("iteration_no", iteration))
@@ -48,7 +63,7 @@ class Ledger:
                                  choice=str(record["choice"]), propensity=float(record["propensity"]),
                                  child=child, outcome=None if child is not None else 0.0,
                                  state=decision_context.get("parent_id"), reward=float(event),
-                                 population=list(decision_context.get("population", []))))
+                                 population=list(decision_context.get("population", [])), gain=gain))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:
@@ -95,10 +110,11 @@ class Ledger:
 
     def state(self) -> dict:
         return {"horizon": self.horizon, "rows": [asdict(r) for r in self.rows],
-                "parent": dict(self.parent), "now": self.now}
+                "parent": dict(self.parent), "now": self.now, "path_best": dict(self.path_best)}
 
     def load_state(self, data: dict) -> None:
         self.horizon = int(data["horizon"])
         self.rows = [Row(**r) for r in data["rows"]]
         self.parent = dict(data["parent"])
         self.now = int(data["now"])
+        self.path_best = dict(data["path_best"])
