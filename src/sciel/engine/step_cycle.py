@@ -119,16 +119,17 @@ class EngineStepCycle:
         if episode is not None:
             result.meta['research_tools'] = episode
         self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score)
-        if plan.get('theorist'):
-            from .llm.client import accounted_cost
-            try:
-                reply = (llm or self.llm).generate(plan['theorist'], snapshot.model)
-                result.meta['strategy_proposal'] = reply.text
-                result.cost += accounted_cost(reply)
-            except CampaignStopped:
-                raise
-            except Exception as error:
-                result.meta['theorist_error'] = type(error).__name__
+        for key, field in (('theorist', 'strategy_proposal'), ('assumptions', 'assumption_reply')):
+            if plan.get(key):
+                from .llm.client import accounted_cost
+                try:
+                    reply = (llm or self.llm).generate(plan[key], snapshot.model)
+                    result.meta[field] = reply.text
+                    result.cost += accounted_cost(reply)
+                except CampaignStopped:
+                    raise
+                except Exception as error:
+                    result.meta[key + '_error'] = type(error).__name__
         return result
 
     def _commit_step(self, plan, res):
@@ -168,6 +169,12 @@ class EngineStepCycle:
                 strategy.status = "culture"
             self.log.decision(policy="programme", action="graduate" if "graduated" in event else "stage",
                               iteration_no=self.iteration_no, **event)
+        if plan.get('assumptions'):
+            programs = [self.db._all[pid] for pid in plan['assumption_programs'] if pid in self.db._all]
+            for assumption in self.assumptions.adopt(res.meta.get('assumption_reply'), programs, self.iteration_no):
+                self.log.decision(policy="assumption", action="add", iteration_no=self.iteration_no,
+                                  assumption=assumption.id, text=assumption.text,
+                                  counterfactual=assumption.counterfactual, units=assumption.units)
         if plan.get('theorist'):
             adopted = self.strategies.adopt(res.meta.get('strategy_proposal'), self.iteration_no)
             self.log.decision(policy="strategy", action="propose", iteration_no=self.iteration_no,

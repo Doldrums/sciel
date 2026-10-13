@@ -106,7 +106,7 @@ def _intent(engine, key, plan):
         'selection': asdict(plan['selected']) if plan.get('selected') is not None else None,
         'attribution': {name: plan.get(name) for name in ('mode', 'mode_prop', 'eff_mode',
             'phase', 'mode_on_policy', 'op_prop', 'op_stat', 'model', 'model_prop',
-            'preset', 'preset_prop', 'decision_context', 'theorist', 'block', 'arm')},
+            'preset', 'preset_prop', 'decision_context', 'theorist', 'assumptions', 'block', 'arm')},
         'novelty_max_resamples': engine.cfg['candidate_novelty']['max_resamples'],
         'output_repeats': engine.cfg['candidate_novelty']['output_repeats'],
         'output_resolution': engine.cfg['candidate_novelty'].get('output_resolution')}

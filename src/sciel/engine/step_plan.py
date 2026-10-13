@@ -235,8 +235,13 @@ class EngineStepPlan:
         if self.strategies.due(iteration_no, self._procedure.theorist_interval) and self.incubator.free():
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
-                                               claims=self.theory.cards(context), findings=self.findings.top(),
+                                               claims=self.theory.cards(context),
+                                               findings=self.findings.top() + self.assumptions.cards(),
                                                families=self._families())
+        audit = None
+        if self.assumptions.due(iteration_no):
+            top = sorted((p for i in self.db.islands for p in i.programs.values()), key=lambda p: -p.score)[:3]
+            audit = self.assumptions.request(iteration_no, task=self.task_prompt, programs=top)
         lessons, injected_ids = self.theory.cards(context), []
         # the binding cap on ONE run of the program
         # Population stall is not evidence that this particular lineage stalled.
@@ -328,5 +333,7 @@ class EngineStepPlan:
             "preset": preset,
             "preset_prop": preset_prop if preset is not None else None,
             "theorist": theorist,
+            "assumptions": audit,
+            "assumption_programs": [p.id for p in top] if audit else [],
             "block": block,
         }

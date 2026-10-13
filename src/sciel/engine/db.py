@@ -107,13 +107,13 @@ class Database:
             isl.grid = grid
 
     def add(self, code: str, score: float, cases: dict, island: int, origin: str,
-            parent_id: str | None = None, sig_hash: str = "", card: str = "") -> Program:
+            parent_id: str | None = None, sig_hash: str = "", card: str = "", mechanism: str = "") -> Program:
         isl = self.islands[island]
         gen = 0 if parent_id is None or parent_id not in self._all \
             else self._all[parent_id].gen + 1
         prog = Program(id=self.new_id(), code=code, score=score, cases=cases,
                        island=island, origin=origin, parent_id=parent_id, gen=gen,
-                       sig_hash=sig_hash, card=card)
+                       sig_hash=sig_hash, card=card, mechanism=mechanism)
         self._all[prog.id] = prog
         isl.programs[prog.id] = prog
         cell = self._cell(prog)
@@ -254,6 +254,6 @@ class Database:
     @staticmethod
     def _prog_json(p: Program) -> dict:
         return {"id": p.id, "code": p.code, "score": p.score, "cases": p.cases,
-                "card": p.card,
+                "card": p.card, "mechanism": p.mechanism,
                 "island": p.island, "origin": p.origin, "parent_id": p.parent_id,
                 "gen": p.gen, "sig_hash": p.sig_hash}

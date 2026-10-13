@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from .client import LLMResponse
 
@@ -77,6 +78,13 @@ class MockLLM:
         if response_format is not None:
             n = int.from_bytes(hashlib.sha256(prompt.encode()).digest()[:8], "big")
             text = _structured(response_format["json_schema"]["schema"], n)
+            return LLMResponse(text=text, model="mock-model", cost=0.0,
+                               prompt_tokens=len(prompt) // 4, completion_tokens=len(text) // 4)
+        if prompt.startswith("You audit an automated program search."):
+            ids = re.findall(r"^Program (\S+) \(score", prompt, re.MULTILINE)
+            text = json.dumps([{"assumption": "The score depends only on the returned point, not on how it is "
+                                              "found", "counterfactual": "if false, the search loop should change",
+                                "units": {pid: ["run_search"] for pid in ids}}])
             return LLMResponse(text=text, model="mock-model", cost=0.0,
                                prompt_tokens=len(prompt) // 4, completion_tokens=len(text) // 4)
         keyed = f"{prompt}\x00temp={temperature}"

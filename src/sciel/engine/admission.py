@@ -195,7 +195,7 @@ class EngineAdmission:
                               else "inconsistent", iteration_no=self.iteration_no, **res.meta['confirmation'])
         child_prog = self.db.add(res.child_code, score, res.cases, res.island,
                                  origin=res.origin, parent_id=res.parent_id,
-                                 card=saved_card)
+                                 card=saved_card, mechanism=res.bet.mechanism if res.bet is not None else "")
         self._bind_novelty_program(child_prog, evaluation_id=res.meta.get('evaluation_id'))
         parent = self.db._all.get(res.parent_id)
         self._observe_program(child_prog, res, parent=parent)
@@ -300,6 +300,7 @@ class EngineAdmission:
                                       actions=self.learner.actions)
         if self.iteration_no % THEORY_INTERVAL == 0:
             self.swm.prefetch()
+            self.assumptions.weigh(self.db)
             for trial in self.trials.update(self.siblings.pairs):
                 self.log.decision(policy="trial", action=trial.status, iteration_no=self.iteration_no,
                                   item=trial.item, kind=trial.kind, n=trial.n, mean=trial.mean, e=trial.e,

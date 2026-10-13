@@ -78,13 +78,13 @@ class ContainerDatabase(Database):
             if old is None or p.score > isl.programs[old].score:
                 isl.grid[cell] = pid
 
-    def add(self, code, score, cases, island, origin, parent_id=None, sig_hash="", card=""):
+    def add(self, code, score, cases, island, origin, parent_id=None, sig_hash="", card="", mechanism=""):
         if not math.isfinite(score):
             raise ValueError("container score must be finite")
         isl = self.islands[island]
         gen = self._all[parent_id].gen + 1 if parent_id in self._all else 0
         p = Program(self.new_id(), code, score, cases, island, origin,
-                    parent_id=parent_id, gen=gen, sig_hash=sig_hash, card=card)
+                    parent_id=parent_id, gen=gen, sig_hash=sig_hash, card=card, mechanism=mechanism)
         if self.kind in {"cvt", "vq", "annealed"}:
             z = np.asarray(self.vector_fn(code, cases), dtype=float)
             if z.ndim != 1 or not len(z) or not np.isfinite(z).all():

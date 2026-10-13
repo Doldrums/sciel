@@ -177,6 +177,8 @@ class EngineInitialization:
         self.siblings = Siblings()
         self.trials = Trials()
         self.incubator = Incubator()
+        from ..theory.assumptions import Assumptions
+        self.assumptions = Assumptions()
         self._procedure = self.procedures.get("p0")
         from ..swm import CodeEmbedder, LatentArchive, PopulationLearner, SearchWorldModel
         self.embedder = CodeEmbedder(cfg["swm"]["embedding_api_base"], cfg["swm"]["embedding_model"],

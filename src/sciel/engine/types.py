@@ -17,6 +17,7 @@ class Program:
     gen: int = 0
     sig_hash: str = ""
     card: str = ""            # one-line strategy summary from the LLM's prose
+    mechanism: str = ""
 
 
 @dataclass
