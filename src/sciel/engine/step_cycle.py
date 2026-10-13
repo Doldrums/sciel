@@ -41,8 +41,6 @@ class EngineStepCycle:
     def _sibling_outcome(self, plan, res, child_id) -> None:
         admitted = res.meta.get('confirmation', {}).get('admitted', res.score) if getattr(res, 'ok', False) else None
         if plan.get('block') is None:
-            if admitted is not None and not res.meta.get('remeasurement'):
-                self.siblings.observe(plan['snap'].parent_score, admitted)
             return
         program = self.db._all.get(child_id) if child_id else None
         for pair in self.siblings.record(plan, admitted, program.code if program else None):
@@ -200,6 +198,8 @@ class EngineStepCycle:
             spec, scores = plan['knockout'], res.meta.get('knockout') or {"parent": None, "target": None, "nulls": []}
             assumption = self.assumptions.get(spec['assumption'])
             assumption.reliance = reliance(scores)
+            if assumption.reliance is None:
+                assumption.status = "unmeasurable"
             self.assumptions.pending = None
             self.log.decision(policy="knockout", action="measured", iteration_no=self.iteration_no,
                               assumption=spec['assumption'], program=spec['program'], targets=spec['targets'],

@@ -1,5 +1,6 @@
 """Sibling blocks: one parent, one operator, one evaluation seed, one child per knowledge item under test plus a
-placebo control, so an item's effect is a paired score difference on real search instead of a rare island event.
+placebo control. An item's outcome is the sign of its child's score against the control's (a failed child loses to
+any measured one), bounded and robust to the heavy tails of real scores, instead of a rare island event.
 """
 
 from __future__ import annotations
@@ -7,12 +8,10 @@ from __future__ import annotations
 import difflib
 import re
 from copy import deepcopy
-from statistics import median
 
 BLOCK_SHARE = 0.5
 ITEMS = 2
-SCALE_WINDOW = 200
-MIN_SCALE = 1e-6
+TIE = 1e-12
 PLACEBOS = (
     "Keep the program readable: descriptive names, short functions and no unused code.",
     "Prefer clear control flow over clever one-liners, and keep helper functions close to where they are used.",
@@ -27,6 +26,12 @@ _WORD = re.compile(r"[a-z][a-z0-9_]{3,}")
 
 def _placebo(length: int) -> str:
     return min(PLACEBOS, key=lambda text: abs(len(text) - length))
+
+
+def _sign(item: float | None, control: float | None) -> float:
+    if item is None or control is None:
+        return float((item is not None) - (control is not None))
+    return 0.0 if abs(item - control) <= TIE else (1.0 if item > control else -1.0)
 
 
 def _applied(text: str, parent: str, child: str) -> bool:
@@ -44,7 +49,6 @@ class Siblings:
         self.launched: list[int] = []
         self.pairs: list[dict] = []
         self.counts: dict[str, int] = {}
-        self.deltas: list[float] = []
 
     def candidates(self, engine, island: int) -> list[tuple]:
         from ..theory import schools
@@ -54,9 +58,6 @@ class Siblings:
                     for f in schools.trials(engine.findings.pool, island)]
         return sorted(strategies + findings, key=lambda item: self.counts.get(item[1], 0))[:ITEMS]
 
-    def scale(self) -> float:
-        return max(median(self.deltas), MIN_SCALE) if self.deltas else 1.0
-
     def draw(self, engine, island: int, room: int):
         """Whether this step is a block, journaled like any decision; None when nothing is under test or no room."""
         items = self.candidates(engine, island)[:max(room - 1, 0)]
@@ -65,7 +66,7 @@ class Siblings:
         choice = engine.decisions.sample("sibling", {"single": 1 - BLOCK_SHARE, "block": BLOCK_SHARE})
         if choice != "block":
             return None
-        block = {"id": self.next_id, "items": [list(item) for item in items], "scale": self.scale(),
+        block = {"id": self.next_id, "items": [list(item) for item in items],
                  "seed": engine.rng.derive_seed("sibling") % 2 ** 31}
         self.next_id += 1
         return block
@@ -90,22 +91,19 @@ class Siblings:
             member["snap"].directive = base + text
             member["arm"] = arm
             members.append(member)
-        self.open[block["id"]] = {"items": block["items"], "scale": block["scale"],
-                                  "parent": plan["snap"].parent_score, "parent_code": plan["snap"].parent_code,
+        self.open[block["id"]] = {"items": block["items"],
+                                  "parent_code": plan["snap"].parent_code,
                                   "scores": {}, "codes": {}, "arms": [arm for arm, _ in arms],
                                   "iteration": plan["snap"].iteration_no}
         self.launched.append(block["id"])
         return members
-
-    def observe(self, parent_score: float, score: float) -> None:
-        self.deltas = (self.deltas + [abs(score - parent_score)])[-SCALE_WINDOW:]
 
     def record(self, plan: dict, score: float | None, code: str | None) -> list[dict]:
         """Store a member's admitted score; return the pairs of blocks completed in launch order."""
         block = self.open.get(plan["block"]["id"])
         if block is None:
             return []
-        block["scores"][plan["arm"]] = block["parent"] - block["scale"] if score is None else score
+        block["scores"][plan["arm"]] = score
         block["codes"][plan["arm"]] = code or ""
         done = []
         while self.launched and len(self.open[self.launched[0]]["scores"]) == len(self.open[self.launched[0]]["arms"]):
@@ -113,9 +111,8 @@ class Siblings:
             finished = self.open.pop(block_id)
             control = finished["scores"]["control"]
             for kind, item, text in finished["items"]:
-                difference = (finished["scores"][item] - control) / finished["scale"]
                 pair = {"block": block_id, "kind": kind, "item": item, "iteration": finished["iteration"],
-                        "d": max(-1.0, min(1.0, difference)),
+                        "d": _sign(finished["scores"][item], control),
                         "applied": _applied(text, finished["parent_code"], finished["codes"][item])}
                 self.counts[item] = self.counts.get(item, 0) + 1
                 self.pairs.append(pair)
@@ -124,7 +121,7 @@ class Siblings:
 
     def state(self) -> dict:
         return {"next_id": self.next_id, "open": {str(k): v for k, v in self.open.items()},
-                "launched": self.launched, "pairs": self.pairs, "counts": self.counts, "deltas": self.deltas}
+                "launched": self.launched, "pairs": self.pairs, "counts": self.counts}
 
     def load_state(self, data: dict) -> None:
         self.next_id = int(data["next_id"])
@@ -132,4 +129,3 @@ class Siblings:
         self.launched = [int(k) for k in data["launched"]]
         self.pairs = list(data["pairs"])
         self.counts = dict(data["counts"])
-        self.deltas = list(data["deltas"])
