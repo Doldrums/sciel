@@ -130,7 +130,7 @@ class EngineLifecycle:
             if self.repeat_promotion is not None and self.repeat_promotion.stopped_reason:
                 reason = 'repeat_stopped'
                 break
-            islands = list(range(len(self.db.islands)))
+            islands = [i for i in range(len(self.db.islands)) if not self.incubator.holds(i)]
             if self._pause_requested() or (self._stop_at is not None and self.B_evals >= self._stop_at):
                 reason = "paused"
                 break
@@ -138,7 +138,9 @@ class EngineLifecycle:
                 reason = "backstop"
                 break
             try:
-                island = self.schedule.pick_island(islands, {i: 0 for i in islands})
+                island = self.incubator.next_island(self)
+                if island is None:
+                    island = self.schedule.pick_island(islands, {i: 0 for i in islands})
             except Saturated:
                 reason = "saturated"
                 break

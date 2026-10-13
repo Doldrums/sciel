@@ -13,6 +13,10 @@ class EngineStepCycle:
 
     @observed_stage("generating")
     def _step(self, island: int) -> None:
+        if self.incubator.owner(island) is not None:
+            plan = self.incubator.prepare(self, island, self.iteration_no)
+            self._commit_step(plan, self._execute_step(plan))
+            return
         for member in self.siblings.expand(self._prepare_step(island)):
             self._commit_step(member, self._execute_step(member))
 
@@ -158,10 +162,20 @@ class EngineStepCycle:
                         mode, mode_prop, eff_mode, phase, mode_on_policy,
                         decision_context=plan.get('decision_context'))
         self._sibling_outcome(plan, res, child_id)
+        for event in self.incubator.commit(self, plan):
+            if event.get("graduated"):
+                strategy = next(s for s in self.strategies.pool if s.id == event["strategy"])
+                strategy.status = "culture"
+            self.log.decision(policy="programme", action="graduate" if "graduated" in event else "stage",
+                              iteration_no=self.iteration_no, **event)
         if plan.get('theorist'):
             adopted = self.strategies.adopt(res.meta.get('strategy_proposal'), self.iteration_no)
             self.log.decision(policy="strategy", action="propose", iteration_no=self.iteration_no,
                               strategy=adopted.id if adopted else None, text=adopted.text if adopted else None)
+            for programme in (self.incubator.open(self, adopted) if adopted else []):
+                self.log.decision(policy="programme", action="open", iteration_no=self.iteration_no,
+                                  programme=programme.id, kind=programme.kind, island=programme.island,
+                                  strategy=programme.strategy)
         if self.research_tools is not None and res.meta.get('research_tools') is not None:
             self._add_findings(res.meta['research_tools'])
             self.research_tools.commit(res.meta['research_tools'], child_program_id=child_id,

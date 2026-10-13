@@ -232,7 +232,7 @@ class EngineStepPlan:
             finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
                 self.theory.tilt("finding", context, self.findings.distribution(island))))
         theorist = None
-        if self.strategies.due(iteration_no, self._procedure.theorist_interval):
+        if self.strategies.due(iteration_no, self._procedure.theorist_interval) and self.incubator.free():
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
                                                claims=self.theory.cards(context), findings=self.findings.top(),

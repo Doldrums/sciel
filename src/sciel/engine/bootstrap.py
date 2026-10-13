@@ -10,6 +10,7 @@ from ..swm import directive, propose
 from .prompt.build import compose_directive
 from .types import NoChild, Snapshot
 from .runtime import observed_stage
+from .incubator import PROGRAMME_ISLANDS
 from .loop_contracts import (_paradigm_prompt, _read, _trunc, paradigms)
 
 
@@ -181,6 +182,45 @@ class EngineBootstrap:
             state['next_island'] = isl + 1
             self._paradigm_child(initial, paradigm, isl, origin="portfolio")
 
+    def _setup_island(self, *, register: bool) -> int:
+        """A new island with its monitors; scheduled at once, or later when a research programme graduates."""
+        idx = self.db.add_island()
+        if register:
+            self.schedule.register_island(idx)
+        self.controller.plateau_until[idx] = -1
+        pol = self.cfg["policy"]
+        if self.oc_monitors is not None:
+            self.oc_monitors[idx] = OpportunityCostMonitor(
+                threshold=pol["plateau_threshold"], horizon=pol["plateau_horizon"],
+                min_n=pol["plateau_min_n"])
+        if self.plateau_monitors is not None and idx not in self.plateau_monitors:
+            self.plateau_monitors[idx] = PlateauMonitor()
+        return idx
+
+    def _copy_baseline(self, idx: int):
+        """Seed an island with this run's retained baseline; copying a measured program is not a new evaluation."""
+        warm = self.cfg.get('warm_start')
+        initial = warm['source'] if warm else _read(self.task.initial_program_path)
+        baseline = next((p for p in self.db._all.values()
+            if p.origin == 'seed' and p.parent_id is None and p.code == initial), None)
+        if baseline is None:
+            raise ValueError('dynamic island fallback requires a retained initial baseline')
+        from .research_artifacts import evaluation_id_for_program
+        from .evaluation_timing import for_program
+        evaluation_id = evaluation_id_for_program(self, baseline)
+        if self.candidate_novelty is not None and evaluation_id is None:
+            raise ValueError('dynamic island baseline lacks its exact evaluation identity')
+        timing = for_program(self, baseline)
+        copied = self.db.add(baseline.code, baseline.score, deepcopy(baseline.cases), idx,
+            origin='migrant', parent_id=baseline.id, card=baseline.card,
+            sig_hash=baseline.sig_hash)
+        self._bind_novelty_program(copied, evaluation_id=evaluation_id)
+        self.observed_changes.bind_alias(copied, baseline)
+        if timing is not None:
+            self.evaluation_timings[copied.id] = timing
+            self.eval_times[copied.id] = timing['mean_evaluation_stage_wall_seconds_per_reported_trial']
+        return copied, baseline, evaluation_id
+
     def _maybe_spawn_island(self) -> None:
         """Dynamic niches: when the population best has not improved for
         `spawn_stall` accepted evals, the current niches are exhausted -- found a
@@ -192,7 +232,7 @@ class EngineBootstrap:
         if not self.cfg.get("dynamic_islands"):
             return
         cap = int(self.cfg.get("max_islands", 6))
-        if len(self.db.islands) >= cap:
+        if len(self.db.islands) - len(self.incubator.closed()) >= cap - PROGRAMME_ISLANDS:
             return
         window = int(self.cfg.get("spawn_stall", 12))
         stalled = self.B_evals >= window and self.B_evals - self._last_improve_eval >= window
@@ -202,19 +242,7 @@ class EngineBootstrap:
                               iteration_no=self.iteration_no)
         if not spawn:
             return
-        idx = self.db.add_island()
-        self.schedule.register_island(idx)
-        self.controller.plateau_until[idx] = -1
-        pol = self.cfg["policy"]
-        if self.oc_monitors is not None:
-            self.oc_monitors[idx] = OpportunityCostMonitor(
-                threshold=pol["plateau_threshold"], horizon=pol["plateau_horizon"],
-                min_n=pol["plateau_min_n"])
-        if self.plateau_monitors is not None and idx not in self.plateau_monitors:
-            # the shadow detector's sibling dict was forgotten here, so a spawn with
-            # plateau_shadow on killed the run with a KeyError at the island's first
-            # successful eval
-            self.plateau_monitors[idx] = PlateauMonitor()
+        idx = self._setup_island(register=True)
         base = self.db._all[self.db.pop_best_id].code if self.db.pop_best_id \
             else _read(self.task.initial_program_path)
         paradigm = paradigms(self.task)[idx % len(paradigms(self.task))]
@@ -232,28 +260,7 @@ class EngineBootstrap:
         self.log.decision(policy="spawn_target", action=source, island=idx, target=target, candidates=targets,
                           propensity=record["propensity"])
         if not ok:
-            # Fall back to this run's retained baseline, including a warm start.
-            # Copying a measured program is migration, never another evaluation.
-            warm = self.cfg.get('warm_start')
-            initial = warm['source'] if warm else _read(self.task.initial_program_path)
-            baseline = next((p for p in self.db._all.values()
-                if p.origin == 'seed' and p.parent_id is None and p.code == initial), None)
-            if baseline is None:
-                raise ValueError('dynamic island fallback requires a retained initial baseline')
-            from .research_artifacts import evaluation_id_for_program
-            from .evaluation_timing import for_program
-            evaluation_id = evaluation_id_for_program(self, baseline)
-            if self.candidate_novelty is not None and evaluation_id is None:
-                raise ValueError('dynamic island baseline lacks its exact evaluation identity')
-            timing = for_program(self, baseline)
-            copied = self.db.add(baseline.code, baseline.score, deepcopy(baseline.cases), idx,
-                origin='migrant', parent_id=baseline.id, card=baseline.card,
-                sig_hash=baseline.sig_hash)
-            self._bind_novelty_program(copied, evaluation_id=evaluation_id)
-            self.observed_changes.bind_alias(copied, baseline)
-            if timing is not None:
-                self.evaluation_timings[copied.id] = timing
-                self.eval_times[copied.id] = timing['mean_evaluation_stage_wall_seconds_per_reported_trial']
+            copied, baseline, evaluation_id = self._copy_baseline(idx)
             self.log.decision(policy='dynamic_islands', action='fallback_copy',
                 island=idx, program_id=copied.id, reference_program_id=baseline.id,
                 source_sha256=hashlib.sha256(copied.code.encode('utf-8')).hexdigest(),

@@ -238,11 +238,21 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                     plan = _prepare_seed(engine, island)
                     plans.append((key, plan)); intents.append(_intent(engine, key, plan))
             else:
-                in_flight = {island: 0 for island in portfolio_allocation.eligible_islands(engine)}
+                in_flight = {island: 0 for island in portfolio_allocation.eligible_islands(engine)
+                             if not engine.incubator.holds(island)}
+                programmes = set()
                 parents = {}
                 base_iteration = engine.iteration_no
                 slots, slot = min(config['workers'], limit or config['workers']), 0
                 while slot < slots:
+                    programme = engine.incubator.next_island(engine, busy=programmes)
+                    if programme is not None:
+                        plan = engine.incubator.prepare(engine, programme, base_iteration + slot)
+                        key = f'G:{base_iteration + slot + 1}'
+                        plans.append((key, plan)); intents.append(_intent(engine, key, plan))
+                        programmes.add(programme)
+                        slot += 1
+                        continue
                     eligible = [island for island in in_flight
                         if in_flight[island] < config['max_inflight_per_island']
                         and any(parents.get(pid, 0) < config['max_inflight_per_parent']
