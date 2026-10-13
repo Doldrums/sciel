@@ -10,7 +10,6 @@ from ..swm import directive, propose
 from .prompt.build import compose_directive
 from .types import NoChild, Snapshot
 from .runtime import observed_stage
-from .incubator import PROGRAMME_ISLANDS
 from .loop_contracts import (_paradigm_prompt, _read, _trunc, paradigms)
 
 
@@ -232,7 +231,7 @@ class EngineBootstrap:
         if not self.cfg.get("dynamic_islands"):
             return
         cap = int(self.cfg.get("max_islands", 6))
-        if len(self.db.islands) - len(self.incubator.closed()) >= cap - PROGRAMME_ISLANDS:
+        if sum(not self.incubator.holds(i) for i in range(len(self.db.islands))) >= cap:
             return
         window = int(self.cfg.get("spawn_stall", 12))
         stalled = self.B_evals >= window and self.B_evals - self._last_improve_eval >= window

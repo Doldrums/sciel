@@ -48,16 +48,17 @@ def execute(engine, spec: dict, llm, model: str) -> dict:
         variant = None
     parent = [engine._measure(spec["code"], purpose="probe", seed=s) for s in spec["seeds"]]
     measured = [engine._measure(variant, purpose="probe", seed=s) if variant else None for s in spec["seeds"]]
-    return {"parent": parent, "variant": measured, "cost": accounted_cost(reply)}
+    return {"parent": parent, "variant": measured, "cost": accounted_cost(reply),
+            "measured": len(spec["seeds"]) * (1 + (variant is not None))}
 
 
 def verdict(scores: dict) -> str:
     pairs = list(zip(scores["parent"], scores["variant"]))
-    if any(p is None for p, _ in pairs):
+    if any(p is None or v is None for p, v in pairs):
         return "undecided"
-    if all(v is not None and v > p + TOLERANCE for p, v in pairs):
+    if all(v > p + TOLERANCE for p, v in pairs):
         return "refuted"
-    if all(v is None or v < p - TOLERANCE for p, v in pairs):
+    if all(v < p - TOLERANCE for p, v in pairs):
         return "supported"
     return "undecided"
 

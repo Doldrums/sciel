@@ -264,16 +264,18 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                         break
                     excluded = {pid for pid, count in parents.items()
                                 if count >= config['max_inflight_per_parent']}
+                    room = min(slots - slot, config['max_inflight_per_island'] - in_flight[island])
                     plan = engine._prepare_step(island, excluded_parents=excluded, spawn=False,
-                        iteration_no=base_iteration + slot, block_room=slots - slot)
+                        iteration_no=base_iteration + slot, block_room=room)
                     plan['snap'] = deepcopy(plan['snap'])
-                    for member in engine.siblings.expand(plan):
+                    members = engine.siblings.expand(plan)
+                    for member in members:
                         key = f'G:{base_iteration + slot + 1}'
                         plans.append((key, member)); intents.append(_intent(engine, key, member))
                         slot += 1
-                    in_flight[island] += 1
+                    in_flight[island] += len(members)
                     parent = plan['snap'].parent_id
-                    parents[parent] = parents.get(parent, 0) + 1
+                    parents[parent] = parents.get(parent, 0) + len(members)
             research_jobs = research_queue.prepare(engine, ordinary_jobs=len(plans))
             intents.extend(_intent(engine, key, {'snap': snapshot}) for key, snapshot in research_jobs)
             _save_intents(transaction.directory, intents)

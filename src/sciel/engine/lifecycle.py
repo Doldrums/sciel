@@ -148,6 +148,7 @@ class EngineLifecycle:
                 if self.repeat_promotion is not None:
                     self.log.repeat_search(action='generation_intent',
                         iteration_no=self.iteration_no, B_evals=self.B_evals, island=island)
+                before = self.iteration_no
                 self._step(island)
             except CampaignStopped as exc:
                 if self.repeat_promotion is not None and self._repeat_candidate is not None:
@@ -164,7 +165,7 @@ class EngineLifecycle:
                     self._run_repeat_pending()
             self._maybe_milestone()
             interval = self.cfg.get("checkpoint_interval")
-            if interval and self.iteration_no % interval == 0:
+            if interval and self.iteration_no // interval > before // interval:
                 self._periodic_checkpoint()
         if self.repeat_promotion is not None and self.repeat_promotion.stopped_reason:
             reason = 'repeat_stopped'

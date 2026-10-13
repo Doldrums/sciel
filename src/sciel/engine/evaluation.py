@@ -31,7 +31,7 @@ class EngineEvaluation:
                        **({'seed': seed} if seed is not None else {})}
             if backend is not None:
                 outcome = io.call('evaluation', {**request, 'evaluation_backend': backend.identity},
-                    lambda: backend.evaluate(code.encode('utf-8'), evaluation_id=purpose + ':' + hashlib.sha256(code.encode()).hexdigest(),
+                    lambda: backend.evaluate(code.encode('utf-8'), evaluation_id=f'{purpose}:{seed}:' + hashlib.sha256(code.encode()).hexdigest(),
                                              confirm=False))
             elif io is None:
                 outcome = _public.cascade_evaluate(self.task, path, python=self.python, seed=seed)

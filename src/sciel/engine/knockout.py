@@ -52,26 +52,28 @@ def _neutral(llm, model: str, code: str, units: list, reason: str):
 
 def execute(engine, spec: dict, llm, model: str) -> dict:
     """Parent, knockout and null knockouts, each measured once with the same seed."""
-    cost, scores = 0.0, {}
+    cost, scores, measured = 0.0, {}, 1
     scores["parent"] = engine._measure(spec["code"], purpose="knockout", seed=spec["seed"])
     variant, spent = _neutral(llm, model, spec["code"], spec["targets"],
                               f"They encode the assumption: {spec['text']}.")
     cost += spent
     scores["target"] = engine._measure(variant, purpose="knockout", seed=spec["seed"]) if variant else None
+    measured += variant is not None
     scores["nulls"] = []
     for units in spec["nulls"]:
         variant, spent = _neutral(llm, model, spec["code"], units, "")
         cost += spent
         scores["nulls"].append(engine._measure(variant, purpose="knockout", seed=spec["seed"]) if variant else None)
-    return {"scores": scores, "cost": cost}
+        measured += variant is not None
+    return {"scores": scores, "cost": cost, "measured": measured}
 
 
 def reliance(scores: dict) -> float | None:
     """Drop from knocking the assumption out, beyond the mean drop from random knockouts of the same size. A knockout
-    that leaves no valid, nonzero score killed the program trivially and measures nothing."""
+    that fails, or collapses a nonzero score to exactly zero, killed the program trivially and measures nothing."""
     parent, target = scores["parent"], scores["target"]
-    nulls = [s for s in scores["nulls"] if s is not None and s > 0]
-    if parent is None or target is None or target <= 0 or not nulls:
+    nulls = [s for s in scores["nulls"] if s is not None]
+    if parent is None or target is None or (target == 0 and parent != 0) or not nulls:
         return None
     scale = max(abs(parent), 1e-9)
     return ((parent - target) - sum(parent - s for s in nulls) / len(nulls)) / scale

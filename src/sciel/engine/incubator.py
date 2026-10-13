@@ -19,7 +19,6 @@ from ..components.selection.novelty_chain import Selected
 from .types import Snapshot
 
 K = 10
-PROGRAMME_ISLANDS = 2
 K2 = 30
 SHARE = 0.25
 ALPHA = 0.05
@@ -44,6 +43,7 @@ class Programme:
     stage: int = 1
     best: float | None = None
     status: str = "open"
+    opened: int = 0
 
 
 class Incubator:
@@ -52,7 +52,7 @@ class Incubator:
         self.outcomes: list[int] = []
         self.prior: list[int] = []
         self.next_pair = 0
-        self.steps = 0
+        self.queue: list[dict] = []
 
     def free(self) -> bool:
         return not any(p.status == "open" for p in self.programmes)
@@ -67,11 +67,13 @@ class Incubator:
         return next((p for p in self.programmes if p.island == island and p.status == "open"), None)
 
     def open(self, engine, strategy) -> list[Programme]:
-        """Open a strategy programme and its control on two new islands, within the island cap and budget share."""
-        cap = int(engine.cfg.get("max_islands", 6))
-        active = len(engine.db.islands) - len(self.closed())
+        """Open a strategy programme and its control on two new islands; while a pair runs, the strategy waits."""
         remaining = (engine.budget - engine.B_evals) if engine.budget is not None else 10 ** 6
-        if not self.free() or active + PROGRAMME_ISLANDS > cap or remaining < 2 * K:
+        if remaining < 2 * K:
+            return []
+        if not self.free():
+            if all(q["id"] != strategy.id for q in self.queue):
+                self.queue.append({"id": strategy.id, "text": strategy.text})
             return []
         pair = self.next_pair
         self.next_pair += 1
@@ -80,17 +82,27 @@ class Incubator:
             island = engine._setup_island(register=False)
             anchor, _, _ = engine._copy_baseline(island)
             programme = Programme(id=len(self.programmes), pair=pair, kind=kind, strategy=strategy.id, brief=brief,
-                                  island=island, anchor=anchor.id)
+                                  island=island, anchor=anchor.id, opened=engine.iteration_no)
             self.programmes.append(programme)
             opened.append(programme)
         return opened
 
+    def open_next(self, engine) -> list[Programme]:
+        if not self.free() or not self.queue:
+            return []
+        from types import SimpleNamespace
+        return self.open(engine, SimpleNamespace(**self.queue.pop(0)))
+
     def next_island(self, engine, busy=()) -> int | None:
-        """The open programme with the fewest steps, while programmes stay within their share of the steps."""
-        if self.steps > SHARE * max(engine.iteration_no, 1):
+        """The open programme with the fewest steps, while open programmes stay within their share of the steps
+        taken since they opened."""
+        open_ = [p for p in self.programmes if p.status == "open"]
+        if not open_:
             return None
-        open_ = [p for p in self.programmes if p.status == "open" and p.island not in busy
-                 and p.steps < (K if p.stage == 1 else K2)]
+        since = min(p.opened for p in open_)
+        if sum(p.steps for p in open_) > SHARE * (engine.iteration_no - since) + 1:
+            return None
+        open_ = [p for p in open_ if p.island not in busy and p.steps < (K if p.stage == 1 else K2)]
         return min(open_, key=lambda p: (p.steps, p.id)).island if open_ else None
 
     def _lineage(self, engine, programme: Programme) -> list:
@@ -131,7 +143,6 @@ class Incubator:
         if programme is None or programme.status != "open":
             return []
         programme.steps += 1
-        self.steps += 1
         lineage = self._lineage(engine, programme)
         programme.best = max((p.score for p in lineage), default=None)
         pair = [p for p in self.programmes if p.pair == programme.pair]
@@ -140,7 +151,9 @@ class Incubator:
         events = []
         if strategy.stage == 1 and strategy.steps >= K and control.steps >= K and control.status == "open":
             s, c = strategy.best, control.best
-            won = (s or -np.inf) > (c or -np.inf) or (s == c and random.Random(programme.pair).random() < 0.5)
+            s_value = -np.inf if s is None else s
+            c_value = -np.inf if c is None else c
+            won = s_value > c_value or (s_value == c_value and random.Random(programme.pair).random() < 0.5)
             self.outcomes.append(int(won))
             control.status = "closed"
             if won:
@@ -171,10 +184,10 @@ class Incubator:
 
     def state(self) -> dict:
         return {"programmes": [asdict(p) for p in self.programmes], "outcomes": self.outcomes,
-                "next_pair": self.next_pair, "steps": self.steps}
+                "next_pair": self.next_pair, "queue": self.queue}
 
     def load_state(self, data: dict) -> None:
         self.programmes = [Programme(**p) for p in data["programmes"]]
         self.outcomes = [int(o) for o in data["outcomes"]]
         self.next_pair = int(data["next_pair"])
-        self.steps = int(data["steps"])
+        self.queue = [dict(q) for q in data["queue"]]

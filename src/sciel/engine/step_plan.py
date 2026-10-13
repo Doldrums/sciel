@@ -225,21 +225,23 @@ class EngineStepPlan:
         block = self.siblings.draw(self, island, block_room)
         strategy = finding = "none"
         if block is not None:
-            self.decisions.observe("strategy", {"none": 1.0}, "none")
+            culture = [x.id for x in self.strategies.pool if x.status == "culture"]
+            strategy = culture[iteration_no % len(culture)] if culture else "none"
+            self.decisions.observe("strategy", {strategy: 1.0}, strategy)
         else:
             strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
                 self.theory.tilt("strategy", context, self.strategies.distribution(island))))
             finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
                 self.theory.tilt("finding", context, self.findings.distribution(island))))
         theorist = None
-        if self.strategies.due(iteration_no, self._procedure.theorist_interval) and self.incubator.free():
+        if self.strategies.due(iteration_no, self._procedure.theorist_interval):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
             theorist = self.strategies.request(iteration_no, task=self.task_prompt, programs=best,
                                                claims=self.theory.cards(context),
                                                findings=self.findings.top() + self.assumptions.cards(),
                                                families=self._families())
         audit = knockout = probe = None
-        if self.assumptions.due(iteration_no):
+        if self.assumptions.due(iteration_no) and self.db.pop_best > self.seed_score:
             top = sorted((p for i in self.db.islands for p in i.programs.values()), key=lambda p: -p.score)[:3]
             audit = self.assumptions.request(iteration_no, task=self.task_prompt, programs=top)
         elif block is None and not self.assumptions.pending:

@@ -4,6 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from ..campaign.budget import CampaignStopped
 from .runtime import observed_stage
+from .siblings import ITEMS
 
 
 CONFIRM_TOLERANCE = 1e-6
@@ -17,7 +18,8 @@ class EngineStepCycle:
             plan = self.incubator.prepare(self, island, self.iteration_no)
             self._commit_step(plan, self._execute_step(plan))
             return
-        for member in self.siblings.expand(self._prepare_step(island)):
+        left = (self.budget - self.B_evals) if self.budget is not None else 1 + ITEMS
+        for member in self.siblings.expand(self._prepare_step(island, block_room=min(1 + ITEMS, max(left, 1)))):
             self._commit_step(member, self._execute_step(member))
 
     def _recheck(self, code: str, score: float, pop_best: float, parent_score: float) -> tuple:
@@ -55,7 +57,7 @@ class EngineStepCycle:
         self.assumptions.pending = None
         self.log.decision(policy="probe", action=assumption.status, iteration_no=self.iteration_no,
                           assumption=assumption.id, text=assumption.text, scores=scores, program=spec["program"],
-                          evaluations=sum(s is not None for s in scores["parent"] + scores["variant"]))
+                          evaluations=scores["measured"])
         if assumption.status == "refuted":
             for programme in self.incubator.open(self, brief(assumption)):
                 self.log.decision(policy="programme", action="open", iteration_no=self.iteration_no,
@@ -133,16 +135,20 @@ class EngineStepCycle:
         if episode is not None:
             result.meta['research_tools'] = episode
         self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score)
-        if plan.get('knockout'):
-            from .knockout import execute as knockout
-            measured = knockout(self, plan['knockout'], llm or self.llm, snapshot.model)
-            result.meta['knockout'] = measured['scores']
-            result.cost += measured['cost']
-        if plan.get('probe'):
-            from .probe import execute as probe
-            measured = probe(self, plan['probe'], llm or self.llm, snapshot.model)
-            result.meta['probe'] = {k: measured[k] for k in ('parent', 'variant')}
-            result.cost += measured['cost']
+        for key in ('knockout', 'probe'):
+            if plan.get(key):
+                from .knockout import execute as knockout
+                from .probe import execute as probe
+                try:
+                    measured = (knockout if key == 'knockout' else probe)(self, plan[key], llm or self.llm,
+                                                                          snapshot.model)
+                except CampaignStopped:
+                    raise
+                except Exception as error:
+                    result.meta[key + '_error'] = type(error).__name__
+                    continue
+                result.meta[key] = {k: v for k, v in measured.items() if k != 'cost'}
+                result.cost += measured['cost']
         for key, field in (('theorist', 'strategy_proposal'), ('assumptions', 'assumption_reply')):
             if plan.get(key):
                 from .llm.client import accounted_cost
@@ -193,9 +199,16 @@ class EngineStepCycle:
                 strategy.status = "culture"
             self.log.decision(policy="programme", action="graduate" if "graduated" in event else "stage",
                               iteration_no=self.iteration_no, **event)
+        for programme in self.incubator.open_next(self):
+            self.log.decision(policy="programme", action="open", iteration_no=self.iteration_no,
+                              programme=programme.id, kind=programme.kind, island=programme.island,
+                              strategy=programme.strategy)
         if plan.get('knockout'):
             from .knockout import reliance
-            spec, scores = plan['knockout'], res.meta.get('knockout') or {"parent": None, "target": None, "nulls": []}
+            spec = plan['knockout']
+            measured = res.meta.get('knockout') or {"scores": {"parent": None, "target": None, "nulls": []}, "measured": 0}
+            scores = measured["scores"]
+            self.B_evals += measured["measured"]
             assumption = self.assumptions.get(spec['assumption'])
             assumption.reliance = reliance(scores)
             if assumption.reliance is None:
@@ -204,9 +217,11 @@ class EngineStepCycle:
             self.log.decision(policy="knockout", action="measured", iteration_no=self.iteration_no,
                               assumption=spec['assumption'], program=spec['program'], targets=spec['targets'],
                               nulls=spec['nulls'], scores=scores, reliance=assumption.reliance,
-                              evaluations=1 + 1 + len(spec['nulls']))
+                              evaluations=measured["measured"])
         if plan.get('probe'):
-            self._settle_probe(plan['probe'], res.meta.get('probe') or {"parent": [None], "variant": [None]})
+            measured = res.meta.get('probe') or {"parent": [None], "variant": [None], "measured": 0}
+            self.B_evals += measured["measured"]
+            self._settle_probe(plan['probe'], measured)
         if plan.get('assumptions'):
             programs = [self.db._all[pid] for pid in plan['assumption_programs'] if pid in self.db._all]
             for assumption in self.assumptions.adopt(res.meta.get('assumption_reply'), programs, self.iteration_no):
