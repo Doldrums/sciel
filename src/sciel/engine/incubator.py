@@ -121,7 +121,7 @@ class Incubator:
                 "injected_ids": [], "mode": "base", "mode_prop": 1.0, "eff_mode": "base",
                 "phase": engine.schedule.phase_code(), "decision_context": context, "mode_on_policy": False,
                 "preset": None, "preset_prop": None, "theorist": None, "assumptions": None,
-                "assumption_programs": [], "block": None}
+                "assumption_programs": [], "knockout": None, "block": None}
 
     def commit(self, engine, plan: dict) -> list[dict]:
         """Count a committed programme step; settle the pair at its stage boundaries."""

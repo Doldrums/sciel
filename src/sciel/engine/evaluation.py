@@ -16,23 +16,28 @@ class EngineEvaluation:
     @observed_stage("evaluating")
     def _confirmation_score(self, code: str) -> float | None:
         """One more full measurement of an already evaluated source, outside the novelty registry."""
+        return self._measure(code, purpose='confirmation')
+
+    def _measure(self, code: str, *, purpose: str, seed=None) -> float | None:
+        """A measurement outside the novelty registry and the population: confirmations and knockouts."""
         from . import loop as _public
-        fd, path = tempfile.mkstemp(suffix=".py", prefix="confirm_", dir=self.run_dir)
+        fd, path = tempfile.mkstemp(suffix=".py", prefix=purpose + "_", dir=self.run_dir)
         with os.fdopen(fd, "w") as f:
             f.write(code)
         try:
             io = getattr(self, '_parallel_io', None)
             backend = self.evaluation_backend
+            request = {'source': code, 'task_hash': self.task.task_hash, purpose: True,
+                       **({'seed': seed} if seed is not None else {})}
             if backend is not None:
-                outcome = io.call('evaluation', {'source': code, 'task_hash': self.task.task_hash,
-                    'confirmation': True, 'evaluation_backend': backend.identity},
-                    lambda: backend.evaluate(code.encode('utf-8'), evaluation_id='confirmation:' + hashlib.sha256(code.encode()).hexdigest(),
+                outcome = io.call('evaluation', {**request, 'evaluation_backend': backend.identity},
+                    lambda: backend.evaluate(code.encode('utf-8'), evaluation_id=purpose + ':' + hashlib.sha256(code.encode()).hexdigest(),
                                              confirm=False))
             elif io is None:
-                outcome = _public.cascade_evaluate(self.task, path, python=self.python)
+                outcome = _public.cascade_evaluate(self.task, path, python=self.python, seed=seed)
             else:
-                outcome = io.call('evaluation', {'source': code, 'task_hash': self.task.task_hash, 'confirmation': True},
-                    lambda: _public.cascade_evaluate(self.task, path, python=self.python))
+                outcome = io.call('evaluation', request,
+                    lambda: _public.cascade_evaluate(self.task, path, python=self.python, seed=seed))
             return outcome.result.score if outcome.result.ok else None
         finally:
             os.unlink(path)

@@ -55,6 +55,7 @@ class Assumptions:
     def __init__(self):
         self.items: list[Assumption] = []
         self.last_request = -INTERVAL
+        self.pending: str | None = None
 
     def due(self, iteration: int) -> bool:
         return iteration - self.last_request >= INTERVAL and sum(a.status == "untested" for a in self.items) < MAX_OPEN
@@ -112,8 +113,9 @@ class Assumptions:
                 for a in self.items if a.status in ("supported", "refuted")]
 
     def state(self) -> dict:
-        return {"items": [asdict(a) for a in self.items], "last_request": self.last_request}
+        return {"items": [asdict(a) for a in self.items], "last_request": self.last_request, "pending": self.pending}
 
     def load_state(self, data: dict) -> None:
         self.items = [Assumption(**a) for a in data["items"]]
         self.last_request = int(data["last_request"])
+        self.pending = data["pending"]

@@ -119,6 +119,11 @@ class EngineStepCycle:
         if episode is not None:
             result.meta['research_tools'] = episode
         self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score)
+        if plan.get('knockout'):
+            from .knockout import execute as knockout
+            measured = knockout(self, plan['knockout'], llm or self.llm, snapshot.model)
+            result.meta['knockout'] = measured['scores']
+            result.cost += measured['cost']
         for key, field in (('theorist', 'strategy_proposal'), ('assumptions', 'assumption_reply')):
             if plan.get(key):
                 from .llm.client import accounted_cost
@@ -169,6 +174,16 @@ class EngineStepCycle:
                 strategy.status = "culture"
             self.log.decision(policy="programme", action="graduate" if "graduated" in event else "stage",
                               iteration_no=self.iteration_no, **event)
+        if plan.get('knockout'):
+            from .knockout import reliance
+            spec, scores = plan['knockout'], res.meta.get('knockout') or {"parent": None, "target": None, "nulls": []}
+            assumption = self.assumptions.get(spec['assumption'])
+            assumption.reliance = reliance(scores)
+            self.assumptions.pending = None
+            self.log.decision(policy="knockout", action="measured", iteration_no=self.iteration_no,
+                              assumption=spec['assumption'], program=spec['program'], targets=spec['targets'],
+                              nulls=spec['nulls'], scores=scores, reliance=assumption.reliance,
+                              evaluations=1 + 1 + len(spec['nulls']))
         if plan.get('assumptions'):
             programs = [self.db._all[pid] for pid in plan['assumption_programs'] if pid in self.db._all]
             for assumption in self.assumptions.adopt(res.meta.get('assumption_reply'), programs, self.iteration_no):
