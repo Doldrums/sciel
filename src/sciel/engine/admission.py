@@ -262,6 +262,7 @@ class EngineAdmission:
         if decision_context and parent is not None and op:
             out = self.swm.predict(parent.id, context_of(decision_context), "operator", [op])
             world = out[op]["value"] if out else None
+        self.trials.forecast(bet.q, event)
         self.log.decision(policy="forecast", action="scored", iteration_no=self.iteration_no, q=bet.q,
                           event=event, brier=brier, delta=delta,
                           interval=[bet.delta_low, bet.delta_high], covered=covered, swm_value=world)
@@ -299,6 +300,12 @@ class EngineAdmission:
                                       actions=self.learner.actions)
         if self.iteration_no % THEORY_INTERVAL == 0:
             self.swm.prefetch()
+            for trial in self.trials.update(self.siblings.pairs):
+                self.log.decision(policy="trial", action=trial.status, iteration_no=self.iteration_no,
+                                  item=trial.item, kind=trial.kind, n=trial.n, mean=trial.mean, e=trial.e,
+                                  low=trial.low, high=trial.high, applied_mean=trial.applied_mean)
+            self.log.decision(policy="trial", action="report", iteration_no=self.iteration_no,
+                              **self.trials.report(), forecast=self.trials.forecast_skill())
             decided = self.theory.update(self.ledger)
             self.log.decision(policy="theory", action="update", iteration_no=self.iteration_no,
                               claims=[c.card() for c in decided])

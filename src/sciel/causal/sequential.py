@@ -84,6 +84,53 @@ def sequence(psi: np.ndarray, bound: np.ndarray, alpha: float) -> dict:
             "e_peak": float(np.exp(capital[:, zero].max()))}
 
 
+LAMBDAS = np.array([v for v in np.linspace(-0.9, 0.9, 19) if abs(v) > 1e-9])
+
+
+def mixture(psi: np.ndarray, bound, alpha: float) -> dict:
+    """Equal-weight mixture of fixed bets on every grid value m: the current e-value at zero and the current
+    confidence set, both valid at any stopping time; the log wealth per (m, bet) lets a later run continue it."""
+    if len(psi) == 0:
+        return {"n": 0, "mean": 0.0, "se": 0.0, "low": -1.0, "high": 1.0, "e": 1.0, "empty": False,
+                "log_wealth": np.zeros((len(GRID), len(LAMBDAS)))}
+    bound = np.broadcast_to(np.asarray(bound, dtype=float), psi.shape)
+    x = psi[:, None, None] - GRID[None, :, None]
+    lam = LAMBDAS[None, None, :] / (bound[:, None, None] + np.abs(GRID)[None, :, None])
+    log_wealth = np.log1p(lam * x).sum(0)
+    return {**_summary(psi, log_wealth, alpha), "log_wealth": log_wealth}
+
+
+def _summary(psi: np.ndarray, log_wealth: np.ndarray, alpha: float) -> dict:
+    capital = np.logaddexp.reduce(log_wealth, axis=1) - math.log(log_wealth.shape[1])
+    kept = GRID[capital < math.log(1.0 / alpha)]
+    zero = int(np.argmin(np.abs(GRID)))
+    step = GRID[1] - GRID[0]
+    se = float(psi.std(ddof=1) / math.sqrt(len(psi))) if len(psi) > 1 else 1.0
+    return {"n": len(psi), "mean": float(psi.mean()), "se": se,
+            "low": float(kept.min() - step) if len(kept) else 0.0,
+            "high": float(kept.max() + step) if len(kept) else 0.0,
+            "e": float(np.exp(capital[zero])), "empty": not len(kept)}
+
+
+def continued(log_wealth: np.ndarray, prior: np.ndarray | None, psi: np.ndarray, alpha: float) -> dict:
+    """The same betting martingale carried on from an earlier run's final wealth."""
+    total = log_wealth if prior is None else log_wealth + prior
+    return {**_summary(psi if len(psi) else np.zeros(1), total, alpha), "log_wealth": total}
+
+
+def e_bh(evalues: dict, alpha: float, weights: dict | None = None) -> set:
+    """e-BH: reject the largest k with weighted e-value at least K/(alpha*k); valid under any dependence."""
+    keys = list(evalues)
+    k_total = len(keys)
+    weights = weights or {k: 1.0 for k in keys}
+    ranked = sorted(keys, key=lambda k: -weights[k] * evalues[k])
+    rejected = 0
+    for k in range(1, k_total + 1):
+        if weights[ranked[k - 1]] * evalues[ranked[k - 1]] >= k_total / (alpha * k):
+            rejected = k
+    return set(ranked[:rejected])
+
+
 def lond_level(alpha: float, index: int, rejections: int) -> float:
     """e-LOND level of the index-th hypothesis (1-based) given the rejections among earlier hypotheses."""
     gamma = 6.0 / (math.pi ** 2 * index ** 2)
