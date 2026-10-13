@@ -13,9 +13,8 @@ class EngineStepCycle:
 
     @observed_stage("generating")
     def _step(self, island: int) -> None:
-        plan = self._prepare_step(island)
-        result = self._execute_step(plan)
-        self._commit_step(plan, result)
+        for member in self.siblings.expand(self._prepare_step(island)):
+            self._commit_step(member, self._execute_step(member))
 
     def _recheck(self, code: str, score: float, pop_best: float, parent_score: float) -> tuple:
         """Re-measure a new record, or any improving time-dependent program; inconsistent results keep the minimum."""
@@ -35,6 +34,16 @@ class EngineStepCycle:
         if info is not None:
             result.meta['confirmation'] = {**info, 'admitted': admitted}
 
+    def _sibling_outcome(self, plan, res, child_id) -> None:
+        admitted = res.meta.get('confirmation', {}).get('admitted', res.score) if getattr(res, 'ok', False) else None
+        if plan.get('block') is None:
+            if admitted is not None and not res.meta.get('remeasurement'):
+                self.siblings.observe(plan['snap'].parent_score, admitted)
+            return
+        program = self.db._all.get(child_id) if child_id else None
+        for pair in self.siblings.record(plan, admitted, program.code if program else None):
+            self.log.decision(policy="sibling", action="pair", iteration_no=self.iteration_no, **pair)
+
     def _add_findings(self, episode) -> None:
         added = self.findings.add((episode or {}).get('findings', []), self.iteration_no)
         if added:
@@ -46,7 +55,7 @@ class EngineStepCycle:
         snapshot = plan['snap']
         episode = None
         submitted = []
-        evaluator = evaluate_fn or self._evaluation_callback(snapshot.island)
+        evaluator = evaluate_fn or self._evaluation_callback(snapshot.island, seed=(plan.get('block') or {}).get('seed'))
         novelty_check = self._candidate_novelty_callback(snapshot.island)
         def evaluate_tool_candidate(source, provenance):
             if len(submitted) >= 3 or any(row.meta.get('evaluation_count', 0) for row in submitted):
@@ -148,6 +157,7 @@ class EngineStepCycle:
         child_id = self._on_result(res, selected, op_prop, op_stat, model, model_prop, injected_ids,
                         mode, mode_prop, eff_mode, phase, mode_on_policy,
                         decision_context=plan.get('decision_context'))
+        self._sibling_outcome(plan, res, child_id)
         if plan.get('theorist'):
             adopted = self.strategies.adopt(res.meta.get('strategy_proposal'), self.iteration_no)
             self.log.decision(policy="strategy", action="propose", iteration_no=self.iteration_no,

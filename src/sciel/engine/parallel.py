@@ -106,7 +106,7 @@ def _intent(engine, key, plan):
         'selection': asdict(plan['selected']) if plan.get('selected') is not None else None,
         'attribution': {name: plan.get(name) for name in ('mode', 'mode_prop', 'eff_mode',
             'phase', 'mode_on_policy', 'op_prop', 'op_stat', 'model', 'model_prop',
-            'preset', 'preset_prop', 'decision_context', 'theorist')},
+            'preset', 'preset_prop', 'decision_context', 'theorist', 'block', 'arm')},
         'novelty_max_resamples': engine.cfg['candidate_novelty']['max_resamples'],
         'output_repeats': engine.cfg['candidate_novelty']['output_repeats'],
         'output_resolution': engine.cfg['candidate_novelty'].get('output_resolution')}
@@ -241,7 +241,8 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 in_flight = {island: 0 for island in portfolio_allocation.eligible_islands(engine)}
                 parents = {}
                 base_iteration = engine.iteration_no
-                for slot in range(min(config['workers'], limit or config['workers'])):
+                slots, slot = min(config['workers'], limit or config['workers']), 0
+                while slot < slots:
                     eligible = [island for island in in_flight
                         if in_flight[island] < config['max_inflight_per_island']
                         and any(parents.get(pid, 0) < config['max_inflight_per_parent']
@@ -254,10 +255,12 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                     excluded = {pid for pid, count in parents.items()
                                 if count >= config['max_inflight_per_parent']}
                     plan = engine._prepare_step(island, excluded_parents=excluded, spawn=False,
-                        iteration_no=base_iteration + slot)
+                        iteration_no=base_iteration + slot, block_room=slots - slot)
                     plan['snap'] = deepcopy(plan['snap'])
-                    key = f'G:{base_iteration + slot + 1}'
-                    plans.append((key, plan)); intents.append(_intent(engine, key, plan))
+                    for member in engine.siblings.expand(plan):
+                        key = f'G:{base_iteration + slot + 1}'
+                        plans.append((key, member)); intents.append(_intent(engine, key, member))
+                        slot += 1
                     in_flight[island] += 1
                     parent = plan['snap'].parent_id
                     parents[parent] = parents.get(parent, 0) + 1

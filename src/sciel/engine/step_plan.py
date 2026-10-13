@@ -6,6 +6,7 @@ from ..components.policy.mode_features import mode_features
 from .operators import usable_inspirations
 from .prompt.build import compose_directive
 from .schedule import Saturated
+from .siblings import ITEMS
 from .types import Snapshot
 
 
@@ -58,7 +59,8 @@ class EngineStepPlan:
             return self.heritage.operator(parent_id, context, distribution)
         return distribution
 
-    def _prepare_step(self, island: int, *, excluded_parents=(), spawn=True, iteration_no=None) -> dict:
+    def _prepare_step(self, island: int, *, excluded_parents=(), spawn=True, iteration_no=None,
+                      block_room=1 + ITEMS) -> dict:
         iteration_no = self.iteration_no if iteration_no is None else iteration_no
         self._procedure = self.procedures.get(self.decisions.sample("procedure", self.procedures.distribution(island)))
         self.theory.shift, self.theory.mix = self._procedure.shift, self._procedure.mix
@@ -220,10 +222,15 @@ class EngineStepPlan:
         models, weights = getattr(self.llm, "models", None), getattr(self.llm, "weights", None)
         self.decisions.observe("model", {m: w / sum(weights) for m, w in zip(models, weights)}
                                if models and weights and model in models else {model: 1.0}, model)
-        strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
-            self.theory.tilt("strategy", context, self.strategies.distribution(island))))
-        finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
-            self.theory.tilt("finding", context, self.findings.distribution(island))))
+        block = self.siblings.draw(self, island, block_room)
+        strategy = finding = "none"
+        if block is not None:
+            self.decisions.observe("strategy", {"none": 1.0}, "none")
+        else:
+            strategy = self.decisions.sample("strategy", self.experiments.allocate("strategy", context,
+                self.theory.tilt("strategy", context, self.strategies.distribution(island))))
+            finding = self.decisions.sample("finding", self.experiments.allocate("finding", context,
+                self.theory.tilt("finding", context, self.findings.distribution(island))))
         theorist = None
         if self.strategies.due(iteration_no, self._procedure.theorist_interval):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
@@ -283,7 +290,7 @@ class EngineStepPlan:
             task_prompt=self.task_prompt, bet_enabled=True,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
-        if self.research_tools is not None and origin != "fresh":
+        if self.research_tools is not None and origin != "fresh" and block is None:
             from .research_tool_signals import snapshot_signals
             from .research_targets import freeze_targets
             from .research_search_evidence import search_evidence
@@ -321,4 +328,5 @@ class EngineStepPlan:
             "preset": preset,
             "preset_prop": preset_prop if preset is not None else None,
             "theorist": theorist,
+            "block": block,
         }

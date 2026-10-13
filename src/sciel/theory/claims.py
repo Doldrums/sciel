@@ -15,7 +15,7 @@ from ..causal.sequential import comparator, contrasts, lond_level, sequence
 from .schools import DECISIONS as SCHOOL_DECISIONS, island_context
 
 DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
-             "eviction_planner", "inspiration_source", "finding", "idea_target", "origin", "cell_stage", "cell_scope")
+             "eviction_planner", "inspiration_source", "finding", "idea_target", "origin", "cell_stage", "cell_scope", "sibling")
 ALPHA = 0.05
 MIN_ROWS = 12
 MIN_TAKEN = 8
