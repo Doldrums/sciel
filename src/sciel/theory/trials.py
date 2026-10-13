@@ -14,7 +14,7 @@ from ..causal.sequential import continued, e_bh, mixture
 
 ALPHA = 0.05
 PROMOTE = 20.0
-MAX_PAIRS = 40
+MAX_PAIRS = 80
 
 
 @dataclass
