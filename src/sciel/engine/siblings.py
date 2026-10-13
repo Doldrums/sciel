@@ -9,8 +9,9 @@ import difflib
 import re
 from copy import deepcopy
 
-BLOCK_SHARE = 0.5
+BLOCK_SHARE = 0.25
 ITEMS = 2
+OPEN = 4
 TIE = 1e-12
 PLACEBOS = (
     "Keep the program readable: descriptive names, short functions and no unused code.",
@@ -51,12 +52,17 @@ class Siblings:
         self.counts: dict[str, int] = {}
 
     def candidates(self, engine, island: int) -> list[tuple]:
+        """Items already under test are served until their verdict; new ones join while fewer than OPEN are open.
+        A lesson joins only once a similar improvement has been seen twice."""
         from ..theory import schools
         strategies = [("strategy", s.id, "Strategy to try in this change: " + s.text)
                       for s in schools.trials(engine.strategies.pool, island)]
         findings = [("finding", f.id, "Knowledge from this run:\n" + f.card())
-                    for f in schools.trials(engine.findings.pool, island)]
-        return sorted(strategies + findings, key=lambda item: self.counts.get(item[1], 0))[:ITEMS]
+                    for f in schools.trials(engine.findings.pool, island) if f.kind != "lesson" or f.created >= 2]
+        items = strategies + findings
+        started = sorted((i for i in items if self.counts.get(i[1], 0) > 0), key=lambda i: -self.counts[i[1]])
+        fresh = [i for i in items if self.counts.get(i[1], 0) == 0][:max(OPEN - len(started), 0)]
+        return (started + fresh)[:ITEMS]
 
     def draw(self, engine, island: int, room: int):
         """Whether this step is a block, journaled like any decision; None when nothing is under test or no room."""

@@ -1,7 +1,8 @@
 """Knowledge items judged by their sibling pairs, and the generator's forecasts judged against the base rate.
 
-Promotion and withdrawal of an item are selection rules with no error claim. The inferential report is e-BH at a
-fixed report time over every item ever opened, each with its value stopped at its own verdict.
+Promotion and withdrawal of an item are selection rules with no error claim, at a lower bar than inference; the
+direction comes from the confidence set, so inherited evidence and this run's pairs agree on the sign. The inferential
+report is e-BH at a fixed report time over every item ever opened, each with its value stopped at its own verdict.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import numpy as np
 from ..causal.sequential import continued, e_bh, mixture
 
 ALPHA = 0.05
-PROMOTE = 20.0
+PROMOTE = 8.0
 MAX_PAIRS = 80
 
 
@@ -48,12 +49,12 @@ class Trials:
                 continue
             d = np.array([r["d"] for r in rows])
             prior = np.array(trial.prior) if trial.prior else None
-            s = continued(mixture(d, 1.0, ALPHA)["log_wealth"], prior, d, ALPHA)
+            s = continued(mixture(d, 1.0, ALPHA)["log_wealth"], prior, d, 1.0 / PROMOTE)
             applied = [r["d"] for r in rows if r["applied"]]
             trial.n, trial.mean, trial.e, trial.low, trial.high = len(rows), s["mean"], s["e"], s["low"], s["high"]
             trial.applied_mean = float(np.mean(applied)) if applied else None
-            if trial.e >= PROMOTE:
-                trial.status = "culture" if trial.mean > 0 else "retired"
+            if trial.e >= PROMOTE and (trial.low > 0 or trial.high < 0):
+                trial.status = "culture" if trial.low > 0 else "retired"
             elif trial.n >= MAX_PAIRS:
                 trial.status = "not_established"
             if trial.status != "open":

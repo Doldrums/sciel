@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass, field
 from . import schools
 
 MAX_CULTURE = 3
+CANDIDATES = 4
+NONE_SHARE = 0.4
 MAX_CHARS = 600
 _NUMBER = re.compile(r"(?<![\w.])-?(?:\d+\.\d+(?:[eE][-+]?\d+)?|\d+[eE][-+]?\d+)(?![\w.])")
 _WORD = re.compile(r"[a-z]+|\d+(?:\.\d+)?")
@@ -36,7 +38,7 @@ _HEDGE = re.compile(r"\b(guess|not run|n't run|untested|cannot run|can't run|est
 def lesson(mechanism: str, before: float, after: float) -> str:
     """A measured improvement: the mechanism the generator named, without its hedges, and the scores it moved."""
     sentences = [x for x in re.split(r"(?<=[.!?])\s+", " ".join(mechanism.split())) if x and not _HEDGE.search(x)]
-    return f"{' '.join(sentences[:2])} Measured: {before:.4g} -> {after:.4g}."
+    return f"{' '.join(sentences[:2])} Measured: {before:.4g} -> {after:.4g}." if sentences else ""
 
 
 def fresh(items: list) -> str:
@@ -96,8 +98,13 @@ class Findings:
         return [f for f in shown if f.local.get(str(island)) != "retired"][-MAX_CULTURE:]
 
     def distribution(self, island: int) -> dict:
-        """Ordinary steps show the culture only; items on trial are shown to sibling blocks."""
-        return {"none": 1.0}
+        """Ordinary steps draw one item on trial or tested, newest first, besides the culture they always see."""
+        culture = self.culture(island)
+        candidates = [f for f in reversed(schools.available(self.pool, island))
+                      if f.status in ("trial", "tested") and f not in culture][:CANDIDATES]
+        if not candidates:
+            return {"none": 1.0}
+        return {"none": NONE_SHARE} | {f.id: (1 - NONE_SHARE) / len(candidates) for f in candidates}
 
     def deliver(self, chosen: str, island: int) -> str:
         culture = self.culture(island)

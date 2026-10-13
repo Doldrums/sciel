@@ -36,14 +36,17 @@ def trials(items: list, island: int) -> list:
     return proven + turns
 
 
-STATUS = {"culture": "culture", "retired": "retired", "not_established": "archived"}
+STATUS = {"culture": "culture", "retired": "retired", "not_established": "tested"}
 
 
 def settle(items: list, trials) -> list:
-    """Pool items take the verdict of their sibling trial; an item that never established an effect is archived."""
+    """Pool items take the verdict of their sibling trial. An item that never established an effect stays in the
+    randomized delivery as tested; culture, also when a research programme graduated it, only ever falls to retired."""
     changed = []
     for item in items:
         status = STATUS.get(trials.status(item.id))
+        if item.status == "culture" and status != "retired":
+            continue
         if status is not None and item.status != status:
             item.status = status
             changed.append(item)

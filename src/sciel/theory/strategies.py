@@ -8,7 +8,7 @@ from . import schools
 
 PREAMBLE = "You are the theorist of an automated program search."
 PROPOSE_INTERVAL = 25
-MAX_ACTIVE = 3
+SHOWN = 4
 NONE_SHARE = 0.5
 MAX_CHARS = 400
 
@@ -35,18 +35,18 @@ class Strategies:
         return [s for s in self.pool if s.status not in ("retired", "archived")]
 
     def distribution(self, island: int) -> dict:
-        """Ordinary steps choose among strategies already promoted by their sibling trials."""
-        culture = [s for s in schools.available(self.pool, island) if s.status == "culture"]
-        if not culture:
+        """Culture strategies and the newest ones not yet in culture, so a growing pool does not dilute delivery."""
+        available = schools.available(self.pool, island)
+        live = [s for s in available if s.status == "culture"] + [s for s in available if s.status != "culture"][-SHOWN:]
+        if not live:
             return {"none": 1.0}
-        return {"none": NONE_SHARE} | {s.id: (1 - NONE_SHARE) / len(culture) for s in culture}
+        return {"none": NONE_SHARE} | {s.id: (1 - NONE_SHARE) / len(live) for s in live}
 
     def text(self, strategy_id: str) -> str | None:
         return next((s.text for s in self.pool if s.id == strategy_id), None)
 
     def due(self, iteration: int, interval: float = PROPOSE_INTERVAL) -> bool:
-        trials = sum(s.status == "trial" for s in self.pool)
-        return trials < MAX_ACTIVE and iteration - self.last_request >= interval
+        return iteration - self.last_request >= interval
 
     def request(self, iteration: int, *, task: str, programs: list, claims: list[str], findings: list[str],
                 families: list[str]) -> str:

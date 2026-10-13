@@ -15,6 +15,10 @@ FILE = "repertoire.json"
 
 
 def export(engine) -> Path:
+    engine.theory.update(engine.ledger)
+    engine.trials.update(engine.siblings.pairs)
+    engine.strategies.judge(engine.trials)
+    engine.findings.judge(engine.trials)
     inherited = engine.heritage.generation if engine.heritage is not None else 0
     value = {"schema": SCHEMA, "generation": inherited + 1, "run_id": engine.log.run_id,
              "task": engine.task.qualified_name, "task_hash": engine.task.task_hash,
@@ -36,7 +40,6 @@ def export(engine) -> Path:
 def evidence(engine) -> dict:
     """Betting wealth the next generation continues: claims by decision and action, items by text, and the
     theorist-versus-control programme outcomes."""
-    engine.theory.update(engine.ledger)
     texts = {s.id: s.text for s in engine.strategies.pool} | {f.id: f.text for f in engine.findings.pool}
     items = {texts[k]: v for k, v in engine.trials.wealth(engine.siblings.pairs).items() if k in texts}
     return {"claims": dict(engine.theory.wealth), "items": items,

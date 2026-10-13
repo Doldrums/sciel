@@ -228,8 +228,9 @@ class EngineAdmission:
         if ev.is_island_event and mechanism:
             from ..theory.findings import lesson
             before = (decision_context or {}).get("baseline", parent.score if parent is not None else 0.0)
-            self.findings.add([{"text": lesson(mechanism, before, score), "island_id": res.island,
-                                "kind": "lesson"}], self.iteration_no)
+            text = lesson(mechanism, before, score)
+            if text:
+                self.findings.add([{"text": text, "island_id": res.island, "kind": "lesson"}], self.iteration_no)
         if ev.is_island_event:
             self.n_events += 1
         if self.plateau_shadow:

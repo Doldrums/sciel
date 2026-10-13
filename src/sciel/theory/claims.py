@@ -108,8 +108,11 @@ class Theory:
         self.claims = []
         for (decision, action), (psi, s, taken) in tested.items():
             c = summary(psi, s["log_wealth"], level)
-            self.claims.append(Claim(decision, CONTEXT, action, c["mean"], c["low"], c["high"], c["n"], taken,
+            effect = c["mean"] if f"{decision}|{action}" not in self.prior else (c["low"] + c["high"]) / 2
+            self.claims.append(Claim(decision, CONTEXT, action, effect, c["low"], c["high"], c["n"], taken,
                                      c["se"], s["e"], (decision, action) in rejected and not c["empty"]))
+        for key, prior in self.prior.items():
+            self.wealth.setdefault(key, prior)
         return [c for c in self.claims if c.decided]
 
     def tilt(self, decision: str, context: str, distribution: dict) -> dict:
