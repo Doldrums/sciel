@@ -52,13 +52,12 @@ class Siblings:
         self.counts: dict[str, int] = {}
 
     def candidates(self, engine, island: int) -> list[tuple]:
-        """Items already under test are served until their verdict; new ones join while fewer than OPEN are open.
-        A lesson joins only once a similar improvement has been seen twice."""
+        """Items already under test are served until their verdict; new ones join while fewer than OPEN are open."""
         from ..theory import schools
         strategies = [("strategy", s.id, "Strategy to try in this change: " + s.text)
                       for s in schools.trials(engine.strategies.pool, island)]
         findings = [("finding", f.id, "Knowledge from this run:\n" + f.card())
-                    for f in schools.trials(engine.findings.pool, island) if f.kind != "lesson" or f.created >= 2]
+                    for f in schools.trials(engine.findings.pool, island)]
         items = strategies + findings
         started = sorted((i for i in items if self.counts.get(i[1], 0) > 0), key=lambda i: -self.counts[i[1]])
         fresh = [i for i in items if self.counts.get(i[1], 0) == 0][:max(OPEN - len(started), 0)]
@@ -89,7 +88,7 @@ class Siblings:
         members = []
         for index, (arm, text) in enumerate(arms):
             member = plan if index == 0 else {**plan, "snap": deepcopy(plan["snap"]), "theorist": None,
-                                               "assumptions": None, "knockout": None, "probe": None,
+                                               "assumptions": None, "assay": None,
                                                "decision_context": {**plan["decision_context"], "decisions": []}}
             if index:
                 member["snap"].operator_decision = {**(member["snap"].operator_decision or {}), "on_policy": False}
