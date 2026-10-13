@@ -72,8 +72,11 @@ def reliance(scores: dict) -> float | None:
     """Drop from knocking the assumption out, beyond the mean drop from random knockouts of the same size. A knockout
     that fails, or collapses a nonzero score to exactly zero, killed the program trivially and measures nothing."""
     parent, target = scores["parent"], scores["target"]
-    nulls = [s for s in scores["nulls"] if s is not None]
-    if parent is None or target is None or (target == 0 and parent != 0) or not nulls:
+    if parent is None:
+        return None
+    alive = lambda s: s is not None and not (s == 0 and parent != 0)
+    nulls = [s for s in scores["nulls"] if alive(s)]
+    if not alive(target) or not nulls:
         return None
     scale = max(abs(parent), 1e-9)
     return ((parent - target) - sum(parent - s for s in nulls) / len(nulls)) / scale
