@@ -50,6 +50,7 @@ class Incubator:
     def __init__(self):
         self.programmes: list[Programme] = []
         self.outcomes: list[int] = []
+        self.prior: list[int] = []
         self.next_pair = 0
         self.steps = 0
 
@@ -162,10 +163,11 @@ class Incubator:
 
     def evidence(self) -> dict:
         """Mixture-of-bets e-process on 2W-1: is a theorist programme more likely than its control to end higher?"""
-        if not self.outcomes:
+        outcomes = self.prior + self.outcomes
+        if not outcomes:
             return {"pairs": 0, "e": 1.0}
-        s = mixture(2.0 * np.array(self.outcomes, dtype=float) - 1.0, 1.0, ALPHA)
-        return {"pairs": s["n"], "e": s["e"], "win_rate": float(np.mean(self.outcomes))}
+        s = mixture(2.0 * np.array(outcomes, dtype=float) - 1.0, 1.0, ALPHA)
+        return {"pairs": s["n"], "e": s["e"], "win_rate": float(np.mean(outcomes)), "inherited": len(self.prior)}
 
     def state(self) -> dict:
         return {"programmes": [asdict(p) for p in self.programmes], "outcomes": self.outcomes,

@@ -60,6 +60,18 @@ class Trials:
                 changed.append(trial)
         return changed
 
+    def wealth(self, pairs: list[dict]) -> dict[str, list]:
+        """Each item's betting wealth over its own pairs and any inherited wealth, for the next generation."""
+        out = {}
+        for item, trial in self.trials.items():
+            d = np.array([p["d"] for p in pairs if p["item"] == item])
+            prior = np.array(trial.prior) if trial.prior else None
+            out[item] = continued(mixture(d, 1.0, ALPHA)["log_wealth"], prior, d, ALPHA)["log_wealth"].tolist()
+        return out
+
+    def inherit(self, item: str, kind: str, prior: list) -> None:
+        self.trials[item] = Trial(item=item, kind=kind, prior=prior)
+
     def status(self, item: str) -> str | None:
         trial = self.trials.get(item)
         return trial.status if trial else None

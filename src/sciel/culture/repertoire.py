@@ -10,7 +10,7 @@ from ..swm import PopulationLearner, SearchWorldModel
 from ..theory import Claim, Finding, Procedure, Strategy, Theory
 from .methods import export_methods
 
-SCHEMA = "sciel-repertoire/1"
+SCHEMA = "sciel-repertoire/2"
 FILE = "repertoire.json"
 
 
@@ -26,10 +26,21 @@ def export(engine) -> Path:
              "procedures": [p.params() for p in engine.procedures.pool
                             if p.status == "culture" and p.params() != Procedure(id="p0").params()],
              "methods": export_methods(engine),
-             "swm": engine.swm.state(), "learner": engine.learner.state()}
+             "swm": engine.swm.state(), "learner": engine.learner.state(),
+             "evidence": evidence(engine)}
     path = Path(engine.run_dir) / FILE
     path.write_text(json.dumps(value, sort_keys=True))
     return path
+
+
+def evidence(engine) -> dict:
+    """Betting wealth the next generation continues: claims by decision and action, items by text, and the
+    theorist-versus-control programme outcomes."""
+    engine.theory.update(engine.ledger)
+    texts = {s.id: s.text for s in engine.strategies.pool} | {f.id: f.text for f in engine.findings.pool}
+    items = {texts[k]: v for k, v in engine.trials.wealth(engine.siblings.pairs).items() if k in texts}
+    return {"claims": dict(engine.theory.wealth), "items": items,
+            "programmes": engine.incubator.prior + engine.incubator.outcomes}
 
 
 class Heritage:
@@ -39,20 +50,21 @@ class Heritage:
         raw = Path(path).read_bytes()
         value = json.loads(raw)
         if value.get("schema") != SCHEMA:
-            raise ValueError("inherit must name a sciel-repertoire/1 file")
+            raise ValueError("inherit must name a sciel-repertoire/2 file")
         self.path, self.sha256 = str(path), hashlib.sha256(raw).hexdigest()
         self.generation = int(value["generation"])
         self.source = {"run_id": value["run_id"], "task": value["task"], "task_hash": value["task_hash"]}
         self.theory = Theory()
         self.theory.claims = [Claim(**c) for c in value["claims"]]
-        self.strategies = [Strategy(id=f"h{i + 1}", text=s["text"], born=0, status=s.get("accept", "trial"))
+        self.strategies = [Strategy(id=f"hs{i + 1}", text=s["text"], born=0, status=s.get("accept", "trial"))
                            for i, s in enumerate(value["strategies"])]
-        self.knowledge = [Finding(id=f"h{i + 1}", text=k["text"], cell_id=None, island=0, receipt_id=None, born=0,
+        self.knowledge = [Finding(id=f"hf{i + 1}", text=k["text"], cell_id=None, island=0, receipt_id=None, born=0,
                                   kind=k["kind"], status=k.get("accept", "trial"))
                           for i, k in enumerate(value["knowledge"])]
-        self.procedures = [Procedure(id=f"h{i + 1}", status=p.pop("accept", "trial"), **p)
+        self.procedures = [Procedure(id=f"hp{i + 1}", status=p.pop("accept", "trial"), **p)
                            for i, p in enumerate(dict(p) for p in value["procedures"])]
         self.methods = value["methods"]
+        self.evidence = value["evidence"]
         self.swm = SearchWorldModel(db, (), embedder)
         self.swm.load_state(value["swm"])
         self.swm.edges = {}

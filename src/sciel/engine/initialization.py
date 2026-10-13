@@ -200,6 +200,12 @@ class EngineInitialization:
             self.strategies.pool.extend(self.heritage.strategies)
             self.procedures.pool.extend(self.heritage.procedures)
             self.findings.pool.extend(self.heritage.knowledge)
+            self.theory.prior = dict(self.heritage.evidence["claims"])
+            self.incubator.prior = list(self.heritage.evidence["programmes"])
+            for kind, items in (("strategy", self.heritage.strategies), ("finding", self.heritage.knowledge)):
+                for item in items:
+                    if item.text in self.heritage.evidence["items"]:
+                        self.trials.inherit(item.id, kind, self.heritage.evidence["items"][item.text])
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),

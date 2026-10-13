@@ -13,7 +13,9 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from statistics import NormalDist
 
-from ..causal.sequential import comparator, contrasts, e_bh, mixture, summary
+import numpy as np
+
+from ..causal.sequential import comparator, contrasts, continued, e_bh, mixture, summary
 
 DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
              "eviction_planner", "inspiration_source", "finding", "idea_target", "origin", "cell_stage", "cell_scope", "sibling")
@@ -77,6 +79,8 @@ class Theory:
     def __init__(self):
         self.claims: list[Claim] = []
         self.shift, self.mix = SHIFT, MIX
+        self.prior: dict[str, list] = {}
+        self.wealth: dict[str, list] = {}
 
     def update(self, ledger) -> list[Claim]:
         cells = defaultdict(list)
@@ -93,7 +97,12 @@ class Theory:
                     continue
                 psi, bound = contrasts(rows, action, reference)
                 if len(psi):
-                    tested[(decision, action)] = (psi, mixture(psi, bound, ALPHA), sum(r.choice == action for r in rows))
+                    s = mixture(psi, bound, ALPHA)
+                    prior = self.prior.get(f"{decision}|{action}")
+                    if prior is not None:
+                        s = {**continued(s["log_wealth"], np.array(prior), psi, ALPHA)}
+                    self.wealth[f"{decision}|{action}"] = s["log_wealth"].tolist()
+                    tested[(decision, action)] = (psi, s, sum(r.choice == action for r in rows))
         rejected = e_bh({k: v[1]["e"] for k, v in tested.items()}, ALPHA)
         level = ALPHA * max(len(rejected), 1) / max(len(tested), 1)
         self.claims = []
