@@ -2,8 +2,9 @@
 
 The contrast of an action is its value minus the uniform mixture of the other actions of the same decision when every
 row offers the same alternatives, and minus one reference action offered in every row when the alternatives change, so
-the target does not drift when the theory tilts the logging policy or arms enter and leave. Rows enter in the order
-their outcomes close, and each row's outcome model uses only rows closed before it.
+the target does not drift when the theory tilts the logging policy or arms enter and leave. Rows enter in decision order
+once their outcomes are settled, so the order never depends on an outcome, and each row's outcome model uses only
+earlier rows.
 """
 
 from __future__ import annotations

@@ -22,7 +22,6 @@ class Row:
     reward: float = 0.0
     scope: str = "lineage"
     population: list = field(default_factory=list)
-    closed: int | None = None
 
 
 def context_of(decision_context: dict) -> str:
@@ -36,9 +35,11 @@ class Ledger:
         self.horizon = horizon
         self.rows: list[Row] = []
         self.parent: dict[str, str] = {}
+        self.now = 0
 
     def add(self, *, iteration: int, island: int, decision_context: dict, child: str | None,
             parent: str | None, event: bool) -> None:
+        self.now = max(self.now, iteration)
         context = context_of(decision_context)
         decided = int(decision_context.get("iteration_no", iteration))
         for record in decision_context.get("decisions", []):
@@ -47,7 +48,7 @@ class Ledger:
                                  choice=str(record["choice"]), propensity=float(record["propensity"]),
                                  child=child, outcome=None if child is not None else 0.0,
                                  state=decision_context.get("parent_id"), reward=float(event),
-                                 population=list(decision_context.get("population", [])), closed=iteration))
+                                 population=list(decision_context.get("population", []))))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:
@@ -56,11 +57,12 @@ class Ledger:
             for row in self.rows:
                 if (row.scope == "island" and row.outcome is None and row.island == island
                         and iteration - row.iteration <= self.horizon):
-                    row.outcome, row.closed = 1.0, iteration
+                    row.outcome = 1.0
         self._expire(iteration)
 
     def add_island(self, *, iteration: int, island: int, context: str, record: dict) -> None:
         """A decision whose outcome is any island event within the horizon, not a lineage event."""
+        self.now = max(self.now, iteration)
         self.rows.append(Row(decision=record["decision"], iteration=iteration, island=island, context=context,
                              distribution=dict(record["distribution"]), choice=str(record["choice"]),
                              propensity=float(record["propensity"]), child=None, scope="island"))
@@ -82,17 +84,21 @@ class Ledger:
         for row in self.rows:
             if row.outcome is None and iteration - row.iteration > self.horizon:
                 row.outcome = 0.0
-                if row.scope == "island":
-                    row.closed = iteration
+
+    def settled(self, row: Row) -> bool:
+        """A row enters inference only once its outcome is fixed for good: a lineage row's own event at once, an island
+        row at the end of its horizon, whether or not an event came earlier."""
+        return row.scope == "lineage" or (row.outcome is not None and self.now - row.iteration > self.horizon)
 
     def labeled(self, decision: str) -> list[Row]:
         return [r for r in self.rows if r.decision == decision and r.outcome is not None]
 
     def state(self) -> dict:
         return {"horizon": self.horizon, "rows": [asdict(r) for r in self.rows],
-                "parent": dict(self.parent)}
+                "parent": dict(self.parent), "now": self.now}
 
     def load_state(self, data: dict) -> None:
         self.horizon = int(data["horizon"])
         self.rows = [Row(**r) for r in data["rows"]]
         self.parent = dict(data["parent"])
+        self.now = int(data["now"])

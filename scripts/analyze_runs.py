@@ -192,8 +192,8 @@ def arm_values(run: Path) -> dict:
     ledger = Ledger()
     ledger.load_state(saved["ledger"])
     rows = defaultdict(list)
-    for row in sorted(ledger.rows, key=lambda r: r.closed if r.closed is not None else r.iteration):
-        if (row.scope == "lineage" or row.outcome is not None) and len(row.distribution) > 1 and row.decision in DECISIONS:
+    for row in sorted(ledger.rows, key=lambda r: r.iteration):
+        if ledger.settled(row) and len(row.distribution) > 1 and row.decision in DECISIONS:
             rows[row.decision].append(row)
     out = {}
     for decision, local in rows.items():

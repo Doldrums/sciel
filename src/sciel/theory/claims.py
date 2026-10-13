@@ -66,12 +66,8 @@ def question_text(claim) -> str:
             f"(current estimate {claim.effect:+.2f}, interval {claim.low:+.2f}..{claim.high:+.2f})?")
 
 
-def _closed(row) -> bool:
-    return len(row.distribution) > 1 and (row.scope == "lineage" or row.outcome is not None)
-
-
-def _close_time(row) -> int:
-    return row.closed if row.closed is not None else row.iteration
+def _testable(row, ledger) -> bool:
+    return len(row.distribution) > 1 and ledger.settled(row)
 
 
 class Theory:
@@ -83,8 +79,8 @@ class Theory:
 
     def update(self, ledger) -> list[Claim]:
         cells = defaultdict(list)
-        for row in sorted(ledger.rows, key=_close_time):
-            if row.decision in DECISIONS and _closed(row):
+        for row in sorted(ledger.rows, key=lambda r: r.iteration):
+            if row.decision in DECISIONS and _testable(row, ledger):
                 cells[(row.decision, row.context)].append(row)
                 if row.decision in SCHOOL_DECISIONS:
                     cells[(row.decision, island_context(row.island))].append(row)
