@@ -10,10 +10,8 @@ from .runtime import observed_stage
 
 class EngineEvaluation:
 
-    def _evaluation_callback(self, island):
-        if getattr(self, 'output_novelty', None) is None:
-            return self._evaluate
-        return lambda code: self._evaluate(code, island_id=island)
+    def _evaluation_callback(self, island, seed=None):
+        return lambda code: self._evaluate(code, island_id=island, seed=seed)
 
     @observed_stage("evaluating")
     def _confirmation_score(self, code: str) -> float | None:
@@ -40,7 +38,7 @@ class EngineEvaluation:
             os.unlink(path)
 
     @observed_stage("evaluating")
-    def _evaluate(self, code: str, *, remeasurement: bool = False, island_id=None):
+    def _evaluate(self, code: str, *, remeasurement: bool = False, island_id=None, seed=None):
         from . import loop as _public
         registry = getattr(self, 'candidate_novelty', None)
         novelty = registry.inspect(code, remeasurement=remeasurement) if registry else None
@@ -94,12 +92,15 @@ class EngineEvaluation:
                 outcome = io.call('evaluation', request, lambda: backend.evaluate(code.encode('utf-8'),
                     evaluation_id=evaluation_id, confirm=record_candidate))
             elif io is None:
-                outcome = _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python)
+                outcome = _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python,
+                                                   seed=seed)
             else:
                 outcome = io.call('evaluation', {'source': code, 'task_hash': task.task_hash,
                     'confirm_records': record_candidate,
-                    'output_resolution': self.cfg.get('candidate_novelty', {}).get('output_resolution')},
-                    lambda: _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python))
+                    'output_resolution': self.cfg.get('candidate_novelty', {}).get('output_resolution'),
+                    **({'seed': seed} if seed is not None else {})},
+                    lambda: _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python,
+                                                     seed=seed))
             if registry is not None:
                 registry.register(code, evaluation_id, evaluation_ok=bool(outcome.result.ok))
                 measurement_returned = True
@@ -114,7 +115,7 @@ class EngineEvaluation:
                 source_sha256=source_sha256, iteration_no_before=self.iteration_no,
                 evaluation_id=evaluation_id,
                 **({'remeasurement': novelty['remeasurement']} if registry is not None else {}),
-                B_evals_before=self.B_evals, **outcome.result.to_json(),
+                B_evals_before=self.B_evals, seed=seed if backend is None else None, **outcome.result.to_json(),
                 raw_first_score=outcome.raw_first_score, reached=outcome.reached,
                 confirmed=outcome.confirmed,
                 **({'execution': outcome.execution} if getattr(outcome, 'execution', None) is not None else {}))

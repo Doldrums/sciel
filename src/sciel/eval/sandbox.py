@@ -195,6 +195,7 @@ def run_stage(
     cpu_seconds: int | None = None,
     mem_bytes: int | None = None,
     python: str | None = None,
+    seed: int | None = None,
 ) -> EvalResult:
     validate_stage_limits(timeout, n, cpu_seconds, mem_bytes)
     if os.name != "posix" and (cpu_seconds is not None or mem_bytes is not None):
@@ -210,6 +211,10 @@ def run_stage(
         argv.extend(["--cpu-seconds", str(cpu_seconds)])
     if mem_bytes is not None:
         argv.extend(["--mem-bytes", str(mem_bytes)])
+    env = _evaluation_env()
+    if seed is not None:
+        argv.extend(["--seed", str(seed)])
+        env["PYTHONHASHSEED"] = str(seed % 2 ** 32)
     proc = stderr = None
     try:
         proc = subprocess.Popen(
@@ -222,7 +227,7 @@ def run_stage(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             bufsize=0,
-            env=_evaluation_env(),
+            env=env,
             # No Python preexec_fn: run_stage is also called from thread pools.
             # The runner applies rlimits after exec, before importing task code.
             start_new_session=(os.name == "posix"),

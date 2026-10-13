@@ -173,6 +173,17 @@ def _apply_limits(cpu_seconds, mem_bytes):
             raise _ResourceSetupError("setrlimit_failed", name) from None
 
 
+def _seed(seed):
+    """Paired measurements share the process-wide random streams a candidate draws from without its own seed."""
+    import random
+    random.seed(seed)
+    try:
+        import numpy
+    except ImportError:
+        return
+    numpy.random.seed(seed % 2 ** 32)
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("evaluator_path")
@@ -182,6 +193,7 @@ def main(argv):
     parser.add_argument("n", type=int, nargs="?")
     parser.add_argument("--cpu-seconds", type=int)
     parser.add_argument("--mem-bytes", type=int)
+    parser.add_argument("--seed", type=int)
     args = parser.parse_args(argv[1:])
     evaluator_path, stage, program_path, out_path, n = (
         args.evaluator_path, args.stage, args.program_path, args.out_path, args.n)
@@ -189,6 +201,8 @@ def main(argv):
     setup_complete = False
     try:
         _apply_limits(args.cpu_seconds, args.mem_bytes)
+        if args.seed is not None:
+            _seed(args.seed)
         setup_complete = True
         mod = _load(evaluator_path)
         fn = _resolve_stage(mod, stage)
