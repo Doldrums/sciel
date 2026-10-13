@@ -48,6 +48,7 @@ from .loop_contracts import (
 from .initialization import EngineInitialization
 from .bootstrap import EngineBootstrap
 from .lifecycle import EngineLifecycle
+from .step_plan import EngineStepPlan
 from .step_cycle import EngineStepCycle
 from .admission import EngineAdmission
 from .evaluation import EngineEvaluation
@@ -59,6 +60,7 @@ class Engine(
     EngineInitialization,
     EngineBootstrap,
     EngineLifecycle,
+    EngineStepPlan,
     EngineStepCycle,
     EngineAdmission,
     EngineEvaluation,
