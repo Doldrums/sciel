@@ -82,7 +82,7 @@ class Siblings:
         members = []
         for index, (arm, text) in enumerate(arms):
             member = plan if index == 0 else {**plan, "snap": deepcopy(plan["snap"]), "theorist": None,
-                                               "assumptions": None, "knockout": None,
+                                               "assumptions": None, "knockout": None, "probe": None,
                                                "decision_context": {**plan["decision_context"], "decisions": []}}
             if index:
                 member["snap"].operator_decision = {**(member["snap"].operator_decision or {}), "on_policy": False}

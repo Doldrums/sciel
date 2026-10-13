@@ -41,7 +41,7 @@ def curve(run: Path) -> dict:
             evaluations += 1
         elif event.get("event") == "decision" and event.get("policy") == "confirmation":
             evaluations += 1
-        elif event.get("event") == "decision" and event.get("policy") == "knockout":
+        elif event.get("event") == "decision" and event.get("policy") in ("knockout", "probe"):
             evaluations += event["evaluations"]
         elif event.get("event") == "run_end":
             reason = event.get("reason")

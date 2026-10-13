@@ -48,6 +48,22 @@ class EngineStepCycle:
         for pair in self.siblings.record(plan, admitted, program.code if program else None):
             self.log.decision(policy="sibling", action="pair", iteration_no=self.iteration_no, **pair)
 
+    def _settle_probe(self, spec, scores) -> None:
+        from .probe import brief, verdict
+        assumption = self.assumptions.get(spec['assumption'])
+        assumption.status = verdict(scores)
+        assumption.probe = {**spec["prediction"], "seeds": spec["seeds"], "program": spec["program"]}
+        assumption.evidence.append(f"parent {scores['parent']} vs variant {scores['variant']}")
+        self.assumptions.pending = None
+        self.log.decision(policy="probe", action=assumption.status, iteration_no=self.iteration_no,
+                          assumption=assumption.id, text=assumption.text, scores=scores, program=spec["program"],
+                          evaluations=sum(s is not None for s in scores["parent"] + scores["variant"]))
+        if assumption.status == "refuted":
+            for programme in self.incubator.open(self, brief(assumption)):
+                self.log.decision(policy="programme", action="open", iteration_no=self.iteration_no,
+                                  programme=programme.id, kind=programme.kind, island=programme.island,
+                                  strategy=programme.strategy)
+
     def _add_findings(self, episode) -> None:
         added = self.findings.add((episode or {}).get('findings', []), self.iteration_no)
         if added:
@@ -124,6 +140,11 @@ class EngineStepCycle:
             measured = knockout(self, plan['knockout'], llm or self.llm, snapshot.model)
             result.meta['knockout'] = measured['scores']
             result.cost += measured['cost']
+        if plan.get('probe'):
+            from .probe import execute as probe
+            measured = probe(self, plan['probe'], llm or self.llm, snapshot.model)
+            result.meta['probe'] = {k: measured[k] for k in ('parent', 'variant')}
+            result.cost += measured['cost']
         for key, field in (('theorist', 'strategy_proposal'), ('assumptions', 'assumption_reply')):
             if plan.get(key):
                 from .llm.client import accounted_cost
@@ -169,8 +190,8 @@ class EngineStepCycle:
                         decision_context=plan.get('decision_context'))
         self._sibling_outcome(plan, res, child_id)
         for event in self.incubator.commit(self, plan):
-            if event.get("graduated"):
-                strategy = next(s for s in self.strategies.pool if s.id == event["strategy"])
+            strategy = next((s for s in self.strategies.pool if s.id == event["strategy"]), None)
+            if event.get("graduated") and strategy is not None:
                 strategy.status = "culture"
             self.log.decision(policy="programme", action="graduate" if "graduated" in event else "stage",
                               iteration_no=self.iteration_no, **event)
@@ -184,6 +205,8 @@ class EngineStepCycle:
                               assumption=spec['assumption'], program=spec['program'], targets=spec['targets'],
                               nulls=spec['nulls'], scores=scores, reliance=assumption.reliance,
                               evaluations=1 + 1 + len(spec['nulls']))
+        if plan.get('probe'):
+            self._settle_probe(plan['probe'], res.meta.get('probe') or {"parent": [None], "variant": [None]})
         if plan.get('assumptions'):
             programs = [self.db._all[pid] for pid in plan['assumption_programs'] if pid in self.db._all]
             for assumption in self.assumptions.adopt(res.meta.get('assumption_reply'), programs, self.iteration_no):
