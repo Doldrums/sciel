@@ -1,4 +1,4 @@
-"""Anytime-valid inference for claims: DR contrasts with predictable outcome models, betting e-processes and e-LOND.
+"""Anytime-valid inference: DR contrasts with predictable outcome models, mixture-of-bets e-processes and e-BH.
 
 The contrast of an action is its value minus the uniform mixture of the other actions of the same decision when every
 row offers the same alternatives, and minus one reference action offered in every row when the alternatives change, so
@@ -15,7 +15,6 @@ from collections import defaultdict
 import numpy as np
 
 GRID = np.linspace(-1.0, 1.0, 81)
-CAP = 0.5
 PRIOR = 2.0
 
 
@@ -56,34 +55,6 @@ def contrasts(rows: list, action: str, reference: str | None = None) -> tuple[np
     return np.asarray(psi, dtype=float), np.asarray(bound, dtype=float)
 
 
-def _log_capital(x: np.ndarray, bound: np.ndarray, sign: float) -> np.ndarray:
-    """Log wealth of betting sign*(x - m) with a predictable plug-in bet, for every grid value m at once."""
-    t = np.arange(1, len(x) + 1)[:, None]
-    past_mean = np.vstack([np.zeros((1, x.shape[1])), np.cumsum(x, 0)[:-1] / t[:-1]])
-    past_sq = np.vstack([np.zeros((1, x.shape[1])), np.cumsum(x ** 2, 0)[:-1] / t[:-1]])
-    var = np.maximum(past_sq - past_mean ** 2, 0.0) + 1.0 / t
-    limit = CAP / (bound[:, None] + np.abs(GRID)[None])
-    lam = np.clip(sign * past_mean / (var + past_mean ** 2), 0.0, limit)
-    return np.cumsum(np.log1p(sign * lam * x), 0)
-
-
-def sequence(psi: np.ndarray, bound: np.ndarray, alpha: float) -> dict:
-    """Hedged capital over the grid: a running-intersection confidence sequence and the e-process at zero."""
-    if len(psi) == 0:
-        return {"n": 0, "mean": 0.0, "se": 0.0, "low": -1.0, "high": 1.0, "e_peak": 1.0}
-    x = psi[:, None] - GRID[None]
-    up, down = _log_capital(x, bound, 1.0), _log_capital(x, bound, -1.0)
-    capital = np.logaddexp(up, down) - math.log(2.0)
-    rejected = (capital >= math.log(1.0 / alpha)).any(0)
-    kept = GRID[~rejected]
-    zero = int(np.argmin(np.abs(GRID)))
-    se = float(psi.std(ddof=1) / math.sqrt(len(psi))) if len(psi) > 1 else 1.0
-    return {"n": len(psi), "mean": float(psi.mean()), "se": se,
-            "low": float(kept.min()) if len(kept) else float(psi.mean()),
-            "high": float(kept.max()) if len(kept) else float(psi.mean()),
-            "e_peak": float(np.exp(capital[:, zero].max()))}
-
-
 LAMBDAS = np.array([v for v in np.linspace(-0.9, 0.9, 19) if abs(v) > 1e-9])
 
 
@@ -97,10 +68,10 @@ def mixture(psi: np.ndarray, bound, alpha: float) -> dict:
     x = psi[:, None, None] - GRID[None, :, None]
     lam = LAMBDAS[None, None, :] / (bound[:, None, None] + np.abs(GRID)[None, :, None])
     log_wealth = np.log1p(lam * x).sum(0)
-    return {**_summary(psi, log_wealth, alpha), "log_wealth": log_wealth}
+    return {**summary(psi, log_wealth, alpha), "log_wealth": log_wealth}
 
 
-def _summary(psi: np.ndarray, log_wealth: np.ndarray, alpha: float) -> dict:
+def summary(psi: np.ndarray, log_wealth: np.ndarray, alpha: float) -> dict:
     capital = np.logaddexp.reduce(log_wealth, axis=1) - math.log(log_wealth.shape[1])
     kept = GRID[capital < math.log(1.0 / alpha)]
     zero = int(np.argmin(np.abs(GRID)))
@@ -115,7 +86,7 @@ def _summary(psi: np.ndarray, log_wealth: np.ndarray, alpha: float) -> dict:
 def continued(log_wealth: np.ndarray, prior: np.ndarray | None, psi: np.ndarray, alpha: float) -> dict:
     """The same betting martingale carried on from an earlier run's final wealth."""
     total = log_wealth if prior is None else log_wealth + prior
-    return {**_summary(psi if len(psi) else np.zeros(1), total, alpha), "log_wealth": total}
+    return {**summary(psi if len(psi) else np.zeros(1), total, alpha), "log_wealth": total}
 
 
 def e_bh(evalues: dict, alpha: float, weights: dict | None = None) -> set:
@@ -129,9 +100,3 @@ def e_bh(evalues: dict, alpha: float, weights: dict | None = None) -> set:
         if weights[ranked[k - 1]] * evalues[ranked[k - 1]] >= k_total / (alpha * k):
             rejected = k
     return set(ranked[:rejected])
-
-
-def lond_level(alpha: float, index: int, rejections: int) -> float:
-    """e-LOND level of the index-th hypothesis (1-based) given the rejections among earlier hypotheses."""
-    gamma = 6.0 / (math.pi ** 2 * index ** 2)
-    return alpha * gamma * (rejections + 1)

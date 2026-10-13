@@ -1,7 +1,9 @@
-"""Claims "in this context, this action changes the child's event rate against the other actions", tested anytime-validly.
+"""Claims "this action changes the child's event rate against the other actions", tested anytime-validly.
 
-Each claim is a betting e-process on DR contrasts (causal/sequential.py); rejections are controlled online with e-LOND
-in the order claims first appear, and the reported interval is a confidence sequence at the false-coverage level.
+The family is fixed by decision: every decision whose actions do not come and go, plus method and procedure against
+a reference action, pooled over contexts. Each claim is a mixture-of-bets e-process on DR contrasts
+(causal/sequential.py); e-BH on the current values controls the false discovery rate under any dependence, and the
+reported interval is the matching e-BY confidence set. Knowledge items are judged by sibling pairs instead (trials.py).
 """
 
 from __future__ import annotations
@@ -11,11 +13,12 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from statistics import NormalDist
 
-from ..causal.sequential import comparator, contrasts, lond_level, sequence
-from .schools import DECISIONS as SCHOOL_DECISIONS, island_context
+from ..causal.sequential import comparator, contrasts, e_bh, mixture, summary
 
 DECISIONS = ("operator", "mode", "strategy", "research_open", "method", "planner", "spawn_target", "procedure",
              "eviction_planner", "inspiration_source", "finding", "idea_target", "origin", "cell_stage", "cell_scope", "sibling")
+FAMILY = tuple(d for d in DECISIONS if d not in ("strategy", "finding"))
+CONTEXT = "all"
 ALPHA = 0.05
 MIN_ROWS = 12
 MIN_TAKEN = 8
@@ -57,7 +60,7 @@ def evpi(claim) -> float:
 
 
 def open_question(claims: list, context: str):
-    undecided = [c for c in claims if c.context == context and not c.decided]
+    undecided = [c for c in claims if not c.decided]
     return max(undecided, key=evpi, default=None)
 
 
@@ -73,52 +76,35 @@ def _testable(row, ledger) -> bool:
 class Theory:
     def __init__(self):
         self.claims: list[Claim] = []
-        self.order: list[list] = []
-        self.rejected: set = set()
         self.shift, self.mix = SHIFT, MIX
 
     def update(self, ledger) -> list[Claim]:
         cells = defaultdict(list)
         for row in sorted(ledger.rows, key=lambda r: r.iteration):
-            if row.decision in DECISIONS and _testable(row, ledger):
-                cells[(row.decision, row.context)].append(row)
-                if row.decision in SCHOOL_DECISIONS:
-                    cells[(row.decision, island_context(row.island))].append(row)
-        known = {tuple(k) for k in self.order}
-        for (decision, context), rows in cells.items():
-            for action in dict.fromkeys(a for r in rows for a in r.distribution):
-                if (decision, context, action) not in known:
-                    self.order.append([decision, context, action])
-                    known.add((decision, context, action))
-        position = {"|".join(k): i for i, k in enumerate(self.order, 1)}
-        tested = []
-        for index, (decision, context, action) in enumerate(self.order, 1):
-            rows = cells.get((decision, context), [])
+            if row.decision in FAMILY and _testable(row, ledger):
+                cells[row.decision].append(row)
+        tested = {}
+        for decision, rows in cells.items():
             if len(rows) < MIN_ROWS:
                 continue
-            fixed, reference = comparator(rows, action)
-            if not fixed:
-                continue
-            psi, bound = contrasts(rows, action, reference)
-            if not len(psi):
-                continue
-            key = f"{decision}|{context}|{action}"
-            peak = sequence(psi, bound, ALPHA)["e_peak"]
-            earlier = sum(position[k] < index for k in self.rejected)
-            if key not in self.rejected and peak >= 1.0 / lond_level(ALPHA, index, earlier):
-                self.rejected.add(key)
-            tested.append((decision, context, action, key, psi, bound, sum(r.choice == action for r in rows)))
-        level = ALPHA * max(len(self.rejected), 1) / max(len(self.order), 1)
+            for action in dict.fromkeys(a for r in rows for a in r.distribution):
+                fixed, reference = comparator(rows, action)
+                if not fixed:
+                    continue
+                psi, bound = contrasts(rows, action, reference)
+                if len(psi):
+                    tested[(decision, action)] = (psi, mixture(psi, bound, ALPHA), sum(r.choice == action for r in rows))
+        rejected = e_bh({k: v[1]["e"] for k, v in tested.items()}, ALPHA)
+        level = ALPHA * max(len(rejected), 1) / max(len(tested), 1)
         self.claims = []
-        for decision, context, action, key, psi, bound, taken in tested:
-            s = sequence(psi, bound, level)
-            self.claims.append(Claim(decision, context, action, s["mean"], s["low"], s["high"], s["n"], taken,
-                                     s["se"], s["e_peak"], key in self.rejected))
+        for (decision, action), (psi, s, taken) in tested.items():
+            c = summary(psi, s["log_wealth"], level)
+            self.claims.append(Claim(decision, CONTEXT, action, c["mean"], c["low"], c["high"], c["n"], taken,
+                                     c["se"], s["e"], (decision, action) in rejected and not c["empty"]))
         return [c for c in self.claims if c.decided]
 
     def tilt(self, decision: str, context: str, distribution: dict) -> dict:
-        effects = {c.action: c.effect for c in self.claims
-                   if c.decision == decision and c.context == context and c.decided}
+        effects = {c.action: c.effect for c in self.claims if c.decision == decision and c.decided}
         if not effects:
             return dict(distribution)
         shifted = {a: p * math.exp(self.shift * effects.get(a, 0.0)) for a, p in distribution.items()}
@@ -130,14 +116,11 @@ class Theory:
         return bool(decided) and max(decided) < 0
 
     def cards(self, context: str, k: int = 3) -> list[str]:
-        decided = sorted((c for c in self.claims if c.context == context and c.decided),
-                         key=lambda c: -abs(c.effect))
+        decided = sorted((c for c in self.claims if c.decided), key=lambda c: -abs(c.effect))
         return [c.card() for c in decided[:k]]
 
     def state(self) -> dict:
-        return {"claims": [asdict(c) for c in self.claims], "order": self.order, "rejected": sorted(self.rejected)}
+        return {"claims": [asdict(c) for c in self.claims]}
 
     def load_state(self, data: dict) -> None:
         self.claims = [Claim(**c) for c in data["claims"]]
-        self.order = [list(k) for k in data["order"]]
-        self.rejected = set(data["rejected"])

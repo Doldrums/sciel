@@ -6,10 +6,12 @@ import math
 from dataclasses import asdict, dataclass
 
 from ..causal.ledger import HORIZON
-from .claims import DECISIONS
+from .claims import ALPHA, FAMILY
 
-POWER_Z = 2.8
 MIN_EFFECT = 0.02
+SHRINK_ROWS = 50
+OVERHEAD = 1.3
+MAX_REPEATS = 2
 MAX_BLOCK = 24
 SHARE = 0.5
 
@@ -28,9 +30,11 @@ class Experiment:
     outcome: str | None = None
 
 
-def _required(claim) -> int:
-    sd = claim.se * math.sqrt(max(claim.n, 1))
-    return math.ceil((POWER_Z * sd / max(abs(claim.effect), 1e-9)) ** 2)
+def _required(claim, family: int) -> int:
+    """Rows for a mixture-of-bets e-process to reach the e-BH bar, at an effect shrunk toward zero."""
+    variance = claim.se ** 2 * max(claim.n, 1)
+    effect = abs(claim.effect) * claim.n / (claim.n + SHRINK_ROWS)
+    return math.ceil(OVERHEAD * 2 * variance * math.log(family / ALPHA) / max(effect, 1e-9) ** 2)
 
 
 class Experiments:
@@ -42,12 +46,14 @@ class Experiments:
         if self.active is not None:
             return None
         best = None
+        family = max(len(theory.claims), 1)
         for claim in theory.claims:
-            if (claim.decided or claim.context != context or abs(claim.effect) < MIN_EFFECT
-                    or claim.decision not in DECISIONS):
+            repeats = sum((e.decision, e.action) == (claim.decision, claim.action) for e in self.history)
+            if (claim.decided or abs(claim.effect) < MIN_EFFECT or claim.decision not in FAMILY
+                    or repeats >= MAX_REPEATS):
                 continue
-            extra = _required(claim) - claim.n
-            if extra <= 0 or extra > remaining // 2:
+            extra = _required(claim, family) - claim.n
+            if extra <= 0 or extra > remaining:
                 continue
             score = abs(claim.effect) / extra
             if best is None or score > best[0]:
@@ -57,14 +63,14 @@ class Experiments:
         _, claim, extra = best
         self.active = Experiment(
             decision=claim.decision, context=claim.context, action=claim.action,
-            hypothesis=(f"{claim.decision} '{claim.action}' changes the lineage-event rate by "
-                        f"{claim.effect:+.2f} in {claim.context}"),
+            hypothesis=(f"{claim.decision} '{claim.action}' changes the child's event rate by "
+                        f"{claim.effect:+.2f}"),
             start=iteration, length=min(MAX_BLOCK, extra), required=extra, expected=claim.effect)
         return self.active
 
     def allocate(self, decision: str, context: str, distribution: dict) -> dict:
         exp = self.active
-        if (exp is None or exp.status != "running" or exp.decision != decision or exp.context != context
+        if (exp is None or exp.status != "running" or exp.decision != decision
                 or exp.action not in distribution):
             return dict(distribution)
         rest = sum(p for a, p in distribution.items() if a != exp.action)
