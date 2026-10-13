@@ -106,7 +106,7 @@ def _intent(engine, key, plan):
         'selection': asdict(plan['selected']) if plan.get('selected') is not None else None,
         'attribution': {name: plan.get(name) for name in ('mode', 'mode_prop', 'eff_mode',
             'phase', 'mode_on_policy', 'op_prop', 'op_stat', 'model', 'model_prop',
-            'preset', 'preset_prop', 'decision_context', 'theorist', 'assumptions', 'knockout', 'probe', 'block', 'arm')},
+            'preset', 'preset_prop', 'decision_context', 'theorist', 'assumptions', 'assay', 'block', 'arm')},
         'novelty_max_resamples': engine.cfg['candidate_novelty']['max_resamples'],
         'output_repeats': engine.cfg['candidate_novelty']['output_repeats'],
         'output_resolution': engine.cfg['candidate_novelty'].get('output_resolution')}
@@ -278,6 +278,11 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                     parents[parent] = parents.get(parent, 0) + len(members)
             research_jobs = research_queue.prepare(engine, ordinary_jobs=len(plans))
             intents.extend(_intent(engine, key, {'snap': snapshot}) for key, snapshot in research_jobs)
+            from .assay import plan as assay_plan
+            assay = None if bootstrap else assay_plan(engine, engine.iteration_no)
+            if assay is not None:
+                assay['model'] = engine.llm.choose_model(engine.rng.stream('prompt'))
+                intents.append({'schema': CONTRACT, 'job_id': f'A:{wave}', 'assay': assay})
             _save_intents(transaction.directory, intents)
             _status(engine, jobs=len(plans) + len(research_jobs))
             engine.log.decision(policy='parallel_search', action='wave_dispatch', schema=CONTRACT,
@@ -299,6 +304,9 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 functions.append((key, execute))
             functions.extend((key, lambda snapshot=snapshot: research_queue.execute(engine, snapshot))
                              for key, snapshot in research_jobs)
+            if assay is not None:
+                from .assay import execute as assay_execute
+                functions.append((f'A:{wave}', lambda: assay_execute(engine, assay, engine.llm, assay['model'])))
             results, failed = io.run(functions)
             errors.extend(failed.values())
             for key, plan in plans:
@@ -320,6 +328,13 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                     {'type': type(result).__name__, 'result': asdict(result)})
                 research_queue.commit(engine, snapshot, result)
                 engine.log.decision(policy='parallel_search', action='job_committed', wave=wave, job_id=key)
+            if assay is not None and f'A:{wave}' in results:
+                from .assay import commit as assay_commit
+                measured = results[f'A:{wave}']
+                durable_json(transaction.directory / f'result-A-{wave}.json', {'type': 'assay', 'result': measured})
+                engine.cost_total += measured['cost']
+                assay_commit(engine, assay, measured)
+                engine.log.decision(policy='parallel_search', action='job_committed', wave=wave, job_id=f'A:{wave}')
             if bootstrap:
                 engine._portfolio_bootstrap['next_island'] += len(plans)
             _raise_errors(errors)

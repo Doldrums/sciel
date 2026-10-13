@@ -240,17 +240,13 @@ class EngineStepPlan:
                                                claims=self.theory.cards(context),
                                                findings=self.findings.top() + self.assumptions.cards(),
                                                families=self._families())
-        audit = knockout = probe = None
+        audit = assay = None
         if self.assumptions.due(iteration_no) and self.db.pop_best > self.seed_score:
             top = sorted((p for i in self.db.islands for p in i.programs.values()), key=lambda p: -p.score)[:3]
             audit = self.assumptions.request(iteration_no, task=self.task_prompt, programs=top)
-        elif block is None and not self.assumptions.pending:
-            from .knockout import plan as knockout_plan
-            from .probe import plan as probe_plan
-            knockout = knockout_plan(self, iteration_no)
-            probe = probe_plan(self) if knockout is None else None
-            if knockout is not None or probe is not None:
-                self.assumptions.pending = (knockout or probe)["assumption"]
+        elif block is None and not self.cfg.get("parallel_search", {}).get("enabled"):
+            from .assay import plan as assay_plan
+            assay = assay_plan(self, iteration_no)
         lessons, injected_ids = self.theory.cards(context), []
         # the binding cap on ONE run of the program
         # Population stall is not evidence that this particular lineage stalled.
@@ -344,7 +340,6 @@ class EngineStepPlan:
             "theorist": theorist,
             "assumptions": audit,
             "assumption_programs": [p.id for p in top] if audit else [],
-            "knockout": knockout,
-            "probe": probe,
+            "assay": assay,
             "block": block,
         }
