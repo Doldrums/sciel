@@ -39,6 +39,31 @@ def run(config: dict, outputs: Path, run_id: str, seed: int) -> dict:
     return {**result, "exit": code, "final": result["points"][-1][1] if result["points"] else None}
 
 
+def _accept(items: list, keep) -> list:
+    return [{**item, "accept": "culture"} for item in items if keep(item)]
+
+
+RULES = {
+    "gate": lambda r: r,
+    "greedy": lambda r: {**r, "strategies": _accept(r["strategies"], lambda i: True),
+                         "knowledge": _accept(r["knowledge"], lambda i: True),
+                         "procedures": _accept(r["procedures"], lambda i: True)},
+    "certify": lambda r: {**r, "strategies": _accept(r["strategies"], lambda i: i["donor_status"] == "culture"),
+                          "knowledge": _accept(r["knowledge"], lambda i: i["donor_status"] == "culture"),
+                          "procedures": _accept(r["procedures"], lambda i: True),
+                          "swm": {**r["swm"], "weights": None}, "learner": {**r["learner"], "weights": None}},
+    "replay": lambda r: {**r, "claims": [], "strategies": [], "knowledge": [], "procedures": [], "methods": [],
+                         "evidence": {"claims": {}, "items": {}, "programmes": []}},
+}
+
+
+def load(path: str) -> dict:
+    config = yaml.safe_load(Path(path).read_text())
+    if "extends" in config:
+        config["extends"] = str((Path(path).parent / config["extends"]).resolve())
+    return config
+
+
 def evals_to(result: dict, threshold: float) -> dict:
     hit = next((b for b, score in result["points"] if score >= threshold), None)
     return {"evaluations": hit if hit is not None else result["end"], "reached": hit is not None}
