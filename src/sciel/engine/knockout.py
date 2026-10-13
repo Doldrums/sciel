@@ -40,14 +40,15 @@ def plan(engine, iteration_no: int) -> dict | None:
 
 
 def _neutral(llm, model: str, code: str, units: list, reason: str):
+    """A neutral rewrite of the units; an unparseable reply or one that leaves the program unchanged is no knockout."""
     from .llm.client import accounted_cost
     reply = llm.generate(PROMPT.format(units=", ".join(units), reason=reason, code=code), model)
     variant = extract_code(reply.text)
     try:
-        ast.parse(variant)
+        same = ast.dump(ast.parse(variant)) == ast.dump(ast.parse(code))
     except SyntaxError:
-        variant = None
-    return variant, accounted_cost(reply)
+        variant, same = None, False
+    return (None if same else variant), accounted_cost(reply)
 
 
 def execute(engine, spec: dict, llm, model: str) -> dict:
