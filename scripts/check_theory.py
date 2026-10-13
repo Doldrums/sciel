@@ -15,11 +15,11 @@ from sciel.causal.sequential import e_bh, mixture
 from sciel.theory.trials import ALPHA, MAX_PAIRS, PROMOTE
 
 REPEATS = 200
-SD = 0.45
 
 
 def pairs(rng, effect: float, n: int) -> np.ndarray:
-    return np.clip(rng.normal(effect, SD, n), -1, 1)
+    """Sign outcomes of sibling pairs with mean `effect`: win with probability (1 + effect) / 2, else lose."""
+    return np.where(rng.random(n) < (1 + effect) / 2, 1.0, -1.0)
 
 
 def family(rng, effects: list[float]) -> tuple[set, list]:
