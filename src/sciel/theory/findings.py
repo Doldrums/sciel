@@ -10,8 +10,6 @@ from dataclasses import asdict, dataclass, field
 
 from . import schools
 
-CANDIDATES = 4
-NONE_SHARE = 0.4
 MAX_CULTURE = 3
 MAX_CHARS = 600
 _NUMBER = re.compile(r"(?<![\w.])-?(?:\d+\.\d+(?:[eE][-+]?\d+)?|\d+[eE][-+]?\d+)(?![\w.])")
@@ -98,10 +96,8 @@ class Findings:
         return [f for f in shown if f.local.get(str(island)) != "retired"][-MAX_CULTURE:]
 
     def distribution(self, island: int) -> dict:
-        trials = schools.trials(self.pool, island)[:CANDIDATES]
-        if not trials:
-            return {"none": 1.0}
-        return {"none": NONE_SHARE} | {f.id: (1 - NONE_SHARE) / len(trials) for f in trials}
+        """Ordinary steps show the culture only; items on trial are shown to sibling blocks."""
+        return {"none": 1.0}
 
     def deliver(self, chosen: str, island: int) -> str:
         culture = self.culture(island)
@@ -115,14 +111,8 @@ class Findings:
         return "\nKnowledge from this run (cell findings are measured by tools, not by the task evaluator):\n" + "\n".join(
             f.card() for f in shown) + "\n"
 
-    def judge(self, theory) -> list[Finding]:
-        changed = []
-        for finding in self.pool:
-            status = schools.verdict(theory, "finding", finding.id)
-            if status is not None and finding.status != status:
-                finding.status = status
-                changed.append(finding)
-        return changed
+    def judge(self, trials) -> list[Finding]:
+        return schools.settle(self.pool, trials)
 
     def counters(self) -> list[dict]:
         return [{"id": f.id, "kind": f.kind, "status": f.status, "created": f.created, "delivered": f.delivered,

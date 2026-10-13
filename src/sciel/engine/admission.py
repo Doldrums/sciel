@@ -315,12 +315,7 @@ class EngineAdmission:
                 self.log.decision(policy="method_credit", action="update", iteration_no=self.iteration_no,
                                   credit={t: round(v, 4) for t, v in culture.credit(published).items()},
                                   withdrawn=[t for t in published if culture.retired(t)])
-            from ..theory import schools
-            for name, pool in (("strategy", self.strategies), ("finding", self.findings), ("procedure", self.procedures)):
-                for item, school, status in schools.judge(pool.pool, self.theory, name):
-                    self.log.decision(policy="school", action=status, iteration_no=self.iteration_no,
-                                      decision=name, item=item.id, island=school)
-            for finding in self.findings.judge(self.theory):
+            for finding in self.findings.judge(self.trials):
                 self.log.decision(policy="finding", action=finding.status, iteration_no=self.iteration_no,
                                   finding=finding.id, text=finding.text)
             if self.findings.pool:
@@ -333,7 +328,7 @@ class EngineAdmission:
             if proposed is not None:
                 self.log.decision(policy="procedure", action="propose", iteration_no=self.iteration_no,
                                   procedure=proposed.id, parent=proposed.parent, params=proposed.params())
-            for strategy in self.strategies.judge(self.theory):
+            for strategy in self.strategies.judge(self.trials):
                 self.log.decision(policy="strategy", action=strategy.status, iteration_no=self.iteration_no,
                                   strategy=strategy.id, text=strategy.text)
         finished = self.experiments.tick(self.iteration_no, self.theory, self.ledger)

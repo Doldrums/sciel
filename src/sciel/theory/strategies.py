@@ -32,13 +32,14 @@ class Strategies:
         self.last_request = 0
 
     def live(self) -> list[Strategy]:
-        return [s for s in self.pool if s.status != "retired"]
+        return [s for s in self.pool if s.status not in ("retired", "archived")]
 
     def distribution(self, island: int) -> dict:
-        live = schools.available(self.pool, island)
-        if not live:
+        """Ordinary steps choose among strategies already promoted by their sibling trials."""
+        culture = [s for s in schools.available(self.pool, island) if s.status == "culture"]
+        if not culture:
             return {"none": 1.0}
-        return {"none": NONE_SHARE} | {s.id: (1 - NONE_SHARE) / len(live) for s in live}
+        return {"none": NONE_SHARE} | {s.id: (1 - NONE_SHARE) / len(culture) for s in culture}
 
     def text(self, strategy_id: str) -> str | None:
         return next((s.text for s in self.pool if s.id == strategy_id), None)
@@ -72,14 +73,8 @@ class Strategies:
         self.pool.append(strategy)
         return strategy
 
-    def judge(self, theory) -> list[Strategy]:
-        changed = []
-        for strategy in self.pool:
-            status = schools.verdict(theory, "strategy", strategy.id)
-            if status is not None and strategy.status != status:
-                strategy.status = status
-                changed.append(strategy)
-        return changed
+    def judge(self, trials) -> list[Strategy]:
+        return schools.settle(self.pool, trials)
 
     def state(self) -> dict:
         return {"pool": [asdict(s) for s in self.pool], "last_request": self.last_request}

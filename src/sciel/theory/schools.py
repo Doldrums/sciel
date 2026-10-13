@@ -18,7 +18,7 @@ def island_context(island: int) -> str:
 
 
 def available(items: list, island: int) -> list:
-    return [i for i in items if i.status != "retired" and i.local.get(str(island)) != "retired"]
+    return [i for i in items if i.status not in ("retired", "archived") and i.local.get(str(island)) != "retired"]
 
 
 def local_culture(items: list, island: int) -> list:
@@ -36,16 +36,17 @@ def trials(items: list, island: int) -> list:
     return proven + turns
 
 
-def judge(items: list, theory, decision: str) -> list:
+STATUS = {"culture": "culture", "retired": "retired", "not_established": "archived"}
+
+
+def settle(items: list, trials) -> list:
+    """Pool items take the verdict of their sibling trial; an item that never established an effect is archived."""
     changed = []
-    for claim in theory.claims:
-        if claim.decision != decision or not claim.context.startswith(PREFIX) or not claim.decided:
-            continue
-        item = next((i for i in items if i.id == claim.action), None)
-        island, status = claim.context[len(PREFIX):], "culture" if claim.effect > 0 else "retired"
-        if item is not None and item.local.get(island) != status:
-            item.local[island] = status
-            changed.append((item, int(island), status))
+    for item in items:
+        status = STATUS.get(trials.status(item.id))
+        if status is not None and item.status != status:
+            item.status = status
+            changed.append(item)
     return changed
 
 
