@@ -67,10 +67,11 @@ def execute(engine, spec: dict, llm, model: str) -> dict:
 
 
 def reliance(scores: dict) -> float | None:
-    """Drop from knocking the assumption out, beyond the mean drop from random knockouts of the same size."""
+    """Drop from knocking the assumption out, beyond the mean drop from random knockouts of the same size. A knockout
+    that leaves no valid, nonzero score killed the program trivially and measures nothing."""
     parent, target = scores["parent"], scores["target"]
-    nulls = [s for s in scores["nulls"] if s is not None]
-    if parent is None or target is None or not nulls:
+    nulls = [s for s in scores["nulls"] if s is not None and s > 0]
+    if parent is None or target is None or target <= 0 or not nulls:
         return None
     scale = max(abs(parent), 1e-9)
     return ((parent - target) - sum(parent - s for s in nulls) / len(nulls)) / scale

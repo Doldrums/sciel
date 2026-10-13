@@ -68,9 +68,11 @@ class Assumptions:
             f"```python\n{_excerpt(p.code)}\n```" for p in programs)
         return ("You audit an automated program search.\n\n"
                 f"Task:\n{task}\n\nBest programs:\n{shown}\n\n"
-                "List the factual assumptions about the TASK or its DATA that these programs rely on and that could be "
-                "false (for example what a column means, which inputs matter, what the scorer rewards). Ignore "
-                "implementation choices. Reply with a JSON array, at most 4 items, each "
+                "List the premises about the TASK or its DATA that these programs rely on, that the task description "
+                "above does NOT state, and that could be false (for example what a column means, which inputs carry "
+                "signal, which structure the optimum has, which cases dominate the score). Do not restate anything the "
+                "task description says, and ignore implementation choices. Reply with a JSON array, at most 4 items, "
+                "each "
                 '{"assumption": "<one testable sentence>", "counterfactual": "<if false, the program should change '
                 'what>", "units": {"<program id>": ["<code unit that encodes it>"]}}.')
 
