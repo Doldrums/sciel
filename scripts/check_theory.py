@@ -55,7 +55,7 @@ def main():
             programme[f"p={p} pairs={n}"] = float(np.mean([mixture(2.0 * row - 1.0, 1.0, ALPHA)["e"] >= 20
                                                            for row in w.astype(float)]))
     print(json.dumps({"fdr": float(np.mean(false)), "any_false_discovery": any_false / REPEATS,
-                      "power_at_40_pairs": power, "programme_e_at_least_20": programme}, indent=2))
+                      f"power_at_{MAX_PAIRS}_pairs": power, "programme_e_at_least_20": programme}, indent=2))
 
 
 if __name__ == "__main__":
