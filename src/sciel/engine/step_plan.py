@@ -172,8 +172,9 @@ class EngineStepPlan:
         # Explicit exploration/diversity modes retain their search scope. Resolve
         # this after all selection overrides, using the same effective mode that
         # receives reward. Forced-operator paths also retain their own intent.
-        forced_op = bool(self.cfg.get("op_fixed")) or (
-            self._idea_island is not None and island == self._idea_island)
+        idea = (self._idea_island is not None and island == self._idea_island
+                and self.db.island_best(island) < self.db.pop_best)
+        forced_op = bool(self.cfg.get("op_fixed")) or idea
         stall = self.B_evals - self._last_pop_improve
         stalled = stall >= int(self.cfg.get("refine_stall", 8))
         refine_eligible = (not forced_op) and stalled and parent.score >= (
@@ -183,7 +184,7 @@ class EngineStepPlan:
         if self.cfg.get("op_fixed"):
             op, op_prop, op_stat = self.cfg["op_fixed"], 1.0, {"fixed": self.cfg["op_fixed"]}
             op_selection = 'fixed'
-        elif self._idea_island is not None and island == self._idea_island:
+        elif idea:
             # idea island (arch-v4 #2, QDAIF-style): parent selection stands, but
             # the operator is forced to idea-space -- mutate the strategy, then
             # regenerate code from it, instead of editing the current program
