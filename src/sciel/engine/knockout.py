@@ -31,11 +31,12 @@ def plan(engine, iteration_no: int) -> dict | None:
         others = [u["id"] for u in unit_catalog(program.code)[1:] if u["id"] not in targets]
         if len(others) < len(targets):
             continue
-        seed = engine.rng.derive_seed("sibling") % 2 ** 31
-        rng = random.Random(seed)
+        draw = engine.rng.derive_seed("sibling") % 2 ** 31
+        rng = random.Random(draw)
+        seed, parent = engine.assumptions.baselines.get(program.id, [draw, None])
         return {"assumption": assumption.id, "text": assumption.text, "program": program.id, "code": program.code,
                 "targets": targets, "nulls": [rng.sample(others, len(targets)) for _ in range(NULLS)], "seed": seed,
-                "iteration": iteration_no}
+                "parent": parent, "iteration": iteration_no}
     return None
 
 
@@ -51,22 +52,29 @@ def _neutral(llm, model: str, code: str, units: list, reason: str):
     return (None if same else variant), accounted_cost(reply)
 
 
-def execute(engine, spec: dict, llm, model: str) -> dict:
-    """Parent, knockout and null knockouts, each measured once with the same seed."""
-    cost, scores, measured = 0.0, {}, 1
-    scores["parent"] = engine._measure(spec["code"], purpose="knockout", seed=spec["seed"])
+def execute(engine, spec: dict, llm, model: str, out: dict) -> None:
+    """Parent (once per program), knockout, then null knockouts only if the knockout measured something; each with
+    the program's seed. Cost and evaluations accumulate in `out` as they are spent."""
+    out["scores"] = scores = {"parent": spec["parent"], "target": None, "nulls": []}
+    if scores["parent"] is None:
+        scores["parent"] = engine._measure(spec["code"], purpose="knockout", seed=spec["seed"])
+        out["measured"] += 1
+    if scores["parent"] is None:
+        return
     variant, spent = _neutral(llm, model, spec["code"], spec["targets"],
                               f"They encode the assumption: {spec['text']}.")
-    cost += spent
-    scores["target"] = engine._measure(variant, purpose="knockout", seed=spec["seed"]) if variant else None
-    measured += variant is not None
-    scores["nulls"] = []
+    out["cost"] += spent
+    if variant is None:
+        return
+    scores["target"] = engine._measure(variant, purpose="knockout", seed=spec["seed"])
+    out["measured"] += 1
+    if scores["target"] is None or (scores["target"] == 0 and scores["parent"] != 0):
+        return
     for units in spec["nulls"]:
         variant, spent = _neutral(llm, model, spec["code"], units, "")
-        cost += spent
+        out["cost"] += spent
         scores["nulls"].append(engine._measure(variant, purpose="knockout", seed=spec["seed"]) if variant else None)
-        measured += variant is not None
-    return {"scores": scores, "cost": cost, "measured": measured}
+        out["measured"] += variant is not None
 
 
 def reliance(scores: dict) -> float | None:

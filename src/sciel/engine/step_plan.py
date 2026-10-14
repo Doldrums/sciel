@@ -248,7 +248,7 @@ class EngineStepPlan:
             audit = self.assumptions.request(iteration_no, task=self.task_prompt, programs=top)
         elif block is None and not self.cfg.get("parallel_search", {}).get("enabled"):
             from .assay import plan as assay_plan
-            assay = assay_plan(self, iteration_no)
+            assay = assay_plan(self, iteration_no, None if self.budget is None else self.budget - self.B_evals - 1)
         lessons, injected_ids = self.theory.cards(context), []
         # the binding cap on ONE run of the program
         # Population stall is not evidence that this particular lineage stalled.

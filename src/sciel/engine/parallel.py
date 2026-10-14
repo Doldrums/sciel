@@ -279,7 +279,9 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
             research_jobs = research_queue.prepare(engine, ordinary_jobs=len(plans))
             intents.extend(_intent(engine, key, {'snap': snapshot}) for key, snapshot in research_jobs)
             from .assay import plan as assay_plan
-            assay = None if bootstrap else assay_plan(engine, engine.iteration_no)
+            audited = any(plan.get('assumptions') for _, plan in plans)
+            room = None if engine.budget is None else engine.budget - engine.B_evals - len(plans)
+            assay = None if bootstrap or audited else assay_plan(engine, engine.iteration_no, room)
             if assay is not None:
                 assay['model'] = engine.llm.choose_model(engine.rng.stream('prompt'))
                 intents.append({'schema': CONTRACT, 'job_id': f'A:{wave}', 'assay': assay})

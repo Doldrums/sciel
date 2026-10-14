@@ -37,19 +37,25 @@ def plan(engine) -> dict | None:
     return None
 
 
-def execute(engine, spec: dict, llm, model: str) -> dict:
+def execute(engine, spec: dict, llm, model: str, out: dict) -> None:
+    """A rewrite that does not parse or leaves the program unchanged is no probe and is not measured."""
     from .llm.client import accounted_cost
     reply = llm.generate(PROMPT.format(text=spec["text"], counterfactual=spec["counterfactual"], code=spec["code"]),
                          model)
+    out["cost"] += accounted_cost(reply)
     variant = extract_code(reply.text)
     try:
-        ast.parse(variant)
+        if ast.dump(ast.parse(variant)) == ast.dump(ast.parse(spec["code"])):
+            variant = None
     except SyntaxError:
         variant = None
-    parent = [engine._measure(spec["code"], purpose="probe", seed=s) for s in spec["seeds"]]
-    measured = [engine._measure(variant, purpose="probe", seed=s) if variant else None for s in spec["seeds"]]
-    return {"parent": parent, "variant": measured, "cost": accounted_cost(reply),
-            "measured": len(spec["seeds"]) * (1 + (variant is not None))}
+    out["parent"], out["variant"] = [None] * len(spec["seeds"]), [None] * len(spec["seeds"])
+    if variant is None:
+        return
+    for k, seed in enumerate(spec["seeds"]):
+        out["parent"][k] = engine._measure(spec["code"], purpose="probe", seed=seed)
+        out["variant"][k] = engine._measure(variant, purpose="probe", seed=seed)
+        out["measured"] += 2
 
 
 def verdict(scores: dict) -> str:

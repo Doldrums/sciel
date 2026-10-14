@@ -34,6 +34,7 @@ class Assumption:
     probe: dict | None = None
     receipt_id: str | None = None
     evidence: list = field(default_factory=list)
+    attempts: int = 0
 
 
 def _excerpt(code: str) -> str:
@@ -56,6 +57,8 @@ class Assumptions:
         self.items: list[Assumption] = []
         self.last_request = -INTERVAL
         self.pending: str | None = None
+        self.spent = 0
+        self.baselines: dict[str, list] = {}
 
     def due(self, iteration: int) -> bool:
         return iteration - self.last_request >= INTERVAL and sum(a.status == "untested" for a in self.items) < MAX_OPEN
@@ -117,9 +120,12 @@ class Assumptions:
                 for a in self.items if a.status in ("supported", "refuted")]
 
     def state(self) -> dict:
-        return {"items": [asdict(a) for a in self.items], "last_request": self.last_request, "pending": self.pending}
+        return {"items": [asdict(a) for a in self.items], "last_request": self.last_request, "pending": self.pending,
+                "spent": self.spent, "baselines": self.baselines}
 
     def load_state(self, data: dict) -> None:
         self.items = [Assumption(**a) for a in data["items"]]
         self.last_request = int(data["last_request"])
         self.pending = None
+        self.spent = int(data.get("spent", 0))
+        self.baselines = dict(data.get("baselines", {}))
