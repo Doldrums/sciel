@@ -1,6 +1,7 @@
 """Execution and commit phases of one ordinary search step."""
 from __future__ import annotations
 
+import random
 from copy import deepcopy
 from ..campaign.budget import CampaignStopped
 from .runtime import observed_stage
@@ -19,24 +20,28 @@ class EngineStepCycle:
             self._commit_step(plan, self._execute_step(plan))
             return
         left = (self.budget - self.B_evals) if self.budget is not None else 1 + ITEMS
-        for member in self.siblings.expand(self._prepare_step(island, block_room=min(1 + ITEMS, max(left, 1)))):
+        plan = self._prepare_step(island, block_room=min(1 + ITEMS, max(left, 1)))
+        members = self.siblings.expand(plan)
+        if plan.get('block'):
+            random.Random(plan['block']['seed']).shuffle(members)
+        for member in members:
             self._commit_step(member, self._execute_step(member))
 
-    def _recheck(self, code: str, score: float, pop_best: float, parent_score: float) -> tuple:
+    def _recheck(self, code: str, score: float, pop_best: float, parent_score: float, seed=None) -> tuple:
         """Re-measure a new record, or any improving time-dependent program; inconsistent results keep the minimum."""
         from .determinism import time_dependent
         clocked = time_dependent(code)
         if not (score > pop_best or (clocked and score > parent_score)):
             return score, None
-        second = self._confirmation_score(code)
+        second = self._confirmation_score(code, seed)
         consistent = second is not None and abs(second - score) <= CONFIRM_TOLERANCE * max(1.0, abs(score))
         info = {'first': score, 'second': second, 'time_dependent': clocked, 'consistent': consistent}
         return (score if consistent else min(score, second) if second is not None else 0.0), info
 
-    def _confirm(self, result, pop_best, parent_score) -> None:
+    def _confirm(self, result, pop_best, parent_score, seed=None) -> None:
         if not getattr(result, 'ok', False) or result.meta.get('remeasurement'):
             return
-        admitted, info = self._recheck(result.child_code, result.score, pop_best, parent_score)
+        admitted, info = self._recheck(result.child_code, result.score, pop_best, parent_score, seed)
         if info is not None:
             result.meta['confirmation'] = {**info, 'admitted': admitted}
 
@@ -118,7 +123,8 @@ class EngineStepCycle:
                 result.meta.setdefault(key, value)
         if episode is not None:
             result.meta['research_tools'] = episode
-        self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score)
+        self._confirm(result, plan['decision_context']['pop_best'], snapshot.parent_score,
+                      plan['block']['seed'] if plan.get('block') else None)
         if plan.get('assay'):
             from .assay import execute as assay
             measured = assay(self, plan['assay'], llm or self.llm, snapshot.model)

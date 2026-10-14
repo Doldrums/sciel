@@ -9,7 +9,7 @@ import difflib
 import re
 from copy import deepcopy
 
-BLOCK_SHARE = 0.25
+BLOCK_SHARE = 0.1
 ITEMS = 2
 OPEN = 4
 TIE = 1e-12
@@ -130,7 +130,6 @@ class Siblings:
 
     def load_state(self, data: dict) -> None:
         self.next_id = int(data["next_id"])
-        self.open = {int(k): v for k, v in data["open"].items()}
-        self.launched = [int(k) for k in data["launched"]]
+        self.open, self.launched = {}, []
         self.pairs = list(data["pairs"])
         self.counts = dict(data["counts"])

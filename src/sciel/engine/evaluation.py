@@ -14,9 +14,9 @@ class EngineEvaluation:
         return lambda code: self._evaluate(code, island_id=island, seed=seed)
 
     @observed_stage("evaluating")
-    def _confirmation_score(self, code: str) -> float | None:
+    def _confirmation_score(self, code: str, seed=None) -> float | None:
         """One more full measurement of an already evaluated source, outside the novelty registry."""
-        return self._measure(code, purpose='confirmation')
+        return self._measure(code, purpose='confirmation', seed=seed)
 
     def _measure(self, code: str, *, purpose: str, seed=None) -> float | None:
         """A measurement outside the novelty registry and the population: confirmations and knockouts."""
