@@ -20,7 +20,8 @@ from .types import Snapshot
 
 K = 10
 K2 = 30
-SHARE = 0.25
+SHARE = 0.1
+QUEUE = 2
 ALPHA = 0.05
 STRATEGY_BRIEF = ("\nRESEARCH PROGRAMME: design a new program for this task built on this approach, from scratch; "
                   "do not reuse the current designs:\n{text}\n")
@@ -67,13 +68,14 @@ class Incubator:
         return next((p for p in self.programmes if p.island == island and p.status == "open"), None)
 
     def open(self, engine, strategy) -> list[Programme]:
-        """Open a strategy programme and its control on two new islands; while a pair runs, the strategy waits."""
+        """Open a strategy programme and its control on two new islands; while a pair runs, the strategy waits among
+        the QUEUE newest."""
         remaining = (engine.budget - engine.B_evals) if engine.budget is not None else 10 ** 6
         if remaining < 2 * K:
             return []
         if not self.free():
             if all(q["id"] != strategy.id for q in self.queue):
-                self.queue.append({"id": strategy.id, "text": strategy.text})
+                self.queue = (self.queue + [{"id": strategy.id, "text": strategy.text}])[-QUEUE:]
             return []
         pair = self.next_pair
         self.next_pair += 1
@@ -91,7 +93,7 @@ class Incubator:
         if not self.free() or not self.queue:
             return []
         from types import SimpleNamespace
-        return self.open(engine, SimpleNamespace(**self.queue.pop(0)))
+        return self.open(engine, SimpleNamespace(**self.queue.pop()))
 
     def next_island(self, engine, busy=()) -> int | None:
         """The open programme with the fewest steps, while open programmes stay within their share of the steps
