@@ -80,11 +80,10 @@ class Findings:
             if item.get("kind", "finding") == "finding" and not item.get("receipt_id"):
                 continue
             text = _round(" ".join(item["text"].split()))
-            same = next((f for f in self.pool if f.kind == item.get("kind", "finding") and f.status != "retired"
-                         and _similar(f.text, text)), None)
+            same = next((f for f in self.pool if f.kind == item.get("kind", "finding") and _similar(f.text, text)), None)
             if same is not None:
                 same.created += 1
-                same.text, same.receipt_id = text, item.get("receipt_id") or same.receipt_id
+                same.receipt_id = same.receipt_id or item.get("receipt_id")
                 continue
             finding = Finding(id=f"f{len(self.pool) + 1}", text=text, cell_id=item.get("cell_id"),
                               island=int(item["island_id"]), receipt_id=item.get("receipt_id"), born=iteration,

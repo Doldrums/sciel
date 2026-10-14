@@ -1,7 +1,8 @@
 """Knowledge items judged by their sibling pairs, and the generator's forecasts judged against the base rate.
 
 Promotion and withdrawal of an item are selection rules with no error claim, at a lower bar than inference; the
-direction comes from the confidence set, so inherited evidence and this run's pairs agree on the sign. The inferential
+direction comes from the confidence set, so inherited evidence and this run's pairs agree on the sign, and no verdict
+comes before OWN pairs of this run, so inherited evidence alone never decides. The inferential
 report is e-BH at a fixed report time over every item ever opened, each with its value stopped at its own verdict.
 """
 
@@ -11,11 +12,12 @@ from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
-from ..causal.sequential import continued, e_bh, mixture
+from ..causal.sequential import GRID, LAMBDAS, continued, e_bh, mixture
 
 ALPHA = 0.05
 PROMOTE = 8.0
 MAX_PAIRS = 80
+OWN = 4
 
 
 @dataclass
@@ -53,7 +55,7 @@ class Trials:
             applied = [r["d"] for r in rows if r["applied"]]
             trial.n, trial.mean, trial.e, trial.low, trial.high = len(rows), s["mean"], s["e"], s["low"], s["high"]
             trial.applied_mean = float(np.mean(applied)) if applied else None
-            if trial.e >= PROMOTE and (trial.low > 0 or trial.high < 0):
+            if trial.n >= OWN and trial.e >= PROMOTE and (trial.low > 0 or trial.high < 0):
                 trial.status = "culture" if trial.low > 0 else "retired"
             elif trial.n >= MAX_PAIRS:
                 trial.status = "not_established"
@@ -86,14 +88,16 @@ class Trials:
         self.forecasts.append([float(q), float(event)])
 
     def forecast_skill(self) -> dict:
-        """Brier of the generator's forecasts against the running base rate known before each forecast."""
+        """Brier of the generator's forecasts against the running base rate known before each forecast; e grows only
+        when the forecasts beat the base rate."""
         if not self.forecasts:
             return {"n": 0, "e": 1.0, "mean": 0.0}
         q, y = np.array(self.forecasts).T
         base = (np.concatenate([[0.0], np.cumsum(y)[:-1]]) + 0.5) / (np.arange(len(y)) + 1.0)
         gain = (base - y) ** 2 - (q - y) ** 2
         s = mixture(gain, 1.0, ALPHA)
-        return {"n": s["n"], "e": s["e"], "mean": s["mean"]}
+        up = s["log_wealth"][int(np.argmin(np.abs(GRID))), LAMBDAS > 0]
+        return {"n": s["n"], "e": float(np.exp(np.logaddexp.reduce(up) - np.log(len(up)))), "mean": s["mean"]}
 
     def state(self) -> dict:
         return {"trials": [asdict(t) for t in self.trials.values()], "forecasts": self.forecasts}
