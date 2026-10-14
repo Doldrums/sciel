@@ -190,6 +190,7 @@ def graft_entrypoints(child: str, parent: str, names: list) -> tuple:
         return child, []
     try:
         ptree = ast.parse(parent)
+        compile(ptree, "<parent>", "exec")
     except SyntaxError:
         return child, []
 
