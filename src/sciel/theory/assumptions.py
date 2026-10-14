@@ -81,8 +81,10 @@ class Assumptions:
         added = []
         for item in _array(reply):
             text = " ".join(str(item.get("assumption", "")).split())[:400]
-            units = {pid: [u for u in names if u in {x["id"] for x in unit_catalog(known[pid].code)[1:]}]
-                     for pid, names in (item.get("units") or {}).items() if pid in known and isinstance(names, list)}
+            claimed = item.get("units") if isinstance(item.get("units"), dict) else {}
+            units = {pid: [u for u in names if isinstance(u, str)
+                           and u in {x["id"] for x in unit_catalog(known[pid].code)[1:]}]
+                     for pid, names in claimed.items() if pid in known and isinstance(names, list)}
             units = {pid: names for pid, names in units.items() if names}
             if not text or not units:
                 continue
@@ -120,4 +122,4 @@ class Assumptions:
     def load_state(self, data: dict) -> None:
         self.items = [Assumption(**a) for a in data["items"]]
         self.last_request = int(data["last_request"])
-        self.pending = data["pending"]
+        self.pending = None
