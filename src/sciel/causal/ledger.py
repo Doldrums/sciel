@@ -113,9 +113,9 @@ class Ledger:
                 row.outcome = 0.0
 
     def settled(self, row: Row) -> bool:
-        """A row enters inference only once its outcome is fixed for good: a lineage row's own event at once, an island
-        row at the end of its horizon, whether or not an event came earlier."""
-        return row.scope == "lineage" or (row.outcome is not None and self.now - row.iteration > self.horizon)
+        """A row enters inference only at the end of its horizon, when its outcome is fixed for good, whatever its
+        scope; so rows enter in decision order and no settled factor is ever revised."""
+        return row.outcome is not None and self.now - row.iteration > self.horizon
 
     def labeled(self, decision: str) -> list[Row]:
         return [r for r in self.rows if r.decision == decision and r.outcome is not None]
