@@ -1,4 +1,5 @@
-"""Operator bandit with event-window maxima and a Boltzmann probability floor."""
+"""Operator bandit: the best normalised reward among each arm's last attempts (zero for an attempt without an island
+event), an untried arm valued as the best tried one, and a Boltzmann probability floor."""
 
 from __future__ import annotations
 
@@ -45,7 +46,7 @@ def usable_inspirations(parent_id, parent_code, rows, limit=3):
 
 class OpBandit:
     def __init__(self, temperature: float = 0.5, floor: float = 0.05,
-                 window: int = 50, arms: list | None = None,
+                 window: int = 20, arms: list | None = None,
                  intensify_boost: float = 0.5):
         if floor <= 0.0:
             raise ValueError("floor must be > 0 (I-5)")
@@ -71,14 +72,15 @@ class OpBandit:
         if not arms:
             raise ValueError('no eligible mutation operators')
         raw = {a: self._window_max(a) for a in arms}
-        stat = raw
+        tried = [raw[a] for a in arms if self.events[a]]
+        stat = {a: raw[a] if self.events[a] else max(tried, default=1.0) for a in arms}
         if intensify and "diff" in raw:
             # exploit hold: a strong incumbent has stalled. Bias the local-refinement
             # arm so budget deepens the construction instead of high-variance rewrites
             # -- window-max reward structurally favors rewriters (one lucky jump), which
             # starves diff (small, consistent gains) exactly when refinement is needed.
-            stat = dict(raw)
-            stat["diff"] = max(raw.values()) + self.intensify_boost
+            stat = dict(stat)
+            stat["diff"] = max(stat.values()) + self.intensify_boost
         p = floor_clip(boltzmann(stat, self.temperature), self.floor)
         if adjust is not None:
             p = adjust(p)
@@ -88,8 +90,8 @@ class OpBandit:
         return op, p[op], {a: raw[a] for a in arms}
 
     def observe(self, op_used: str, ev) -> None:
-        if op_used in self.events and ev.is_island_event:
-            self.events[op_used].append(ev.r_norm)
+        if op_used in self.events:
+            self.events[op_used].append(ev.r_norm if ev.is_island_event else 0.0)
 
     def state(self) -> dict:
         return {"temperature": self.temperature, "floor": self.floor,

@@ -11,7 +11,7 @@ schedule_policy: sh
 milestone_fracs: [0.5, 0.75]
 op_temperature: 0.5
 op_floor: 0.05
-op_window: 50
+op_window: 20
 selection_floor: 0.001
 tau_floor: 0.001
 reward_w_pop: 1.0

@@ -210,7 +210,7 @@ class EngineInitialization:
         _arms = ["diff", "full_rewrite", "error_repair"] + \
             (["cross"] if cfg.get("crossover") else [])
         self.op_bandit = OpBandit(cfg.get("op_temperature", 0.5),
-                                  cfg.get("op_floor", 0.05), cfg.get("op_window", 50),
+                                  cfg.get("op_floor", 0.05), cfg.get("op_window", 20),
                                   arms=_arms,
                                   intensify_boost=cfg.get("op_intensify_boost", 0.5))
         sel_policy = cfg.get("selection_policy", "novelty_chain")
