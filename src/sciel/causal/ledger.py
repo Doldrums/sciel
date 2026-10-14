@@ -24,6 +24,7 @@ class Row:
     scope: str = "lineage"
     population: list = field(default_factory=list)
     gain: float = 0.0
+    standing: dict = field(default_factory=dict)
 
 
 def context_of(decision_context: dict) -> str:
@@ -39,18 +40,28 @@ class Ledger:
         self.parent: dict[str, str] = {}
         self.now = 0
         self.path_best: dict[str, float] = {}
+        self.scale: float | None = None
 
-    def path_gain(self, parent: str | None, child: str | None, score: float | None, origin: float) -> float:
-        """Rise of the best score on the root-to-child path, on a log scale above the starting program's score;
-        it telescopes along every lineage, so a copy adds nothing and siblings never take each other's credit."""
-        before = self.path_best.get(parent, origin) if parent is not None else origin
+    def path_gain(self, before: float, child: str | None, score: float | None, origin: float) -> float:
+        """Rise of the best score above `before` (the parent's path best, or the population best for a step from
+        scratch), on a log scale above the starting program's score; it telescopes along every lineage, so a copy adds
+        nothing, siblings never take each other's credit and a restart earns only what it adds to the population.
+        A starting score of zero takes its scale from the first nonzero score."""
+        before = max(before, origin)
         if child is None or score is None:
             return 0.0
         after = max(before, score)
         self.path_best[child] = after
-        scale = max(abs(origin), 1e-9)
-        potential = lambda b: math.log1p(max(b - origin, 0.0) / scale)
+        if self.scale is None and (origin != 0 or score != 0):
+            self.scale = abs(origin) if origin != 0 else abs(score)
+        if self.scale is None:
+            return 0.0
+        potential = lambda b: math.log1p(max(b - origin, 0.0) / self.scale)
         return potential(after) - potential(before)
+
+    def path_start(self, parent: str, score: float | None) -> float | None:
+        """The path best of a recorded program, else the program's own score (seeds, migrants, programme steps)."""
+        return self.path_best.get(parent, score)
 
     def add(self, *, iteration: int, island: int, decision_context: dict, child: str | None,
             parent: str | None, event: bool, gain: float = 0.0) -> None:
@@ -63,7 +74,8 @@ class Ledger:
                                  choice=str(record["choice"]), propensity=float(record["propensity"]),
                                  child=child, outcome=None if child is not None else 0.0,
                                  state=decision_context.get("parent_id"), reward=float(event),
-                                 population=list(decision_context.get("population", [])), gain=gain))
+                                 population=list(decision_context.get("population", [])), gain=gain,
+                                 standing=dict(record.get("standing", {}))))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:
@@ -110,7 +122,7 @@ class Ledger:
 
     def state(self) -> dict:
         return {"horizon": self.horizon, "rows": [asdict(r) for r in self.rows],
-                "parent": dict(self.parent), "now": self.now, "path_best": dict(self.path_best)}
+                "parent": dict(self.parent), "now": self.now, "path_best": dict(self.path_best), "scale": self.scale}
 
     def load_state(self, data: dict) -> None:
         self.horizon = int(data["horizon"])
@@ -118,3 +130,4 @@ class Ledger:
         self.parent = dict(data["parent"])
         self.now = int(data["now"])
         self.path_best = dict(data["path_best"])
+        self.scale = data["scale"]

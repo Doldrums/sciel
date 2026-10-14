@@ -1,6 +1,8 @@
 """Candidate admission, population credit and post-result learning."""
 from __future__ import annotations
 
+import math
+
 from ..causal import context_of
 from .types import NoChild
 from .loop_contracts import _trunc
@@ -273,7 +275,12 @@ class EngineAdmission:
             return
         if decision_context.get("origin") == "fresh":
             parent = None
-        gain = self.ledger.path_gain(parent, child, score, self.seed_score)
+            before = decision_context.get("pop_best")
+        else:
+            program = self.db._all.get(parent)
+            before = self.ledger.path_start(parent, program.score if program is not None else None)
+        before = self.seed_score if before is None or not math.isfinite(before) else before
+        gain = self.ledger.path_gain(before, child, score, self.seed_score)
         if research:
             from .research_culture import DECISIONS
             decision_context = {**decision_context,
