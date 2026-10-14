@@ -2,8 +2,8 @@
 
 x is the parent program (score relative to the population best, generation, latent of the world model when it is
 ready), the context and the decisions already taken in this step; a is the action, a pool item being encoded by its
-standing (none, trial, tested, culture) so the critic transfers to items it never saw. Predictions used for
-estimation are cross-fitted: rows of even islands are scored by the model trained on odd islands and the reverse.
+standing when it was offered (none, trial, tested, culture) so the critic transfers to items it never saw and never
+sees a verdict reached after the choice. Two models are fitted, one per island parity; each scores the other's rows.
 """
 
 from __future__ import annotations
@@ -27,10 +27,12 @@ CHOSEN = 16
 POOLS = ("strategy", "finding")
 
 
-def token(engine, decision: str, action: str) -> str:
-    """Pool items by their standing, other actions by name."""
+def token(engine, decision: str, action: str, standing: dict | None = None) -> str:
+    """Pool items by their standing when offered (now, when no record of it is given), other actions by name."""
     if decision not in POOLS or action == "none":
         return f"{decision}:{action}"
+    if standing:
+        return f"{decision}:{standing.get(action, 'trial')}"
     pool = engine.strategies.pool if decision == "strategy" else engine.findings.pool
     item = next((i for i in pool if i.id == action), None)
     return f"{decision}:{item.status if item else 'trial'}"
@@ -51,7 +53,8 @@ def state(engine, pid: str, context: str, world=None) -> np.ndarray:
 def chosen(engine, records: list) -> np.ndarray:
     out = np.zeros(CHOSEN, dtype=np.float32)
     for record in records:
-        out[zlib.crc32(token(engine, record["decision"], record["choice"]).encode()) % CHOSEN] += 1.0
+        out[zlib.crc32(token(engine, record["decision"], record["choice"], record.get("standing")).encode())
+            % CHOSEN] += 1.0
     return out
 
 

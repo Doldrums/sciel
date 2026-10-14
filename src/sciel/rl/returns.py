@@ -39,15 +39,18 @@ def steps(ledger, covered: tuple) -> list[Step]:
 
 
 def returns(all_steps: list[Step], value, horizon: int) -> None:
-    """Fill each step's return, latest steps first, with value(program, context) the critic's estimate."""
+    """Fill each step's return, latest steps first, with value(program, context, island) the critic's estimate; a
+    restart from scratch is no follow-up of the program that happened to be selected."""
     follow: dict[str, list[Step]] = {}
     for step in all_steps:
-        follow.setdefault(step.state, []).append(step)
+        origin = step.records.get("origin")
+        if origin is None or origin.choice != "fresh":
+            follow.setdefault(step.state, []).append(step)
     for step in reversed(all_steps):
         if step.child is None:
             step.y = step.gain
             continue
-        base = value(step.child, step.context)
+        base = value(step.child, step.context, step.island)
         later = [s for s in follow.get(step.child, []) if 0 < s.iteration - step.iteration <= horizon]
         tail = base + (LAMBDA * sum(s.y - base for s in later) / len(later) if later else 0.0)
         step.y = step.gain + GAMMA * tail

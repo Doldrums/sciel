@@ -1,9 +1,10 @@
 """Synthetic check of the step policy on a simulated lineage tree with a known best operator-origin combination.
 
-Children improve their path best with a probability that depends on the operator and on starting from scratch,
-with an interaction (a full rewrite pays only from scratch). The logged policy is a drifting mixture. The check
-reports how the fitted policy moves each decision, its KL to the logging policy, and that nothing moves when the
-outcome ignores the decisions.
+Children improve with a probability that depends on the operator and on starting from scratch, with an interaction (a
+full rewrite pays only from scratch); an improving restart beats the population best, a failing one lands below it.
+Without an effect a restart behaves as a step from its parent.
+The logged policy is a drifting mixture. The check reports how the fitted policy moves each decision, its KL to the
+logging policy, and that nothing moves when the outcome ignores the decisions.
 """
 from __future__ import annotations
 
@@ -44,13 +45,17 @@ def simulate(effect: bool, seed: int):
         parent = rng.choice(list(programs)[-50:])
         child = f"p{len(programs)}"
         improved = rng.random() < rate(operator, origin, effect)
-        start = 0.5 if origin == "fresh" else programs[parent].score
-        score = start * (1.1 if improved else 1.0)
+        best = max(p.score for p in programs.values())
+        if origin == "fresh" and effect:
+            score = best * 1.1 if improved else 0.5 * rng.uniform(1.0, 1.3)
+        else:
+            score = programs[parent].score * (1.1 if improved else 1.0)
         programs[child] = SimpleNamespace(score=score, gen=programs[parent].gen + 1)
         records = [{"decision": "operator", "distribution": operators, "choice": operator,
                     "propensity": operators[operator]},
                    {"decision": "origin", "distribution": origins, "choice": origin, "propensity": origins[origin]}]
-        gain = ledger.path_gain(None if origin == "fresh" else parent, child, score, 0.5)
+        before = best if origin == "fresh" else ledger.path_start(parent, programs[parent].score)
+        gain = ledger.path_gain(before, child, score, 0.5)
         ledger.add(iteration=t, island=t % 4, decision_context={"phase": 0, "progress": t / STEPS, "parent_id": parent,
                    "iteration_no": t, "decisions": records}, child=child, parent=parent, event=improved, gain=gain)
     best = max(p.score for p in programs.values())

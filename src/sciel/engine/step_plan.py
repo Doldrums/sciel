@@ -50,12 +50,19 @@ class EngineStepPlan:
         share = self._procedure.base_share
         return {"base": share} | {a: (1 - share) / len(arms) for a in arms} if arms else {"base": 1.0}
 
+    def _stand(self, pool) -> None:
+        """The standing of each offered pool item when it was offered, so later learning never sees verdicts that
+        came after the choice."""
+        record = self.decisions.pending[-1]
+        record["standing"] = {item.id: item.status for item in pool if item.id in record["distribution"]}
+
     def _steered(self, decision, planner, parent_id, context, distribution):
-        """The planner arm shapes a covered decision: a step policy (own or inherited) replaces the theory's tilt; the
-        world model's arm tilts only the operator."""
+        """The planner arm shapes a covered decision: a step policy (own or inherited) tilts the distribution a base
+        step would use, the one it was fitted against; the world model's arm tilts only the operator."""
         if planner in ("rl", "heritage"):
             policy = self.policy if planner == "rl" else self.heritage.policy
-            steered = policy.steer(self, decision, parent_id, context, distribution, self.decisions.pending)
+            steered = policy.steer(self, decision, parent_id, context, self.theory.tilt(decision, context, distribution),
+                                   self.decisions.pending)
         elif planner == "swm" and decision == "operator":
             steered = self.theory.tilt(decision, context, self.swm.tilt(parent_id, context, decision, distribution))
         else:
@@ -231,11 +238,14 @@ class EngineStepPlan:
             culture = [x.id for x in self.strategies.pool if x.status == "culture"]
             strategy = culture[iteration_no % len(culture)] if culture else "none"
             self.decisions.observe("strategy", {strategy: 1.0}, strategy)
+            self._stand(self.strategies.pool)
         else:
             strategy = self.decisions.sample("strategy", self._steered("strategy", planner, parent.id, context,
                                                                        self.strategies.distribution(island)))
+            self._stand(self.strategies.pool)
             finding = self.decisions.sample("finding", self._steered("finding", planner, parent.id, context,
                                                                      self.findings.distribution(island)))
+            self._stand(self.findings.pool)
         theorist = None
         if self.strategies.due(iteration_no, self._procedure.theorist_interval):
             best = sorted((p for i in self.db.islands for p in i.top_k(1)), key=lambda p: -p.score)[:2]
