@@ -13,8 +13,8 @@ from pathlib import Path
 
 OPS = {"diff": "edit", "full_rewrite": "rewrite", "cross": "crossover", "idea": "new idea",
        "error_repair": "repair", "portfolio": "portfolio seed"}
-DOING = {"llm": "model is writing", "evaluation": "evaluating", "tool_execution": "running a tool"}
-JOBS = {"A": "assay", "R": "research cell", "P": "portfolio seed"}
+DOING = {"llm": "writing", "evaluation": "evaluating", "tool_execution": "running tool"}
+JOBS = {"A": "assay", "R": "research cell", "portfolio": "first design"}
 
 
 def _seconds(stamp):
@@ -105,7 +105,8 @@ class Activity:
                 doing, seconds = "queued", None
             prefix = job_id.split(":")[0]
             what = OPS.get(info.get("op"), info.get("op")) if prefix == "G" else JOBS.get(prefix, prefix)
-            jobs.append({"job": job_id, "island": info.get("island"), "what": what, "parent": info.get("parent"),
+            parent = info.get("parent") if prefix == "G" else None
+            jobs.append({"job": job_id, "island": info.get("island"), "what": what, "parent": parent,
                          "doing": doing, "since": current["since"] if current else None, "seconds": seconds,
                          "calls": len(own)})
         return {"wave": wave, "jobs": jobs, "last": last}

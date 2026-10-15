@@ -159,7 +159,7 @@ class Dashboard:
         gain = None if best is None or seed is None else best - seed
         parts = [_label("best score"),
                  Text.assemble((_f(best, 4), Style(color=INK, bold=True)), "   ",
-                               ((f"{gain:+.4g} over seed {_f(seed, 4)}", UP if gain and gain > 0 else MUTED)
+                               ((f"{gain:+.4f} over seed {_f(seed, 4)}", UP if gain and gain > 0 else MUTED)
                                 if gain is not None else ("", MUTED))), Text(""),
                  _label("best per island over attempts")]
         parts += self._chart(snap, LEFT) + [Text("")]
@@ -173,7 +173,8 @@ class Dashboard:
             table.add_row(Text(f"I{island['id']}", style=island_color(island["id"])), _f(island.get("best"), 4),
                           str(len(own)), Text(str(sum(a["status"] == "better" for a in own)), style=UP),
                           Text(str(sum(a["status"] == "failed" for a in own)), style=DOWN))
-        parts += [_label("islands"), table, Text(""), _label("why candidates fail")]
+        parts += [_label("islands"), table if snap["islands"] else Text("no islands yet", style=DIM), Text(""),
+                  _label("why candidates fail")]
         if not snap["failures"]:
             parts.append(Text("no failures", style=DIM))
         for message, count in snap["failures"][:4]:
@@ -253,17 +254,21 @@ class Dashboard:
         last = _seconds(act.get("last") or (snap["events"][-1]["t"] if snap["events"] else None))
         rows = [Text.assemble(("NOW", MUTED), (f"   wave {act['wave']}" if act.get("wave") else "", DIM),
                               (f"   last activity {_clock(time.time() - last)} ago" if last else "", DIM))]
+        table = Table.grid(padding=(0, 1))
+        for justify in ("left", "left", "left", "right"):
+            table.add_column(justify=justify, no_wrap=True, overflow="ellipsis")
         for job in act.get("jobs", []):
             busy = job["doing"] not in ("done", "queued")
             started = _seconds(job["since"])
-            clock = _clock(time.time() - started if busy and started else job["seconds"])
+            clock = _clock(time.time() - started if busy and started else job["seconds"]) or "—"
             who = f"I{job['island']}" if job.get("island") is not None else ""
             what = f"{job['what']} of {job['parent']}" if job.get("parent") else str(job["what"])
-            rows.append(Text.assemble((f"{who:<4}", island_color(job.get("island")) if who else MUTED),
-                                      (f"{what[:20]:<21}", INK),
-                                      (f"{frame} " if busy else ("✓ " if job["doing"] == "done" else "· "),
-                                       AMBER if busy else (UP if job["doing"] == "done" else DIM)),
-                                      (f"{job['doing'][:13]:<14}", INK if busy else MUTED), (clock, MUTED)))
+            mark = f"{frame} " if busy else ("✓ " if job["doing"] == "done" else "· ")
+            table.add_row(Text(who, style=island_color(job.get("island")) if who else MUTED), Text(what, style=INK),
+                          Text.assemble((mark, AMBER if busy else (UP if job["doing"] == "done" else DIM)),
+                                        (job["doing"], INK if busy else MUTED)), Text(clock, style=MUTED))
+        if act.get("jobs"):
+            rows.append(table)
         if len(rows) == 1:
             rows.append(Text(f"{frame} {STAGES.get(snap['run'].get('stage')) or 'working'}", style=AMBER))
         return rows
