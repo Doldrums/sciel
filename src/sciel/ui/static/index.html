@@ -8,7 +8,7 @@
 :root{--bg:#000;--ink:#F5F5F7;--muted:#98989D;--rule:#2C2C2E;--accent:#0A84FF;--soft:#1C1C1E;--up:#3DAE7C;--down:#E5484D;--warn:#E8A33D;color-scheme:dark}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.45;-webkit-font-smoothing:antialiased}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-.wrap{max-width:1560px;margin:0 auto;padding:0 28px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
 header{padding-top:32px;padding-bottom:6px}
 h1{font-family:"SF Pro Display","SF Pro Text",-apple-system,BlinkMacSystemFont,sans-serif;font-weight:600;font-size:24px;letter-spacing:-.02em;margin:0;line-height:1.2}
 h2{font-size:15px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
@@ -43,8 +43,9 @@ td.idea{color:var(--muted);max-width:0;overflow:hidden;text-overflow:ellipsis;wh
 pre.diff{margin:8px 0 0;padding:10px 0;background:#0B0B0C;border:1px solid var(--rule);border-radius:9px;overflow-x:auto;font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55}
 pre.diff span{display:block;padding:0 12px;white-space:pre}
 pre.diff .a{color:#8BE0A4;background:rgba(61,174,124,.10)}pre.diff .r{color:#F19A9D;background:rgba(229,72,77,.10)}pre.diff .h{color:var(--warn)}pre.diff .c{color:#B9B9BE}
-.now{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 18px;align-items:center}
-.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);margin-right:7px;animation:pulse 1.2s ease-in-out infinite}
+.now{display:grid;grid-template-columns:repeat(4,auto);justify-content:start;gap:6px 22px;align-items:center}
+.busy{color:var(--accent)}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:7px;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
 .alert{border:1px solid var(--rule);border-radius:9px;padding:14px 16px;margin-top:16px}
@@ -224,7 +225,7 @@ function nowBox(s) {
     const busy = j.doing !== "done" && j.doing !== "queued";
     return [j.island !== null && j.island !== undefined ? isl(j.island) : el("span", {class: "tag"}, j.what),
       el("span", {}, j.what + (j.parent ? " of " + j.parent : "")),
-      el("span", {class: busy ? "warn" : j.doing === "done" ? "up" : "muted"}, busy ? el("span", {class: "pulse"}) : (j.doing === "done" ? "✓ " : "· "), j.doing),
+      el("span", {class: busy ? "busy" : j.doing === "done" ? "up" : "muted"}, busy ? el("span", {class: "pulse"}) : (j.doing === "done" ? "✓ " : "· "), j.doing),
       el("span", busy ? {class: "muted num", "data-since": j.since} : {class: "muted num"}, busy ? "" : clock(j.seconds))];
   }));
   tickClocks();

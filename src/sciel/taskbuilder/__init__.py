@@ -17,15 +17,15 @@ from .audit import audit
 from .draft import Drafter
 from .materials import digest
 
-AMBER, MUTED, INK, OK, BAD = "#E8A33D", "#8A8A8E", "#E8E8EA", "#3DAE7C", "#E5484D"
+ACCENT, MUTED, INK, OK, BAD = "#64D2FF", "#8A8A8E", "#E8E8EA", "#3DAE7C", "#E5484D"
 REPAIRS = 2
-MARKS = {"✓": OK, "!": AMBER, "✗": BAD}
+MARKS = {"✓": OK, "!": ACCENT, "✗": BAD}
 
 
 def _steps(console, done):
     line = Text()
     for i, name in enumerate(("read", "draft", "audit", "search")):
-        mark, color = ("✓", OK) if i < done else ("›", AMBER) if i == done else ("·", MUTED)
+        mark, color = ("✓", OK) if i < done else ("›", ACCENT) if i == done else ("·", MUTED)
         line.append(f"{mark} {name}   ", style=color)
     console.print(line)
 
@@ -47,7 +47,7 @@ def run(folder, *, tasks_root, note="", console=None):
     from ..engine.factory import build_llm
     console = console or Console()
     folder = Path(folder).resolve()
-    console.print(Text.assemble(("SCIEL", f"bold {AMBER}"), ("  task ", MUTED), str(folder)))
+    console.print(Text.assemble(("SCIEL", f"bold {ACCENT}"), ("  task ", MUTED), str(folder)))
     _steps(console, 0)
     text, rows = digest(folder)
     _label(console, "read")
@@ -71,14 +71,14 @@ def run(folder, *, tasks_root, note="", console=None):
             result = audit(Path(tasks_root) / name)
         if result["error"] is None or attempt == REPAIRS:
             break
-        console.print(Text(f"the seed failed; asking the model to fix it ({attempt + 1}/{REPAIRS})", style=AMBER))
+        console.print(Text(f"the seed failed; asking the model to fix it ({attempt + 1}/{REPAIRS})", style=ACCENT))
         with console.status("repairing…", spinner="dots"):
             draft = drafter.repair(draft["source"], result["error"])
     _label(console, "draft")
     console.print(Text(draft["about"] or "(no description)", style=INK))
     console.print(Text(str(problem), style=MUTED))
     for question in draft["questions"]:
-        console.print(Text.assemble(("? ", AMBER), (question, INK)))
+        console.print(Text.assemble(("? ", ACCENT), (question, INK)))
     _label(console, "audit")
     console.print(_audit_table(result))
     console.print(Text(result["verdict"], style=OK if result["admitted"] else BAD))
@@ -97,7 +97,7 @@ def interactive(folder, *, tasks_root, note=""):
         console.print(f"task {name} under {tasks_root}; start it with: sciel run {problem}")
         return 0 if result["admitted"] else 1
     while True:
-        prompt = Text.assemble(("enter", AMBER), " start search   ", ("e", AMBER), " edit draft   ", ("q", AMBER), " quit ")
+        prompt = Text.assemble(("enter", ACCENT), " start search   ", ("e", ACCENT), " edit draft   ", ("q", ACCENT), " quit ")
         choice = console.input(prompt).strip().lower()
         if choice == "q" or (choice == "" and result["error"] is not None):
             console.print(f"Saved {problem}. Start it later with: sciel run {problem}")

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-AMBER, MUTED, OK = "#E8A33D", "#8A8A8E", "#3DAE7C"
+ACCENT, MUTED, OK = "#64D2FF", "#8A8A8E", "#3DAE7C"
 
 
 class StartError(ValueError):
@@ -71,8 +71,8 @@ def ask_provider(console: Console):
         raise StartError("set ANTHROPIC_API_KEY or OPENROUTER_API_KEY")
     console.print(f"[{MUTED}]No model key found. Which provider?[/]")
     for i, (env, label, model, _) in enumerate(PROVIDERS, 1):
-        console.print(f"  [{AMBER}]{i}[/] {label} [{MUTED}]({model}, key in {env})[/]")
-    choice = console.input(f"[{AMBER}]›[/] ").strip() or "1"
+        console.print(f"  [{ACCENT}]{i}[/] {label} [{MUTED}]({model}, key in {env})[/]")
+    choice = console.input(f"[{ACCENT}]›[/] ").strip() or "1"
     if choice not in {str(i) for i in range(1, len(PROVIDERS) + 1)}:
         raise StartError("no provider chosen")
     env, label, model, llm = PROVIDERS[int(choice) - 1]
@@ -135,7 +135,7 @@ def menu(tasks_root: str) -> int:
     from ..demo import CIRCLES
     from .live import follow, spawn, write_config
     console = Console()
-    console.print(f"[bold {AMBER}]SCIEL[/]  [{MUTED}]search that gets better at searching · {__version__}[/]\n")
+    console.print(f"[bold {ACCENT}]SCIEL[/]  [{MUTED}]search that gets better at searching · {__version__}[/]\n")
     try:
         env, label, model, _ = ask_provider(console)
     except StartError as exc:
@@ -151,10 +151,10 @@ def menu(tasks_root: str) -> int:
         choices.append(("3", f"continue {runs[0][0].name}", runs[0][1]))
     console.print(f"[{MUTED}]WHAT SHOULD IT IMPROVE?[/]")
     for key, title, hint in choices:
-        console.print(f"  [{AMBER}]{key}[/]  {title:<36} [{MUTED}]{hint}[/]")
-    pick = console.input(f"[{AMBER}]›[/] ").strip() or "1"
-    console.print(f"\n[{MUTED}]WATCH IN[/]  [{AMBER}]t[/] terminal   [{AMBER}]w[/] browser   [{AMBER}]b[/] both [{MUTED}](default)[/]")
-    mode = {"t": "terminal", "w": "web"}.get(console.input(f"[{AMBER}]›[/] ").strip().lower(), "both")
+        console.print(f"  [{ACCENT}]{key}[/]  {title:<36} [{MUTED}]{hint}[/]")
+    pick = console.input(f"[{ACCENT}]›[/] ").strip() or "1"
+    console.print(f"\n[{MUTED}]WATCH IN[/]  [{ACCENT}]t[/] terminal   [{ACCENT}]w[/] browser   [{ACCENT}]b[/] both [{MUTED}](default)[/]")
+    mode = {"t": "terminal", "w": "web"}.get(console.input(f"[{ACCENT}]›[/] ").strip().lower(), "both")
     if pick == "3" and runs:
         run_dir, status = runs[0]
         child = None if status == "running" else spawn(run_dir, tasks_root=_tasks_root_of(run_dir, tasks_root))

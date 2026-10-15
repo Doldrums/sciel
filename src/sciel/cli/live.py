@@ -105,9 +105,9 @@ def _farewell(console, run_dir: Path, child) -> int:
             return 0
     if code is None:
         console.print(f"The run continues in the background.\n"
-                      f"  [#E8A33D]sciel watch[/] {run_dir}   follow it again\n"
-                      f"  [#E8A33D]sciel web[/] {run_dir}     open the page\n"
-                      f"  [#E8A33D]sciel stop[/] {run_dir}    pause after the current step")
+                      f"  [#64D2FF]sciel watch[/] {run_dir}   follow it again\n"
+                      f"  [#64D2FF]sciel web[/] {run_dir}     open the page\n"
+                      f"  [#64D2FF]sciel stop[/] {run_dir}    pause after the current step")
         return 0
     if code == 0:
         console.print(f"Run finished. {summary}\n  {run_dir}")

@@ -26,11 +26,11 @@ from .state import RunState, _seconds
 from .views import island_color
 
 INK, MUTED, DIM, RULE = "#E8E8EA", "#8A8A8E", "#5A5A5E", "#2C2C2E"
-AMBER, UP, DOWN = "#E8A33D", "#3DAE7C", "#E5484D"
+ACCENT, UP, DOWN = "#64D2FF", "#3DAE7C", "#E5484D"
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 STAGES = {"seeding": "evaluating the seed", "evaluating": "evaluating", "generating": "writing programs",
           "checkpointing": "saving", "provider_backoff": "waiting for the provider", "finished": "finished"}
-STATUS = {"culture": (UP, "holds"), "tested": ("#0A84FF", "tested"), "trial": (AMBER, "trial"),
+STATUS = {"culture": (UP, "holds"), "tested": ("#0A84FF", "tested"), "trial": (ACCENT, "trial"),
           "retired": (MUTED, "dropped")}
 OPS = {"diff": "edit", "full_rewrite": "rewrite", "cross": "crossover", "idea": "new idea", "error_repair": "repair"}
 LEFT, RIGHT = 38, 46
@@ -94,10 +94,10 @@ class Dashboard:
         live = run.get("status") == "running"
         stage = STAGES.get(run.get("stage"), run.get("stage"))
         status = (Text("● live" + (f" · {stage}" if stage else ""), style=UP) if live
-                  else Text(str(run.get("status") or "unknown"), style=AMBER))
+                  else Text(str(run.get("status") or "unknown"), style=ACCENT))
         if self._failure():
             status = Text("● engine stopped with an error", style=DOWN)
-        left = Text.assemble(("SCIEL", Style(color=AMBER, bold=True)), "  ", (str(run.get("task") or ""), INK),
+        left = Text.assemble(("SCIEL", Style(color=ACCENT, bold=True)), "  ", (str(run.get("task") or ""), INK),
                              ("  run " + str(run.get("run_id") or "")[:8], MUTED))
         budget = f"/{run['budget']}" if run.get("budget") else ""
         eta = run.get("eta_seconds")
@@ -193,7 +193,7 @@ class Dashboard:
         for i, a in enumerate(attempts[start:start + rows], start):
             step = f"{a['child'] or '—'} ← {a['parent'] or 'seed'}"
             note = a.get("error") or a.get("idea") or a.get("reply") or ""
-            table.add_row(Text(("› " if i == self.selected else "  ") + str(a["n"]), style=AMBER if i == self.selected else DIM),
+            table.add_row(Text(("› " if i == self.selected else "  ") + str(a["n"]), style=ACCENT if i == self.selected else DIM),
                           Text(f"I{a['island']}", style=island_color(a["island"])), Text(step, style=INK),
                           Text(OPS.get(a["op"], a["op"] or ""), style=MUTED), _result(a),
                           Text(f"${a['cost']:.3f}" if a.get("cost") else "", style=DIM),
@@ -222,7 +222,7 @@ class Dashboard:
             lines += [Text(""), Text.assemble(("DIFF AGAINST THE PARENT", MUTED), (f"   +{added} −{removed} lines", DIM))]
             for line in diff[2:2 + room]:
                 color = (UP if line.startswith("+") else DOWN if line.startswith("-")
-                         else AMBER if line.startswith("@@") else MUTED)
+                         else ACCENT if line.startswith("@@") else MUTED)
                 lines.append(Text(line[:width], style=color, no_wrap=True))
             if len(diff) - 2 > room:
                 lines.append(Text(f"… {len(diff) - 2 - room} more lines; the web page shows the whole diff", style=DIM))
@@ -250,7 +250,7 @@ class Dashboard:
         act = snap.get("activity") or {}
         frame = SPIN[int(time.time() * 8) % len(SPIN)]
         if snap["run"].get("status") not in ("running", "starting"):
-            return [_label("now"), Text(f"the run is {snap['run'].get('status') or 'not running'}", style=AMBER)]
+            return [_label("now"), Text(f"the run is {snap['run'].get('status') or 'not running'}", style=ACCENT)]
         last = _seconds(act.get("last") or (snap["events"][-1]["t"] if snap["events"] else None))
         rows = [Text.assemble(("NOW", MUTED), (f"   wave {act['wave']}" if act.get("wave") else "", DIM),
                               (f"   last activity {_clock(time.time() - last)} ago" if last else "", DIM))]
@@ -265,12 +265,12 @@ class Dashboard:
             what = f"{job['what']} of {job['parent']}" if job.get("parent") else str(job["what"])
             mark = f"{frame} " if busy else ("✓ " if job["doing"] == "done" else "· ")
             table.add_row(Text(who, style=island_color(job.get("island")) if who else MUTED), Text(what, style=INK),
-                          Text.assemble((mark, AMBER if busy else (UP if job["doing"] == "done" else DIM)),
+                          Text.assemble((mark, ACCENT if busy else (UP if job["doing"] == "done" else DIM)),
                                         (job["doing"], INK if busy else MUTED)), Text(clock, style=MUTED))
         if act.get("jobs"):
             rows.append(table)
         if len(rows) == 1:
-            rows.append(Text(f"{frame} {STAGES.get(snap['run'].get('stage')) or 'working'}", style=AMBER))
+            rows.append(Text(f"{frame} {STAGES.get(snap['run'].get('stage')) or 'working'}", style=ACCENT))
         return rows
 
     def _right(self, snap):
@@ -299,7 +299,7 @@ class Dashboard:
         keys = Text()
         for key, label in (("↑↓", "choose attempt"), ("b", "best program"), ("w", "web"), ("p", "pause run"),
                            ("q", "quit viewer")):
-            keys.append(key, style=AMBER)
+            keys.append(key, style=ACCENT)
             keys.append(f" {label}   ", style=MUTED)
         tail = Text(self.message or (f"web {self.web_url}" if self.web_url else ""), style=MUTED)
         return Text.assemble(keys, " " * max(1, width - keys.cell_len - tail.cell_len), tail)
