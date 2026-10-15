@@ -170,42 +170,68 @@ continuations and shared observations have separate configuration switches.
 
 ## Quick start
 
-Requires **Python 3.11–3.14** on Linux or macOS. From a source checkout:
+Requires **Python 3.11–3.14** on Linux or macOS.
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[tasks]'
-
-.venv/bin/sciel tasks list --tasks-root ./tasks
-.venv/bin/sciel run configs/smoke_mock.yaml \
-  --tasks-root ./tasks --outputs ../sciel-runs \
-  --run-id smoke --budget 6
+pip install sciel
+sciel
 ```
 
-This runs a small search with a deterministic mock model and a real CPU evaluator.
-It needs no provider credentials, learned weights or Docker image. The run is
-written to `../sciel-runs/smoke`; choose a new run ID for another fresh search.
+`sciel` with no arguments finds a model key (`ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`, or asks for one
+once), takes the default profile and asks what to improve: the bundled circle-packing demo, a program of
+yours, or a run to continue. Runs and generated tasks are kept in `./.sciel`.
 
-`budget` counts successful evolutionary evaluations. Seeding and failed attempts
-are accounted separately, so this command does not mean exactly six evaluator
-invocations. Model-call, compute and wall-time limits belong to their respective
-configuration sections.
+**Your own problem** is one Python file with `solve()` and `score(result)`:
 
-For a running experiment, request a graceful stop from another terminal:
+```python
+def solve():                # the search rewrites this
+    return [0.0, 0.0]
+
+def score(result) -> float: # fixed during the search; higher is better, valid results score above 0
+    x, y = result
+    return 1 / (1 + (x - 1.7) ** 2 + (y + 0.7) ** 2)
+
+def metrics(result):        # optional: numbers that describe how a result behaves, for the landscape maps
+    return {"x": result[0], "y": result[1]}
+```
 
 ```sh
-.venv/bin/sciel stop ../sciel-runs/smoke
+sciel solve.py --budget 40
 ```
 
-After the process stops, resume using its saved configuration and matching engine
-version:
+**From materials to a task.** Point `sciel task` at a folder with a description, papers, notebooks or data.
+A model drafts `problem.py`, the seed is run and repaired if it fails, and an audit checks repeatability,
+the noise floor and the headroom between the seed and a reference before the search starts:
 
 ```sh
-.venv/bin/sciel resume ../sciel-runs/smoke --tasks-root ./tasks
+sciel task ./materials --note "decode the order book, not forecast prices"
 ```
 
-Resume preserves the run's budget and history. Checkpoints bind task, source and
-execution identities; changing the engine can require a fresh run.
+**Following a run.** The engine runs in the background. The terminal shows the score, islands, what the
+search has learned, research cells and four views: the culture disk (islands as sectors, lineages as trees,
+findings passed between islands as chords), the landscape in behaviour axes, the same programs in code
+axes, and parent-versus-child edits against the noise band. The same views open as a local web page.
+
+```sh
+sciel watch .sciel/runs/circles-1        # terminal; w opens the page, p pauses, q leaves the run going
+sciel web .sciel/runs/circles-1          # page only
+sciel stop .sciel/runs/circles-1         # pause after the current step
+sciel resume .sciel/runs/circles-1       # continue
+```
+
+A transient provider failure (rate limit, server error, timeout) pauses a parallel run and continues it;
+the lost request is never resent and its unknown charge stays in the record.
+
+From a source checkout, a mock model needs no credentials:
+
+```sh
+python3 -m venv .venv && .venv/bin/python -m pip install -e '.[tasks]'
+.venv/bin/sciel run configs/smoke_mock.yaml --tasks-root ./tasks --budget 6 --watch none
+```
+
+`budget` counts successful evolutionary evaluations. Seeding and failed attempts are accounted
+separately. Checkpoints bind task, source and execution identities; changing the engine can require
+a fresh run.
 
 ### Configure a live experiment
 
