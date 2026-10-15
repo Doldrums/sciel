@@ -22,7 +22,8 @@ def _finite_json(text):
                 raise ValueError('duplicate JSON key: ' + key)
             result[key] = value
         return result
-    value = json.loads(text, parse_constant=constant, object_pairs_hook=unique)
+    # strict=False accepts raw newlines and tabs inside strings, which models write into nested JSON.
+    value = json.loads(text, parse_constant=constant, object_pairs_hook=unique, strict=False)
     canonical_bytes(value)
     return value
 
@@ -47,7 +48,8 @@ def _proposal_failure(error, response, artifact_id):
     return dict(status='proposal_invalid', reason=reason)
 
 
-def response_format(background=False, *, visible_tool_ids=None, sequential=False, experimental_protocol=False, independent_research=False):
+def response_format(background=False, *, visible_tool_ids=None, sequential=False, experimental_protocol=False, independent_research=False,
+                    visible_receipt_ids=None):
     strings = ('reason', 'name', 'description', 'code', 'tool_id', 'arguments_json')
     properties = {key: {'type': 'string'} for key in strings}
     properties['reason']['description'] = (
@@ -79,9 +81,12 @@ def response_format(background=False, *, visible_tool_ids=None, sequential=False
             ' For finish, explain the evidence, what remains unknown and why further trials are '
             'not warranted or are blocked now; do not merely propose an unperformed experiment.')
         for key in TEXT_FIELDS:
-            properties[key] = {'type': 'string', 'pattern': r'\S'}
+            # At least a short sentence: constrained decoders otherwise satisfy the field with one letter.
+            properties[key] = {'type': 'string', 'pattern': r'\S[\s\S]{19,}'}
         for key in ('input_receipt_id', 'candidate_receipt_id'):
-            properties[key] = {'type': 'string'}
+            # Grammar-constrained decoders can then emit only empty or a receipt that exists.
+            properties[key] = ({'type': 'string', 'pattern': '^([0-9a-f]{64})?$'} if visible_receipt_ids is None
+                               else {'type': 'string', 'enum': ['', *sorted(visible_receipt_ids)]})
         properties['question']['description'] = 'A concrete, testable question about an observed search limitation.'
         properties['decision_if_supported']['description'] = 'Which next experiment or search change follows a supporting measurement?'
         properties['decision_if_refuted']['description'] = 'Which different next experiment or search change follows a negative measurement?'
@@ -119,6 +124,8 @@ def response_format(background=False, *, visible_tool_ids=None, sequential=False
             else:
                 description += ' No tool versions are visible: this array must be [].'
         properties[key] = {'type': 'array', 'description': description, 'items': items}
+        if visible_tool_ids is not None and not visible_tool_ids:
+            properties[key]['maxItems'] = 0
     properties['tool_id']['description'] = 'For use: an exact visible TOOL-version ID; unused for create/skip.'
     return {'type': 'json_schema', 'json_schema': {'name': 'sciel_research_tool_action',
         'strict': True, 'schema': {'type': 'object', 'additionalProperties': False,

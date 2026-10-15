@@ -11,6 +11,7 @@ from .config import effective_limits
 from .controller_jobs import JobRefused
 from .result_contract import RESULT_SCHEMA
 from .research_steps import new_state, finish_state, pending_method_trials, complete_method_trial
+from .episode_execution import visible_receipts
 from .stage_data import attach_stage_input
 from . import experiment_protocol
 from .planning import _basis
@@ -164,6 +165,7 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
         try:
             response = llm.generate(prompt,tools.config['model'] or snapshot.model,tools.config['temperature'],
                 response_format=response_format(tools.background_enabled,visible_tool_ids=available,sequential=True,
+                    visible_receipt_ids=visible_receipts(state,feedback),
                     experimental_protocol=tools.config.get('experimental_protocol',False),
                     independent_research=tools.config.get('independent_research',False)))
         except AbandonedProviderRequest as error:

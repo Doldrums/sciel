@@ -230,13 +230,18 @@ def _method_pipeline(tools, pending, cell_id, *, job_state=None):
     return list(reversed(chain))
 
 
-def _stage_receipt(tools, ident, plan, state, feedback):
+def visible_receipts(state, feedback):
+    """Receipts of successful invocations this research cell may pass on."""
     allowed = {row['receipt_id'] for row in state['steps']
                if row.get('receipt_id') and row.get('status') == 'success'}
     allowed.update(row['receipt_id'] for row in feedback
                    if row.get('receipt_id') and (row.get('result') or {}).get('status') == 'success'
                    and row.get('invocation_id'))
-    if ident not in allowed:
+    return allowed
+
+
+def _stage_receipt(tools, ident, plan, state, feedback):
+    if ident not in visible_receipts(state, feedback):
         raise ValueError('receipt is not a successful visible invocation of this research cell')
     saved = tools._read_artifact(ident, 'invocation')
     if saved['cell_id'] != plan['cell_id'] or assess_receipt(saved['receipt'])['status'] != 'success':
