@@ -29,6 +29,38 @@ def next_run_dir(stem: str) -> Path:
     return runs / f"{stem}-{n}"
 
 
+def clean_key(key: str) -> str:
+    """Strip whitespace and undo a key pasted twice into a prompt that shows nothing."""
+    key = "".join(key.split())
+    half = len(key) // 2
+    return key[:half] if len(key) % 2 == 0 and half >= 20 and key[:half] == key[half:] else key
+
+
+def check_key(env: str, key: str) -> str | None:
+    """None if the provider accepts the key, else what is wrong with it."""
+    if env == "OPENROUTER_API_KEY":
+        import urllib.error
+        import urllib.request
+        request = urllib.request.Request("https://openrouter.ai/api/v1/key", headers={"Authorization": f"Bearer {key}"})
+        try:
+            urllib.request.urlopen(request, timeout=20).close()
+        except urllib.error.HTTPError as exc:
+            return f"OpenRouter rejected this key (HTTP {exc.code})"
+        except OSError as exc:
+            return f"could not reach OpenRouter to check the key: {exc}"
+        return None
+    if env == "ANTHROPIC_API_KEY":
+        import anthropic
+        try:
+            anthropic.Anthropic(api_key=key, max_retries=0, timeout=20).models.list(limit=1)
+        except anthropic.AuthenticationError:
+            return "Anthropic rejected this key (HTTP 401)"
+        except anthropic.APIError as exc:
+            return f"could not check the key with Anthropic: {exc}"
+        return None
+    return None
+
+
 def ask_provider(console: Console):
     """Use a key from the environment or the saved keys file; otherwise ask for one once."""
     from .profile import PROVIDERS, detect, save_key
@@ -44,9 +76,17 @@ def ask_provider(console: Console):
     if choice not in {str(i) for i in range(1, len(PROVIDERS) + 1)}:
         raise StartError("no provider chosen")
     env, label, model, llm = PROVIDERS[int(choice) - 1]
-    key = getpass.getpass(f"{env} (hidden): ").strip()
-    if not key:
-        raise StartError("no key given")
+    for _ in range(3):
+        key = clean_key(getpass.getpass(f"{env} (hidden, paste once and press enter): "))
+        if not key:
+            raise StartError("no key given")
+        problem = check_key(env, key)
+        if problem is None:
+            console.print(f"[{OK}]✓[/] [{MUTED}]the key works[/]")
+            break
+        console.print(f"[#E5484D]{problem}[/]")
+    else:
+        raise StartError("no working key")
     os.environ[env] = key
     if console.input(f"[{MUTED}]save it in ~/.config/sciel/keys for next time? [Y/n][/] ").strip().lower() != "n":
         save_key(env, key)
@@ -104,7 +144,7 @@ def menu(tasks_root: str) -> int:
     console.print(f"[{OK}]✓[/] [{MUTED}]model[/]    {env} → {model} via {label}")
     console.print(f"[{OK}]✓[/] [{MUTED}]profile[/]  default · 3 islands · 40 evaluations")
     console.print(f"[{MUTED}]·[/] [{MUTED}]saves to[/] ./.sciel   run sciel here again to come back\n")
-    runs = [(d, s) for d, s in _runs() if s != "completed"]
+    runs = [(d, s) for d, s in _runs() if s in ("paused", "running", "lost")]
     choices = [("1", "demo: 26 circles in a square", "a few minutes"),
                ("2", "a program of mine", "a .py file with solve() and score()")]
     if runs:

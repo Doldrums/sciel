@@ -20,6 +20,7 @@ from ..engine import checkpoint
 from ..engine.factory import build_engine
 from ..engine.parallel_recovery import (inspect_parallel_stop, authorize_parallel_recovery,
                                         has_unabandoned_provider_failure)
+from ..engine.recovery import ProviderRecoveryError
 from ..engine.runtime import RuntimeStatus
 from ..engine.run_lock import RunDirectoryBusy, RunDirectoryLock
 
@@ -102,6 +103,28 @@ def start_config(run_dir, fresh_config):
     return validate(json.loads(ckpt.read_text())['config'])
 
 
+def _explain(run_dir, cfg) -> str:
+    """Say why a parallel wave stopped, from the provider errors its calls recorded."""
+    from ..engine.parallel_recovery import _calls
+    try:
+        wave = json.loads((run_dir / '.parallel/current.json').read_text())['wave_id']
+        errors = [row.get('error') or {} for row in _calls(run_dir / '.parallel' / f'wave-{wave}')
+                  if row.get('status') == 'error']
+    except (OSError, ValueError, KeyError, TypeError):
+        errors = []
+    statuses = {e.get('http_status') for e in errors}
+    key = cfg.get('llm', {}).get('api_key_env', 'the API key')
+    if statuses & {401, 403}:
+        return (f'the model provider rejected {key} (HTTP {min(statuses & {401, 403})}); '
+                'check the key, or remove it from ~/.config/sciel/keys and start again to enter it anew')
+    if statuses & {400, 404}:
+        return (f'the model provider refused the request (HTTP {min(statuses & {400, 404})}); '
+                f'check that the model {cfg.get("llm", {}).get("models")} exists for this provider')
+    kinds = sorted({e.get('cause_type', 'unknown') + (f" {e['http_status']}" if e.get('http_status') else '')
+                    for e in errors})
+    return 'a model call failed in a way that cannot be retried: ' + (', '.join(kinds) or 'unknown error')
+
+
 def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
     """Run the engine to its end, continuing after each transient provider failure of a parallel run."""
     from .main import _run_engine
@@ -129,7 +152,10 @@ def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
                 # A graceful pause returns normally. A simultaneous stop request
                 # cannot certify this failure or erase an unknown paid outcome.
                 raise
-            receipt = inspect_parallel_stop(str(ckpt))
+            try:
+                receipt = inspect_parallel_stop(str(ckpt))
+            except ProviderRecoveryError:
+                raise SuperviseError(_explain(run_dir, cfg)) from None
             if not receipt.get('auto_recoverable'):
                 raise
             authorize_parallel_recovery(engine, str(ckpt), receipt)
@@ -164,7 +190,8 @@ def main(argv=None):
                            fresh=args.fresh_config is not None, recover=args.abandon_provider_failure,
                            log=lambda m: print(m, flush=True))
     except SuperviseError as exc:
-        parser.error(str(exc))
+        print(f'SuperviseError: {exc}', file=sys.stderr, flush=True)
+        return 2
     print(json.dumps(result), flush=True)
     return 0
 

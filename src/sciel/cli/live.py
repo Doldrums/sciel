@@ -42,6 +42,7 @@ def _reason(lines) -> str | None:
     """The exception line that ended the engine, without the traceback above it."""
     found = [line.strip() for line in lines
              if re.match(r"^[A-Za-z_][\w.]*(Error|Exception|Stopped|Interrupt|Exit)\b:?", line.strip())]
+    found = [re.sub(r"^SuperviseError:\s*", "", line) for line in found]
     if found:
         return found[-1]
     rest = [line.strip() for line in lines if line.strip()]
