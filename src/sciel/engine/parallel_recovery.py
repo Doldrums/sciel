@@ -211,10 +211,8 @@ def inspect_parallel_stop(checkpoint_path):
         _require(not (run_dir / 'STOP').exists(), 'explicit STOP forbids provider recovery')
         directory, manifest, state = _active(run_dir)
         cfg = state['config']
-        _require(cfg.get('parallel_search', {}).get('enabled') is True
-                 and cfg.get('research', {}).get('enabled') is True
-                 and cfg['research'].get('max_aux_calls') is None,
-                 'parallel recovery requires ordinary research without an auxiliary call cap')
+        _require(cfg.get('parallel_search', {}).get('enabled') is True,
+                 'provider recovery requires parallel search')
         _require(not any(cfg.get(name, {}).get('enabled') or name in state for name in
                          ('repeat_population', 'repeat_promotion', 'circle_generation', 'circle_intervention')),
                  'specialized study protocols cannot abandon provider requests')
