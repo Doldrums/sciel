@@ -161,7 +161,7 @@ def _metric_axes(programs):
     return chosen
 
 
-def _shade(fig, points, cells=(40, 26)):
+def _shade(fig, points, cells=(30, 20)):
     """Inverse-distance score field over the plot, drawn as translucent cells."""
     if len(points) < 2:
         return

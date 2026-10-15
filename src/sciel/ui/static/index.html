@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCiEL</title>
+<style>
+:root{--bg:#000;--ink:#F5F5F7;--muted:#98989D;--rule:#2C2C2E;--accent:#0A84FF;--soft:#1C1C1E;--up:#3DAE7C;--down:#E5484D;--warn:#E8A33D;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1560px;margin:0 auto;padding:0 28px}
+header{padding-top:36px;padding-bottom:10px}
+h1{font-family:"SF Pro Display","SF Pro Text",-apple-system,BlinkMacSystemFont,sans-serif;font-weight:600;font-size:24px;letter-spacing:-.02em;margin:0;line-height:1.2}
+.title{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.pill{font-size:11px;border:1px solid var(--rule);border-radius:999px;padding:2px 9px;color:var(--muted)}
+.pill.live{color:var(--up)}.pill.warn{color:var(--warn)}
+p.sub{font-size:15px;margin:6px 0 4px;max-width:90ch}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:12px;margin-top:6px}
+.meta b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:8px;padding-bottom:6px}
+.seg{display:inline-flex;background:var(--soft);border-radius:9px;padding:2px}
+.seg button{font:inherit;font-size:12px;font-weight:500;padding:5px 12px;border:0;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.grow{flex-grow:1}
+button.act{font:inherit;font-size:12px;font-weight:600;border:0;border-radius:999px;padding:5px 14px;background:var(--soft);color:var(--ink);cursor:pointer}
+button.act:disabled{color:var(--muted);cursor:default}
+section{padding-top:18px}
+h2{font-size:15px;font-weight:600;margin:10px 0 4px;letter-spacing:-.01em}
+h2.big{font-family:"SF Pro Display","SF Pro Text",-apple-system,sans-serif;font-size:22px;letter-spacing:-.02em;margin:6px 0 2px}
+.lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.note{color:var(--muted);margin:0 0 8px;font-size:12px;max-width:110ch}
+.views{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px 36px}
+.views.one{grid-template-columns:minmax(0,1fr)}
+.fig svg{width:100%;height:auto;display:block}
+.fig.disk{grid-row:span 2;max-width:640px}
+.views.one .fig{max-width:900px;margin:0 auto}
+.cap{color:var(--muted);font-size:12px;margin-top:4px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:10px 12px 8px 0;border-bottom:1px solid var(--ink)}
+td{padding:10px 12px 10px 0;vertical-align:top;border-bottom:1px solid var(--rule)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{font-size:10.5px;font-weight:500;padding:1px 7px;border-radius:4px;border:1px solid var(--rule);white-space:nowrap}
+.dot::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--fc);margin-right:5px;vertical-align:1px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:0 36px}
+.row{padding:10px 0;border-bottom:1px solid var(--rule)}
+.row .m{color:var(--muted);font-size:11.5px}
+.tape{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px}
+.tape div{display:flex;gap:14px;padding:2px 0}
+.tape .t{color:#5A5A5E}
+.chart svg{width:100%;height:200px;display:block;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-bottom:10px}
+.empty{color:var(--muted);padding:10px 0}
+footer{padding:40px 0 60px;color:var(--muted);font-size:12px}
+@media (max-width:760px){.wrap{padding:0 14px}header{padding-top:22px}h1{font-size:22px}.views,.cols{grid-template-columns:minmax(0,1fr)}table{min-width:560px}.fig.disk{grid-row:auto}}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="title"><h1 id="task">SCiEL</h1><span id="status" class="pill">connecting</span></div>
+  <p class="sub" id="sub"></p>
+  <div class="meta" id="meta"></div>
+</header>
+<div class="wrap bar">
+  <nav class="seg" aria-label="Views" id="seg"></nav>
+  <span class="grow"></span>
+  <button class="act" id="pause" type="button">Pause</button>
+</div>
+<main class="wrap">
+  <section aria-label="Best score">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+      <div><h2 class="big">Best score</h2><p class="note" id="chartnote"></p></div>
+      <div class="legend" id="chartlegend"></div>
+    </div>
+    <div class="chart" id="chart"></div>
+  </section>
+  <section aria-label="Views"><div class="views" id="views"></div></section>
+  <section aria-label="What the search learned">
+    <h2>What the search learned</h2>
+    <p class="note">Findings reach other islands as randomized arms; a finding becomes culture only after its trials show an effect. Claims are tested on the run's own randomized decisions.</p>
+    <div class="tw" id="findings"></div>
+    <div class="tw" id="claims"></div>
+  </section>
+  <section aria-label="Islands"><h2>Islands</h2><div class="tw" id="islands"></div></section>
+  <section class="cols">
+    <div><h2>Research cells</h2><div id="cells"></div></div>
+    <div><h2>Lineage of the best</h2><div id="lineage"></div></div>
+  </section>
+  <section aria-label="Events"><h2>Events</h2><div class="tape" id="events"></div></section>
+</main>
+<footer class="wrap" id="foot"></footer>
+<script>
+const COLORS = ["#E8A33D","#3DAE7C","#0A84FF","#A66BE0","#2BB3C0","#D67AB1","#D1B23F","#4F7BE8"];
+const VIEWS = [["overview","Overview"],["culture","Culture"],["landscape","Landscape"],["code","Code"],["edits","Edits"]];
+const TITLES = {culture:"Culture", landscape:"Landscape · behaviour axes", code:"Landscape · code axes", edits:"Edits · parent vs child"};
+let view = "overview", last = null, showAll = false;
+try { view = localStorage.getItem("sciel-view") || view; } catch (e) {}
+
+function el(tag, attrs, ...kids) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "style") node.setAttribute("style", v); else if (k.startsWith("on")) node.addEventListener(k.slice(2), v); else node.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined) node.append(kid instanceof Node ? kid : String(kid));
+  return node;
+}
+const fmt = (v, d = 3) => v === null || v === undefined ? "—" : Number(v).toFixed(d);
+const color = i => COLORS[(Number(i) || 0) % COLORS.length];
+const money = v => "$" + Number(v || 0).toFixed(2);
+function ago(seconds) {
+  if (!seconds && seconds !== 0) return null;
+  const m = Math.round(seconds / 60);
+  return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min";
+}
+function table(cols, rows, empty) {
+  if (!rows.length) return el("div", {class: "empty"}, empty);
+  return el("table", {}, el("thead", {}, el("tr", {}, cols.map(c => el("th", {}, c)))),
+    el("tbody", {}, rows.map(r => el("tr", {}, r.map(c => c instanceof Node ? el("td", {}, c) : el("td", {}, c))))));
+}
+
+function seg() {
+  const box = document.getElementById("seg");
+  box.replaceChildren(...VIEWS.map(([k, label]) => el("button", {type: "button", class: k === view ? "on" : "",
+    onclick: () => { view = k; try { localStorage.setItem("sciel-view", k); } catch (e) {} seg(); if (last) drawViews(last); }}, label)));
+}
+
+function header(s) {
+  const r = s.run;
+  document.getElementById("task").textContent = (r.task || "SCiEL") + (r.run_id ? " · " + r.run_id.slice(0, 8) : "");
+  document.title = (r.best !== null ? fmt(r.best) + " · " : "") + (r.task || "SCiEL");
+  const st = document.getElementById("status");
+  const live = r.status === "running";
+  st.textContent = live ? "● live" + (r.stage === "provider_backoff" ? " · waiting for provider" : "") : (r.status || "unknown");
+  st.className = "pill" + (live ? " live" : r.status === "lost" || r.status === "failed" ? " warn" : "");
+  document.getElementById("pause").disabled = !live;
+  document.getElementById("sub").textContent = [r.models && r.models.join(", "), r.reason && !live ? "stopped: " + r.reason : null].filter(Boolean).join(" · ");
+  const gain = r.best !== null && r.seed_score ? (r.best - r.seed_score) : null;
+  const decided = (s.claims || []).filter(c => c.rejected && (c.low > 0 || c.high < 0)).length;
+  const culture = (s.findings || []).filter(f => f.status === "culture").length;
+  const items = [[fmt(r.best), "best"], [gain === null ? "—" : (gain >= 0 ? "+" : "") + fmt(gain), "over seed"],
+    [r.B_evals + (r.budget ? " of " + r.budget : ""), "evaluations"], [money(r.cost), "spent"],
+    [(s.islands || []).length, "islands"], [culture, "findings became culture"], [decided, "claims decided"]];
+  const eta = ago(r.eta_seconds);
+  if (eta && live) items.push([eta, "left"]);
+  document.getElementById("meta").replaceChildren(...items.map(([b, t]) => el("span", {}, el("b", {}, b), " " + t)));
+}
+
+function chart(s) {
+  const h = s.history || [], r = s.run, box = document.getElementById("chart");
+  document.getElementById("chartnote").textContent = r.seed_score !== null && r.seed_score !== undefined ? "Seed " + fmt(r.seed_score) + ". Each step is a new best program." : "";
+  if (!h.length) { box.replaceChildren(el("div", {class: "empty"}, "no evaluations yet")); return; }
+  const W = 1000, H = 200, maxX = Math.max(r.budget || 0, r.B_evals || 0, h[h.length - 1][0], 1);
+  const ys = h.map(p => p[1]).concat(r.seed_score !== null && r.seed_score !== undefined ? [r.seed_score] : []);
+  let lo = Math.min(...ys), hi = Math.max(...ys); if (hi <= lo) { hi = lo + 1; }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const X = x => x / maxX * W, Y = y => H - (y - lo) / (hi - lo) * H;
+  let d = "M" + X(h[0][0]) + "," + Y(h[0][1]);
+  for (let i = 1; i < h.length; i++) d += " L" + X(h[i][0]) + "," + Y(h[i - 1][1]) + " L" + X(h[i][0]) + "," + Y(h[i][1]);
+  d += " L" + X(r.B_evals || h[h.length - 1][0]) + "," + Y(h[h.length - 1][1]);
+  const last = h[h.length - 1];
+  const seedLine = r.seed_score !== null && r.seed_score !== undefined ? `<line x1="0" y1="${Y(r.seed_score)}" x2="${W}" y2="${Y(r.seed_score)}" stroke="#98989D" stroke-dasharray="5 5"/>` : "";
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Best score over evaluations">${seedLine}<path d="${d}" fill="none" stroke="#F5F5F7" stroke-width="2" vector-effect="non-scaling-stroke"/><circle cx="${X(last[0])}" cy="${Y(last[1])}" r="4" fill="#000" stroke="#F5F5F7" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  document.getElementById("chartlegend").replaceChildren(el("span", {}, "best " + fmt(r.best)), el("span", {}, "- - seed"), el("span", {}, "x: evaluations, 0 to " + maxX));
+}
+
+function drawViews(s) {
+  const box = document.getElementById("views");
+  const names = view === "overview" ? ["culture", "landscape", "code", "edits"] : [view];
+  box.className = "views" + (names.length === 1 ? " one" : "");
+  box.replaceChildren(...names.map(name => {
+    const v = s.views[name], fig = el("div", {class: "fig" + (name === "culture" && names.length > 1 ? " disk" : "")});
+    fig.append(el("p", {class: "lab"}, TITLES[name]));
+    const art = el("div"); art.innerHTML = v.svg; fig.append(art);
+    fig.append(el("div", {class: "cap"}, v.caption || ""));
+    if (name === "culture" && v.stats) fig.append(el("div", {class: "cap"}, v.stats.transfers + " findings passed between islands · " + v.stats.worked + " followed by a rise · solid chord = rose, dashed = no gain"));
+    return fig;
+  }));
+}
+
+function learned(s) {
+  const tone = {culture: "var(--up)", retired: "var(--muted)", trial: "var(--warn)", tested: "var(--accent)"};
+  const rank = {culture: 0, tested: 1, trial: 2, retired: 3};
+  const all = (s.findings || []).map((f, i) => [f, i]).sort((a, b) => (rank[a[0].status] ?? 2) - (rank[b[0].status] ?? 2) || b[1] - a[1]);
+  const shown = showAll ? all : all.slice(0, 8);
+  const findings = shown.map(([f]) => [
+    el("span", {class: "tag", style: "color:" + (tone[f.status] || "var(--muted)")}, f.status || "trial"),
+    f.text || "", el("span", {class: "tag dot", style: "--fc:" + color(f.island)}, "I" + f.island), f.delivered ?? "—"]);
+  const more = all.length > 8 ? el("button", {class: "act", type: "button", style: "margin-top:10px",
+    onclick: () => { showAll = !showAll; learned(last); }}, showAll ? "Show fewer" : "Show all " + all.length + " findings") : null;
+  document.getElementById("findings").replaceChildren(table(["Status", "Finding", "From", "Delivered"], findings, "No findings yet."), more || "");
+  const claims = (s.claims || []).filter(c => c.rejected && (c.low > 0 || c.high < 0))
+    .sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect)).slice(0, 20).map(c => [
+      c.decision + " = " + c.action, el("span", {class: "num", style: "color:" + (c.effect > 0 ? "var(--up)" : "var(--down)")}, (c.effect > 0 ? "+" : "") + fmt(c.effect, 2)),
+      "[" + fmt(c.low, 2) + ", " + fmt(c.high, 2) + "]", c.taken, c.context]);
+  document.getElementById("claims").replaceChildren(claims.length ? el("div", {style: "padding-top:14px"},
+    table(["Decided claim", "Effect on improvement", "Interval", "Trials", "Context"], claims, "")) : el("div"));
+}
+
+function islands(s) {
+  const progs = s.programs || [];
+  const rows = (s.islands || []).map(i => [
+    el("span", {class: "tag dot", style: "--fc:" + color(i.id)}, "I" + i.id), i.mode || "—",
+    el("b", {class: "num"}, fmt(i.best)), progs.filter(p => p.island === i.id && p.alive).length + " / " + progs.filter(p => p.island === i.id).length,
+    el("span", {style: "color:var(--muted)"}, (i.op ? i.op + ": " : "") + (i.idea || ""))]);
+  document.getElementById("islands").replaceChildren(table(["Island", "Mode", "Best", "Alive / tried", "Last attempt"], rows, "No islands yet."));
+}
+
+function lists(s) {
+  const cells = (s.cells || []).slice().reverse().map(c => el("div", {class: "row"}, el("div", {}, c.question || "(question not recorded)"),
+    el("div", {class: "m"}, "I" + c.island + " · " + c.state)));
+  document.getElementById("cells").replaceChildren(...(cells.length ? cells : [el("div", {class: "empty"}, "No research cells yet.")]));
+  const byId = Object.fromEntries((s.programs || []).map(p => [p.id, p]));
+  const lin = (s.lineage || []).map(p => el("div", {class: "row"},
+    el("div", {}, el("b", {}, p.id + " · " + fmt(p.score)), " ", el("span", {class: "tag dot", style: "--fc:" + color(p.island)}, "I" + p.island)),
+    el("div", {class: "m"}, (p.op || "") + (p.idea ? ": " + p.idea : ""))));
+  document.getElementById("lineage").replaceChildren(...(lin.length ? lin : [el("div", {class: "empty"}, "No programs yet.")]));
+  const tone = {best: "var(--up)", drop: "var(--down)", warn: "var(--warn)", finding: "var(--warn)", cell: "var(--ink)"};
+  document.getElementById("events").replaceChildren(...(s.events || []).slice(-14).reverse().map(e =>
+    el("div", {}, el("span", {class: "t"}, (e.t || "").slice(11, 19)), el("span", {style: "color:" + (tone[e.kind] || "var(--muted)")}, e.text))));
+  document.getElementById("foot").textContent = s.run.dir + " · also in your terminal: sciel watch " + s.run.dir;
+}
+
+async function tick() {
+  try {
+    const res = await fetch("/api/state", {cache: "no-store"});
+    const s = await res.json();
+    last = s;
+    header(s); chart(s); drawViews(s); learned(s); islands(s); lists(s);
+  } catch (e) {
+    const st = document.getElementById("status"); st.textContent = "viewer stopped"; st.className = "pill warn";
+  }
+}
+document.getElementById("pause").addEventListener("click", async () => {
+  const b = document.getElementById("pause"); b.disabled = true;
+  const res = await fetch("/api/pause", {method: "POST"});
+  b.textContent = res.ok ? "Pausing after this step" : "Not running";
+});
+seg(); tick(); setInterval(tick, 2000);
+</script>
+</body>
+</html>
