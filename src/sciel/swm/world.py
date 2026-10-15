@@ -19,7 +19,6 @@ MIN_ROWS = 60
 MAX_TRAIN = 50000
 FIT_INTERVAL = 20
 MAX_WEIGHT = 3.0
-MIN_HELD = 50
 SHRINKS = (0.0, 0.1, 0.25, 0.5, 0.75, 1.0)
 BETA = 8.0
 GAMMA = 0.9
@@ -166,14 +165,13 @@ class SearchWorldModel:
         index = {k: i for i, k in enumerate(self.vocab)}
         self.edges = {r.child: (index[f"operator:{r.choice}"], r.reward) for r in ledger.rows
                       if r.decision == "operator" and r.child and f"operator:{r.choice}" in index}
-        islands = sorted({r.island for r in rows})
-        out = islands[(iteration // FIT_INTERVAL) % len(islands)]
-        held = np.array([i for i, r in enumerate(rows) if r.island == out])
-        kept = np.array([i for i, r in enumerate(rows) if r.island != out])
-        if len(islands) < 2 or len(kept) < MIN_ROWS // 2 or len(held) < MIN_HELD:
+        # Islands grow separate lineages and populations, so the gate holds out whole islands: two folds by island
+        # parity, each scored by the model fitted on the other, as the step policy's critics are.
+        parity = np.array([r.island % 2 == 1 for r in rows])
+        if min(parity.sum(), (~parity).sum()) < MIN_ROWS // 2:
             self.net = None
             return False
-        x = np.stack([self._x(rows[i].state, rows[i].context) for i in kept])
+        x = np.stack([self._x(r.state, r.context) for r in rows])
         self.mean, self.std = x.mean(0), x.std(0) + 1e-3
         children = [r.child if r.child and self._program(r.child) is not None else None for r in rows]
         data = self._batch([r.state for r in rows], [r.context for r in rows],
@@ -186,23 +184,38 @@ class SearchWorldModel:
             valid=np.array([r.child is not None for r in rows], dtype=np.float32),
             boot=np.random.default_rng(seed).poisson(1.0, size=(len(rows), model.HEADS)).astype(np.float32),
             has_child=np.array([c is not None for c in children]))
-        order = np.random.default_rng(seed).permutation(kept)
-        valid, train = order[:max(len(order) // 5, 1)], order[max(len(order) // 5, 1):]
-        net, _ = model.fit(model.rows(data, train), model.rows(data, valid), len(self.vocab), seed)
-        self.cells = _outcome_model([SimpleNamespace(context=rows[i].context, choice=f"{rows[i].decision}:{rows[i].choice}",
-                                                     outcome=rows[i].outcome) for i in kept])
-        y = data["y"][held]
-        learned = model.predict(net, model.rows(data, held))["value"]
-        cell = np.array([self._cell(rows[i].context, f"{rows[i].decision}:{rows[i].choice}") for i in held])
+        rng = np.random.default_rng(seed)
+
+        def train(indices, offset):
+            order = rng.permutation(indices)
+            cut = max(len(order) // 5, 1)
+            return model.fit(model.rows(data, order[cut:]), model.rows(data, order[:cut]), len(self.vocab),
+                             seed + offset)[0]
+
+        def cells(indices):
+            return _outcome_model([SimpleNamespace(context=rows[i].context, choice=f"{rows[i].decision}:{rows[i].choice}",
+                                                   outcome=rows[i].outcome) for i in indices])
+
+        learned, cell = np.zeros(len(rows)), np.zeros(len(rows))
+        for side in (False, True):
+            fitted, scored = np.flatnonzero(parity == side), np.flatnonzero(parity != side)
+            learned[scored] = model.predict(train(fitted, int(side)), model.rows(data, scored))["value"]
+            self.cells = cells(fitted)
+            cell[scored] = [self._cell(rows[i].context, f"{rows[i].decision}:{rows[i].choice}") for i in scored]
+        y = data["y"]
         losses = {a: _log_loss(1 / (1 + np.exp(-(a * _logit(learned) + (1 - a) * _logit(cell)))), y) for a in SHRINKS}
         self.shrink = min(SHRINKS, key=lambda a: (losses[a], a))
-        self.gate = {"held_out": len(held), "shrink": self.shrink, "swm_log_loss": losses[1.0],
+        self.gate = {"held_out": len(rows), "shrink": self.shrink, "swm_log_loss": losses[1.0],
                      "cell_mean_log_loss": losses[0.0], "blend_log_loss": losses[self.shrink]}
-        self.net = net if self.shrink > 0 else None
         self._latents = {}
-        if self.net is None:
+        if self.shrink == 0:
+            self.net = None
             return False
-        spread = model.predict(self.net, model.rows(data, kept))["epistemic"]
+        # The gate judged the procedure out of fold; the acting model is that procedure fitted on every island.
+        everything = np.arange(len(rows))
+        self.cells = cells(everything)
+        self.net = train(everything, 2)
+        spread = model.predict(self.net, model.rows(data, everything))["epistemic"]
         self.uncertain_above = float(np.quantile(spread, UNCERTAIN_QUANTILE))
         return True
 
