@@ -151,7 +151,7 @@ def braille(fig, cols, rows) -> Braille:
         elif t == "ring":
             for k in range(240):
                 a = 2 * math.pi * k / 240
-                canvas.dot(item["x"] + item["r"] * math.cos(a), item["y"] + item["r"] * math.sin(a), item["c"])
+                canvas.dot(item["x"] + item["r"] * math.cos(a), item["y"] + item["r"] * math.sin(a), "#5A5A5E")
         elif t == "line":
             color = item["c"] if item.get("o", 1) > 0.6 else _blend(item["c"], 0.75)
             pts = item["pts"]
