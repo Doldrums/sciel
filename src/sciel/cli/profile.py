@@ -23,7 +23,8 @@ BASE = {"num_islands": 3, "pop_cap": 50, "archive_size": 20, "grid_bins": 10, "i
         "reward_w_isl": 1.0, "base_temp": 0.7, "confirm_records": False, "checkpoint_on_milestone": True,
         "embed_grid": False, "candidate_novelty": {"enabled": True},
         "swm": {"embedding_api_base": None, "embedding_model": "hashed-tokens"},
-        "parallel_search": {"enabled": True, "workers": 4}}
+        "parallel_search": {"enabled": True, "workers": 6,
+                            "host_evaluator_slots": max(2, (os.cpu_count() or 4) - 2)}}
 
 
 def load_keys():

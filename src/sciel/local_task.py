@@ -47,7 +47,15 @@ def _run(program_path, stage):
 
 
 def smoke(program_path):
-    return _run(program_path, "smoke")
+    """A cheap gate: the program loads and defines solve(); full is the only stage that runs it."""
+    try:
+        program = load_candidate(program_path, "candidate_smoke")
+        if not callable(getattr(program, "solve", None)):
+            raise AttributeError("the program defines no callable solve()")
+    except Exception as exc:
+        return {"ok": False, "score": 0.0, "cases": {"combined_score": 0.0},
+                "artifacts": {"error": f"{type(exc).__name__}: {exc}"[:2000]}}
+    return {"ok": True, "score": 0.0, "cases": {"combined_score": 0.0}, "artifacts": {}}
 
 
 def full(program_path):
@@ -62,7 +70,8 @@ CONTRACT = ("Improve solve() in this program so that score(solve()) is as high a
             "score() and metrics() are fixed by the evaluator: the copies in this file are for reference, "
             "and editing them changes nothing. Higher is better and valid results score above 0; "
             "an exception or a non-finite score counts as 0. "
-            "solve() takes no arguments. Smoke runs must finish within {smoke:g} s and full runs within {full:g} s. "
+            "solve() takes no arguments. Aim for solve() to finish in a few seconds: every attempt waits for it, "
+            "and a run stops being useful at {full:g} s. "
             "Importable besides the standard library: {packages}.")
 
 
@@ -101,7 +110,7 @@ def _without_upper(source: str) -> str:
     return "".join(lines)
 
 
-def build(program: str | Path, root: str | Path, *, smoke=60.0, full=300.0, stochastic=False) -> str:
+def build(program: str | Path, root: str | Path, *, smoke=30.0, full=120.0, stochastic=False) -> str:
     """Write the task package under `root`/local/<name>; return its task name for configs."""
     path = Path(program).resolve()
     source = path.read_text()

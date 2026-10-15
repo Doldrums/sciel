@@ -18,7 +18,7 @@ Write one Python file, problem.py, that defines:
 Rules:
 - If the data has labels or targets, split it by a fixed rule: solve() may fit on the training part only, and
   score() judges on a held-out part. solve() must never read the held-out targets.
-- Keep solve() fast: under {smoke:g} seconds. Use only the Python standard library and numpy{extra}.
+- Keep solve() fast: a few seconds, never more than {smoke:g}. Use only the Python standard library and numpy{extra}.
 - Do not invent data. If something is unclear, choose the reading the materials support best and say so in ABOUT.
 
 Reply with the file in one ```python block, then one line starting with ABOUT: that says what the task is,
