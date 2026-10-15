@@ -93,6 +93,16 @@ def cmd_run(args) -> int:
     return follow(run_dir, child, mode)
 
 
+def cmd_task(args) -> int:
+    from ..taskbuilder import interactive
+    from .start import StartError, workdir
+    try:
+        return interactive(args.folder, tasks_root=str(workdir() / "tasks"), note=args.note)
+    except (StartError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+
 def cmd_watch(args) -> int:
     from pathlib import Path
     from .live import follow
@@ -233,6 +243,11 @@ def main(argv=None) -> int:
     prs.add_argument("run_dir")
     prs.add_argument("--tasks-root", default=None)
     prs.set_defaults(func=cmd_resume)
+
+    pt2 = sub.add_parser("task", help="Turn a folder of materials into a checked task, then search it")
+    pt2.add_argument("folder")
+    pt2.add_argument("--note", default="", help="what you want from the task, in a sentence")
+    pt2.set_defaults(func=cmd_task)
 
     pw = sub.add_parser("watch", help="Follow a run in the terminal")
     pw.add_argument("run_dir")

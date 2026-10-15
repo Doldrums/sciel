@@ -60,7 +60,8 @@ def confirm(program_path, n=1):
 
 CONTRACT = ("Improve solve() in this program so that score(solve()) is as high as possible. "
             "score() and metrics() are fixed by the evaluator: the copies in this file are for reference, "
-            "and editing them changes nothing. Higher is better; an exception or a non-finite score counts as 0. "
+            "and editing them changes nothing. Higher is better and valid results score above 0; "
+            "an exception or a non-finite score counts as 0. "
             "solve() takes no arguments. Smoke runs must finish within {smoke:g} s and full runs within {full:g} s.")
 
 
@@ -81,6 +82,17 @@ def _check(source: str, path: Path):
     return ast.get_docstring(tree) or ""
 
 
+def _without_upper(source: str) -> str:
+    """The seed never shows upper(): a reference may use answers that solve() must not see."""
+    tree = ast.parse(source)
+    lines = source.splitlines(keepends=True)
+    for node in reversed(tree.body):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "upper":
+            start = min([node.lineno] + [d.lineno for d in node.decorator_list]) - 1
+            del lines[start:node.end_lineno]
+    return "".join(lines)
+
+
 def build(program: str | Path, root: str | Path, *, smoke=60.0, full=300.0, stochastic=False) -> str:
     """Write the task package under `root`/local/<name>; return its task name for configs."""
     path = Path(program).resolve()
@@ -92,7 +104,7 @@ def build(program: str | Path, root: str | Path, *, smoke=60.0, full=300.0, stoc
     if not (task_dir / "task.yaml").exists():
         task_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, task_dir / "problem.py")
-        shutil.copyfile(path, task_dir / "initial_program.py")
+        (task_dir / "initial_program.py").write_text(_without_upper(source))
         (task_dir / "evaluator.py").write_text(EVALUATOR)
         prompt = CONTRACT.format(smoke=smoke, full=full)
         if about:
