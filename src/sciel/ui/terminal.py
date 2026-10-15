@@ -22,6 +22,7 @@ from .views import all_views, island_color
 INK, MUTED, DIM, RULE = "#E8E8EA", "#8A8A8E", "#5A5A5E", "#2C2C2E"
 AMBER, UP, DOWN = "#E8A33D", "#3DAE7C", "#E5484D"
 VIEWS = (("1", "culture"), ("2", "landscape"), ("3", "code"), ("4", "edits"))
+SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 TONE = {"best": UP, "drop": DOWN, "warn": AMBER, "finding": AMBER, "cell": INK, "child": INK}
 STAGES = {"seeding": "evaluating the seed", "evaluating": "evaluating", "generating": "writing programs",
           "checkpointing": "saving", "provider_backoff": "waiting for the provider", "finished": "finished"}
@@ -29,8 +30,27 @@ STATUS = {"culture": (UP, "holds"), "tested": ("#0A84FF", "tested"), "trial": (A
           "retired": (MUTED, "dropped")}
 
 
+def _clock(seconds):
+    if seconds is None:
+        return ""
+    seconds = int(seconds)
+    return f"{seconds // 60}:{seconds % 60:02d}" if seconds < 3600 else f"{seconds // 3600}h{seconds % 3600 // 60:02d}"
+
+
+def _ago(stamp):
+    from .state import _seconds
+    at = _seconds(stamp)
+    return None if at is None else max(0, time.time() - at)
+
+
 def _f(value, digits=3):
     return "—" if value is None else f"{value:.{digits}f}"
+
+
+def _seconds_or_now(stamp):
+    from .state import _seconds
+    at = _seconds(stamp)
+    return at if at is not None else time.time()
 
 
 def _label(text):
@@ -85,6 +105,8 @@ class Dashboard:
         self.quit = False
         self.snap = None
         self.figures = None
+        self._figure_key = None
+        self._refreshed = 0.0
 
     def _header(self, run, width):
         live = run.get("status") == "running"
@@ -177,7 +199,30 @@ class Dashboard:
         tape = [Text.assemble((str(e.get("t") or "")[11:19], DIM), "  ", (e["text"], TONE.get(e.get("kind"), MUTED)))
                 for e in reversed(events)]
         legend = Text(fig.get("caption") or "", style=MUTED, overflow="ellipsis", no_wrap=True)
-        return Group(tabs, Text(""), art, legend, Text(""), _label("events"), *tape)
+        return Group(tabs, Text(""), art, legend, Text(""), *self._now(snap), Text(""), _label("events"), *tape)
+
+    def _now(self, snap):
+        """One line per job of the current wave, with a spinner and a ticking clock while it works."""
+        act = snap.get("activity") or {}
+        frame = SPIN[int(time.time() * 8) % len(SPIN)]
+        quiet = _ago(act.get("last") or (snap["events"][-1]["t"] if snap["events"] else None))
+        head = Text.assemble(("NOW", MUTED), (f"   wave {act['wave']}" if act.get("wave") else "", MUTED),
+                             (f"   last activity {_clock(quiet)} ago" if quiet is not None else "", DIM))
+        rows = [head]
+        for job in act.get("jobs", []):
+            busy = job["doing"] not in ("done", "queued")
+            clock = _clock(time.time() - _seconds_or_now(job["since"]) if busy else job["seconds"])
+            who = f"I{job['island']}" if job.get("island") is not None else job["job"]
+            what = f"{job['what']} of {job['parent']}" if job.get("parent") else str(job["what"])
+            rows.append(Text.assemble((f"{who:<4}", island_color(job.get("island")) if job.get("island") is not None
+                                       else MUTED), (f"{what[:26]:<27}", INK),
+                                      (f"{frame} " if busy else ("✓ " if job["doing"] == "done" else "· "),
+                                       AMBER if busy else (UP if job["doing"] == "done" else DIM)),
+                                      (f"{job['doing']:<18}", INK if busy else MUTED), (clock, MUTED)))
+        if len(rows) == 1:
+            stage = STAGES.get(snap["run"].get("stage"))
+            rows.append(Text(f"{frame} {stage or 'working'}", style=AMBER))
+        return rows
 
     def _right(self, snap, width):
         parts = [_label("what the search learned")]
@@ -218,13 +263,19 @@ class Dashboard:
         return Group(*lines)
 
     def render(self, width, height):
-        self.snap = self.state.refresh()
+        if self.snap is None or time.monotonic() - self._refreshed >= 1.0:
+            self.snap = self.state.refresh()
+            self._refreshed = time.monotonic()
         failed = self._failure()
         if failed:
             rule = Text("─" * width, style=RULE)
             return Group(self._header(self.snap["run"], width), rule, self._error_screen(failed, width), rule,
                          self._footer(width))
-        self.figures = all_views(self.snap, self.state.code)
+        key = (len(self.snap["programs"]), len(self.snap["transfers"]), len(self.snap["edits"]),
+               len(self.snap["findings"]), sum(bool(p.get("alive")) for p in self.snap["programs"]))
+        if key != self._figure_key:
+            self.figures = all_views(self.snap, self.state.code)
+            self._figure_key = key
         left_w, right_w = 36, 46
         center_w = max(30, width - left_w - right_w - 6)
         body = Table.grid(padding=(0, 2), expand=True)
@@ -272,13 +323,13 @@ def watch(run_dir, *, web_url=None, open_web=None, pause=None, alive=None, engin
     with _cbreak() as keys, Live(console=console, screen=True, auto_refresh=False, transient=False) as live:
         last = 0.0
         while not board.quit:
-            if time.monotonic() - last >= 1.0:
+            if time.monotonic() - last >= 0.25:
                 size = console.size
                 live.update(board.render(size.width, size.height), refresh=True)
                 last = time.monotonic()
                 if alive is not None and not alive():
                     break
-            if keys and select.select([sys.stdin], [], [], 0.1)[0]:
+            if keys and select.select([sys.stdin], [], [], 0.05)[0]:
                 board.key(os.read(sys.stdin.fileno(), 1).decode(errors="ignore"))
                 last = 0.0
             elif not keys:

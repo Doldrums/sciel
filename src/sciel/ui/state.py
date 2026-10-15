@@ -64,6 +64,8 @@ class RunState:
         self.edits = []
         self.code = {}
         self._finding_island = {}
+        from .activity import Activity
+        self.activity = Activity(self.dir)
 
     def refresh(self) -> dict:
         self._read_journal()
@@ -270,4 +272,5 @@ class RunState:
             "cells": list(self.cells.values()),
             "events": self.events,
             "edits": self.edits,
+            "activity": self.activity.read(),
         }

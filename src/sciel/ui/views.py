@@ -213,8 +213,10 @@ def landscape(snap) -> dict:
     programs = [p for p in snap["programs"] if p.get("score") is not None]
     axes = _metric_axes(programs)
     if len(axes) < 2:
-        fig = _figure(kind="landscape", caption="the task reports fewer than two behaviour metrics; showing score by evaluation",
-                      axes=["evaluation", "score"])
+        reported = any(p.get("cases") for p in programs)
+        caption = ("behaviour metrics do not separate the programs yet; showing score by evaluation" if reported
+                   else "the task reports no behaviour metrics; showing score by evaluation")
+        fig = _figure(kind="landscape", caption=caption, axes=["evaluation", "score"])
         placed = [p for p in programs if p.get("B_evals") is not None]
         if not placed:
             return fig

@@ -51,6 +51,11 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .chart svg{width:100%;height:200px;display:block;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-bottom:10px}
 .empty{color:var(--muted);padding:10px 0}
+.now{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 18px;align-items:center;font-variant-numeric:tabular-nums}
+.now .busy{color:var(--warn)}.now .done{color:var(--up)}.now .muted{color:var(--muted)}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);margin-right:7px;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
 .alert{border:1px solid var(--rule);border-radius:9px;padding:14px 16px;margin-top:14px}
 .alert.bad{border-color:var(--down)}
 .alert pre{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap;margin:8px 0 0;max-height:260px;overflow:auto}
@@ -72,6 +77,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:12px}
 </div>
 <main class="wrap">
   <div id="alert"></div>
+  <section aria-label="Now" id="nowsec"><div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline"><h2 style="margin:0">Now</h2><span class="note" id="nowhead" style="margin:0"></span></div><div class="now" id="now" style="padding-top:8px"></div></section>
   <section aria-label="Best score">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
       <div><h2 class="big">Best score</h2><p class="note" id="chartnote"></p></div>
@@ -167,6 +173,36 @@ function alertBox(s) {
   } else box.replaceChildren();
 }
 
+function clock(sec) {
+  if (sec === null || sec === undefined) return "";
+  sec = Math.max(0, Math.floor(sec));
+  return sec < 3600 ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") : Math.floor(sec / 3600) + "h" + String(Math.floor(sec % 3600 / 60)).padStart(2, "0");
+}
+function since(stamp) { const t = Date.parse(stamp); return isNaN(t) ? null : (Date.now() - t) / 1000; }
+
+function nowBox(s) {
+  const act = s.activity || {}, jobs = act.jobs || [], box = document.getElementById("now");
+  const lastStamp = act.last || ((s.events || []).length ? s.events[s.events.length - 1].t : null);
+  document.getElementById("nowhead").replaceChildren(...[act.wave ? "wave " + act.wave : null,
+    lastStamp ? el("span", {"data-ago": lastStamp}, "") : null].filter(Boolean).flatMap((x, i) => i ? [" · ", x] : [x]));
+  if (!jobs.length) {
+    box.replaceChildren(el("span", {}, el("span", {class: "pulse"}), s.run.status === "running" ? "working" : (s.run.status || "")));
+    return;
+  }
+  box.replaceChildren(...jobs.flatMap(j => {
+    const busy = j.doing !== "done" && j.doing !== "queued";
+    const who = j.island !== null && j.island !== undefined ? el("span", {class: "tag dot", style: "--fc:" + color(j.island)}, "I" + j.island) : el("span", {class: "tag"}, j.job);
+    return [who, el("span", {}, j.what + (j.parent ? " of " + j.parent : "")),
+      el("span", {class: busy ? "busy" : j.doing === "done" ? "done" : "muted"}, busy ? el("span", {class: "pulse"}) : (j.doing === "done" ? "✓ " : "· "), j.doing),
+      el("span", busy ? {class: "muted", "data-since": j.since} : {class: "muted"}, busy ? "" : clock(j.seconds))];
+  }));
+  tickClocks();
+}
+function tickClocks() {
+  document.querySelectorAll("[data-since]").forEach(n => { n.textContent = clock(since(n.dataset.since)); });
+  document.querySelectorAll("[data-ago]").forEach(n => { n.textContent = "last activity " + clock(since(n.dataset.ago)) + " ago"; });
+}
+
 function chart(s) {
   const h = s.history || [], r = s.run, box = document.getElementById("chart");
   document.getElementById("chartnote").textContent = r.seed_score !== null && r.seed_score !== undefined ? "Seed " + fmt(r.seed_score) + ". Each step is a new best program." : "";
@@ -247,7 +283,7 @@ async function tick() {
     const res = await fetch("/api/state", {cache: "no-store"});
     const s = await res.json();
     last = s;
-    header(s); alertBox(s); chart(s); drawViews(s); learned(s); islands(s); lists(s);
+    header(s); alertBox(s); nowBox(s); chart(s); drawViews(s); learned(s); islands(s); lists(s);
   } catch (e) {
     const st = document.getElementById("status"); st.textContent = "viewer stopped"; st.className = "pill warn";
   }
@@ -257,7 +293,7 @@ document.getElementById("pause").addEventListener("click", async () => {
   const res = await fetch("/api/pause", {method: "POST"});
   b.textContent = res.ok ? "Pausing after this step" : "Not running";
 });
-seg(); tick(); setInterval(tick, 2000);
+seg(); tick(); setInterval(tick, 2000); setInterval(tickClocks, 1000);
 </script>
 </body>
 </html>
