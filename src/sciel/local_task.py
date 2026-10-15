@@ -62,7 +62,8 @@ CONTRACT = ("Improve solve() in this program so that score(solve()) is as high a
             "score() and metrics() are fixed by the evaluator: the copies in this file are for reference, "
             "and editing them changes nothing. Higher is better and valid results score above 0; "
             "an exception or a non-finite score counts as 0. "
-            "solve() takes no arguments. Smoke runs must finish within {smoke:g} s and full runs within {full:g} s.")
+            "solve() takes no arguments. Smoke runs must finish within {smoke:g} s and full runs within {full:g} s. "
+            "Importable besides the standard library: {packages}.")
 
 
 class TaskFileError(ValueError):
@@ -82,6 +83,13 @@ def _check(source: str, path: Path):
     return ast.get_docstring(tree) or ""
 
 
+def _packages():
+    """Scientific packages the evaluator's interpreter can import, so the model does not write for missing ones."""
+    from importlib.util import find_spec
+    return [name for name in ("numpy", "scipy", "pandas", "sklearn", "networkx", "sympy", "numba")
+            if find_spec(name) is not None]
+
+
 def _without_upper(source: str) -> str:
     """The seed never shows upper(): a reference may use answers that solve() must not see."""
     tree = ast.parse(source)
@@ -98,7 +106,8 @@ def build(program: str | Path, root: str | Path, *, smoke=60.0, full=300.0, stoc
     path = Path(program).resolve()
     source = path.read_text()
     about = _check(source, path)
-    digest = hashlib.sha256(source.encode()).hexdigest()[:8]
+    packages = _packages()
+    digest = hashlib.sha256((source + CONTRACT + EVALUATOR + ",".join(packages)).encode()).hexdigest()[:8]
     name = f"{path.stem}_{digest}"
     task_dir = Path(root) / SUITE / name
     if not (task_dir / "task.yaml").exists():
@@ -106,7 +115,7 @@ def build(program: str | Path, root: str | Path, *, smoke=60.0, full=300.0, stoc
         shutil.copyfile(path, task_dir / "problem.py")
         (task_dir / "initial_program.py").write_text(_without_upper(source))
         (task_dir / "evaluator.py").write_text(EVALUATOR)
-        prompt = CONTRACT.format(smoke=smoke, full=full)
+        prompt = CONTRACT.format(smoke=smoke, full=full, packages=", ".join(packages) or "nothing else")
         if about:
             prompt = (" ".join(about.split()) + "\n\n" + prompt)
         prompt = prompt[-MAX_TASK_PROMPT_CHARS:]

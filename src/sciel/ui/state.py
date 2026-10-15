@@ -38,6 +38,15 @@ def _idea(row):
     return text[:MAX_IDEA] if text else None
 
 
+def _reply(text, limit=1200):
+    """The model's prose around its code, without the code blocks."""
+    if not isinstance(text, str):
+        return None
+    prose = re.sub(r"```.*?(```|$)", "", text, flags=re.S)
+    prose = re.sub(r"<{7} SEARCH.*?>{7} REPLACE", "", prose, flags=re.S)
+    return " ".join(prose.split())[:limit] or None
+
+
 def _numbers(cases):
     if not isinstance(cases, dict):
         return {}
@@ -63,6 +72,9 @@ class RunState:
         self.events = []
         self.edits = []
         self.code = {}
+        self.source = {}
+        self.attempts = []
+        self.failures = Counter()
         self._finding_island = {}
         from .activity import Activity
         self.activity = Activity(self.dir)
@@ -116,6 +128,7 @@ class RunState:
                                       "gen": 0, "op": "seed", "idea": None, "B_evals": row.get("B_evals"), "cases": {}}
                 if _tokens(row.get("source")):
                     self.code[pid] = _tokens(row.get("source"))
+                    self.source[pid] = row["source"]
             if row.get("seed_score") is not None:
                 self.run["seed_score"] = row["seed_score"]
                 self._best(row.get("B_evals") or 0, row["seed_score"])
@@ -149,10 +162,12 @@ class RunState:
                                     "cases": _numbers(row.get("cases"))}
             if _tokens(row.get("child_code")):
                 self.code[child] = _tokens(row.get("child_code"))
+                self.source[child] = row["child_code"]
             parent_score = self.programs.get(parent, {}).get("score")
             if parent_score is not None and score is not None:
                 self.edits.append([parent_score, score, island])
             self._transfer(row, child, island, parent_score, score)
+        self._attempt(row, child, island, parent, score)
         self.islands.setdefault(island, {}).update(mode=row.get("effective_mode"), op=row.get("op_used"),
                                                    last=score, idea=_idea(row))
         best_before = self.run["best"]
@@ -161,6 +176,37 @@ class RunState:
             mark = " ▲ best" if best_before is not None and score > best_before else ""
             kind = "best" if mark else ("drop" if score == 0 else "child")
             self._note(row, f"I{island} {child} {score:.3f}{mark}", kind)
+
+    def _attempt(self, row, child, island, parent, score):
+        """One generation step as the user reads it: what was tried, on what, and what came of it."""
+        parent_score = self.programs.get(parent, {}).get("score")
+        artifacts = row.get("artifacts") if isinstance(row.get("artifacts"), dict) else {}
+        error = None
+        if not child:
+            error = artifacts.get("error") or str(row.get("reason") or "no program came back")
+        elif score == 0 and isinstance(row.get("cases"), dict):
+            error = row["cases"].get("error")
+        if error:
+            first = " ".join(str(error).strip().splitlines()[-1:]) or str(error)
+            self.failures[first[:160]] += 1
+        if not child:
+            status = "failed"
+        elif parent_score is None or score is None:
+            status = "measured"
+        elif score > parent_score:
+            status = "better"
+        elif score < parent_score:
+            status = "worse"
+        else:
+            status = "same"
+        meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+        self.attempts.append({
+            "n": len(self.attempts) + 1, "t": row.get("timestamp"), "island": island, "parent": parent,
+            "child": child, "op": row.get("op_used") or meta.get("op_initial") or meta.get("op_requested"),
+            "score": score, "parent_score": parent_score,
+            "delta": None if score is None or parent_score is None else score - parent_score,
+            "status": status, "error": error, "idea": _idea(row), "reply": _reply(row.get("response")),
+            "cost": row.get("cost"), "seconds": row.get("timing"), "model": row.get("model_used")})
 
     def _transfer(self, row, child, island, parent_score, score):
         context = row.get("decision_context")
@@ -273,4 +319,17 @@ class RunState:
             "events": self.events,
             "edits": self.edits,
             "activity": self.activity.read(),
+            "attempts": self.attempts[-200:],
+            "failures": self.failures.most_common(6),
         }
+
+    def diff(self, child, context=2) -> list[str]:
+        """Unified diff of a program against its parent, as lines."""
+        import difflib
+        program = self.programs.get(child) or {}
+        new = self.source.get(child)
+        old = self.source.get(program.get("parent"), "")
+        if new is None:
+            return []
+        return list(difflib.unified_diff(old.splitlines(), new.splitlines(), program.get("parent") or "parent",
+                                         child, n=context, lineterm=""))
