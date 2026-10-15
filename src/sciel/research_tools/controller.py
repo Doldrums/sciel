@@ -10,7 +10,7 @@ from .controller_jobs import BackgroundToolsMixin
 from .continuations import ContinuationMixin
 from .sharing import SharingMixin
 from .transfer_jobs import TransferJobsMixin
-from .library import ToolLibrary
+from .library import ToolLibrary, data_executor_factory
 from .lifecycle import CellLifecycle
 from .followups import FollowupLedger
 from .observation_cards import format_context
@@ -44,7 +44,8 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         self.emit, self.charge = emit, charge
         self.culture = None
         self.library = library or ToolLibrary(run_dir,
-            {'image_id': self.config['image_id']}, library_limits(self.config))
+            {'image_id': self.config['image_id']}, library_limits(self.config),
+            executor_factory=data_executor_factory(self.config['data_env']))
         self.path = self.library.path / 'artifacts'
         self.path.mkdir(parents=True, exist_ok=True)
         from ..engine.source_identity import package_source_hashes
@@ -59,6 +60,11 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         self._identity = {'contract': CONTRACT, 'config': self.config,
             'task': self.task_identity, 'library': self.library.identity,
             'implementation': implementation, 'integration': integration}
+        data = self._identity['library']['executor'].get('data')
+        self.data_note = '' if data is None else (
+            f"DATA: read-only {data['target']} holds {data['files']} files "
+            f"({data['bytes'] / 2 ** 20:.0f} MiB) of the task's development data; scored data is absent. "
+            f"Read {data['target']}/README.txt first; load arrays with numpy mmap_mode='r'.\n")
         self._state = {'schema': CONTRACT, 'identity_sha256': content_hash(self._identity),
             'opportunities': {}, 'last_episode_opportunity': {}, 'registered': [], 'published': [],
             'committed_episodes': [], 'charges': {}, 'uses': {}, 'lifecycle': {}, 'followups': {},

@@ -36,6 +36,8 @@ DEFAULTS = {
     'max_prompt_chars': 64000,
     'max_response_chars': 80000,
     'image_id': None,
+    # Environment variable naming a directory mounted read-only at /data for tools.
+    'data_env': None,
     'jobs': {'enabled': False, 'max_active': 1, 'max_pending': 16,
              'max_cpu_seconds': 3600.0, 'max_wall_seconds': 7200.0},
     'limits': {
@@ -110,6 +112,9 @@ def validate_config(value=None):
     image = cfg['image_id']
     if image is not None and (type(image) is not str or not re.fullmatch(r'sha256:[0-9a-f]{64}', image)):
         raise ValueError('research_tools.image_id must be an immutable sha256 Docker image ID')
+    data_env = cfg['data_env']
+    if data_env is not None and (type(data_env) is not str or not re.fullmatch(r'[A-Z][A-Z0-9_]*', data_env)):
+        raise ValueError('research_tools.data_env must be an environment variable name or null')
     if cfg['enabled'] and image is None:
         raise ValueError('enabled research_tools requires an immutable Docker image_id')
     for name, limit in cfg['limits'].items():

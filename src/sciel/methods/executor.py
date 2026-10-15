@@ -38,6 +38,35 @@ POLICY = dict(network='none', rootfs_read_only=True, bundle_mounts_read_only=Tru
     tmpfs_bytes=33554432)
 
 
+DATA_TARGET = '/data'
+_DATA_RECORDS = {}
+
+
+def _data_record(data_dir):
+    """Bind a read-only study dataset by the digest of every regular file it holds."""
+    root = Path(data_dir)
+    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+        raise ValueError('research data must be an absolute, non-symlink directory')
+    files = sorted(p for p in root.rglob('*') if not p.is_dir())
+    if not files or any(p.is_symlink() or not p.is_file() for p in files):
+        raise ValueError('research data must contain only regular files')
+    key = (str(root.resolve()), tuple((str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in files))
+    if key not in _DATA_RECORDS:
+        _DATA_RECORDS[key] = _digest_files(root, files)
+    return root.resolve(), deepcopy(_DATA_RECORDS[key])
+
+
+def _digest_files(root, files):
+    digest = hashlib.sha256()
+    for path in files:
+        digest.update(path.relative_to(root).as_posix().encode() + b'\0')
+        with open(path, 'rb') as f:
+            for block in iter(lambda: f.read(1 << 22), b''):
+                digest.update(block)
+    return dict(target=DATA_TARGET, read_only=True, files=len(files),
+                bytes=sum(p.stat().st_size for p in files), sha256=digest.hexdigest())
+
+
 class ExecutionRefused(ValueError):
     """Proven refusal before entering Docker transport; no method was dispatched."""
     dispatch_status = 'not_dispatched'
@@ -185,9 +214,10 @@ class DockerExecutor:
     # these additional bounds; materialization is size-bounded and charged too.
     overhead_wall_bound = 12
 
-    def __init__(self, image_id):
+    def __init__(self, image_id, *, data_dir=None):
         if not isinstance(image_id, str) or _IMAGE.fullmatch(image_id) is None:
             raise ValueError('an immutable sha256 Docker image ID is required')
+        self._data_dir, data = _data_record(data_dir) if data_dir is not None else (None, None)
         image = _cli(['image', 'inspect', '--format', '{{.Id}} {{.Os}} {{.Architecture}}', image_id])
         parts = image.stdout.decode('utf-8', 'replace').strip().split()
         if image.returncode or len(parts) != 3 or parts[0] != image_id or parts[1] != 'linux':
@@ -201,6 +231,8 @@ class DockerExecutor:
             architecture=parts[2], docker_server=version.stdout.decode().strip(),
             runner_sha256=hashlib.sha256(self._runner).hexdigest(),
             loader_sha256=hashlib.sha256(self._loader).hexdigest(), policy=deepcopy(POLICY))
+        if data is not None:
+            self._identity['data'] = data
 
     @property
     def identity(self):
@@ -222,6 +254,8 @@ class DockerExecutor:
         for local, target in [('bundle', '/bundle'), ('dependencies', '/dependencies'),
                               ('runtime', '/runtime'), ('request.json', '/request.json')]:
             args += ['--mount', f'type=bind,src={directory / local},dst={target},readonly']
+        if self._data_dir is not None:
+            args += ['--mount', f'type=bind,src={self._data_dir},dst={DATA_TARGET},readonly']
         args += [self._identity['image_id'], '-I', '-B', '/runtime/_runner.py', '--supervise', '/request.json']
         result = dict(stdout=b'', stderr='', exit_code=None, timed_out=False, overflow=False,
                       dispatched=False, removed=False, name=name)

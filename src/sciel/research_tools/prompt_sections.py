@@ -147,7 +147,7 @@ def _compact_tool_instructions(sequential, *, yield_after_success=False, public_
     text = '''RESEARCH OBJECTIVE: task/candidate uncertainty, not host trigger counters; check with control/next decision.
 ''' + _RESEARCH_PERMISSION + '''
 create: immutable Python, module-level synchronous def run(payload), not a candidate.
-STUDY-SUBJECT DATA: rules apply to candidates, not the tool API. No network/host files/credentials.
+STUDY-SUBJECT DATA: rules apply to candidates, not the tool API. No network/credentials; no host files outside /data.
 Payload keys: research_targets,search_evidence,arguments,task,task_prompt,parent_source,
 parent_program_id,parent_score,ancestry_parent_id,island_id. payload/research_targets/
 search_evidence/arguments are dicts: never json.loads those.
@@ -169,7 +169,7 @@ JSON only.
         text = """RESEARCH OBJECTIVE: choose an unresolved task/candidate decision using supplied evidence.
 """ + _RESEARCH_PERMISSION + """
 create: immutable module-level synchronous def run(payload), not candidate code.
-Task rules aren't tool APIs. No network/host files/credentials.
+Task rules aren't tool APIs. No network/credentials; no host files outside /data.
 payload/research_targets/search_evidence/arguments are dicts, not JSON strings.
 research_targets /2: absence_rules; access_paths[role]+access_paths.fields[field].
 View refs/observation_summary aren't payload; parent_*=selected, ancestry_parent_id=ancestor.
@@ -195,7 +195,7 @@ Trial cap:finish/submit; repairs capped; CPU/wall/calls recorded.
         if public_task or minimal:
             text = '''RESEARCH: resolve a task/candidate decision with a control.
 ''' + _RESEARCH_PERMISSION + '''
-create: immutable sync run(payload), not candidate code. No network/host files/credentials.
+create: immutable sync run(payload), not candidate code. No network/credentials; no host files outside /data.
 Dicts:payload/search_evidence/research_targets/arguments; json.loads strings only (import json).
 Frozen paths/nulls; view refs aren't payload. parent_*=selected; ancestry_parent_id=ancestor.
 artifact_manifest=format; json_decoded_value=inner root. Don't guess keys/retype arrays.

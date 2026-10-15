@@ -5,7 +5,7 @@ import math
 from ..methods.models import content_hash, require_hash
 from .artifact_reading import read_json
 from .config import effective_limits, library_limits
-from .library import ToolLibrary
+from .library import ToolLibrary, data_executor_factory
 from .result_contract import assess_receipt, replay_evidence
 from .replay_feedback import build_feedback, is_projection
 from ..engine.research_cells_context import _card
@@ -93,7 +93,8 @@ def load_state(lifecycle, state):
                 or any(island not in map(str, cells[ident]['affinities']) for ident in ids)):
             raise ValueError('invalid research cell affinity')
     # The immutable source reader does not initialize an executor or Docker.
-    library = ToolLibrary(lifecycle.run_dir, {'image_id': lifecycle.config['image_id']}, library_limits(lifecycle.config))
+    library = ToolLibrary(lifecycle.run_dir, {'image_id': lifecycle.config['image_id']}, library_limits(lifecycle.config),
+                          executor_factory=data_executor_factory(lifecycle.config['data_env']))
     history, receipts = {}, {}
     for cell_id, cell in cells.items():
         chain, head = {}, cell['head_revision']

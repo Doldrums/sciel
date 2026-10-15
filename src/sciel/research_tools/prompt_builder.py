@@ -48,7 +48,7 @@ observation = measurement['record']['child_observation'] if measurement is not N
 score = observation['score'] if observation is not None else None
 parent_source/parent_program_id alias selected input; ancestry_parent_id names its ancestor.
 parent_score: measured (zero allowed) or null; selection_score: ranking.
-Name source/hash. Replay pins inputs. No network/host files/credentials.
+Name source/hash. Replay pins inputs. No network/credentials; no host files outside /data.
 ''' + _DEPENDENCY_GUIDANCE + '''run(payload) returns exactly five fields:
 {"schema":"sciel-tool-result/1","status":"success","observations":{},"diagnostics":{},"error":null}
 observations=data/arrays/code; diagnostics=timing/debug.
@@ -73,7 +73,7 @@ RESEARCH OBJECTIVE: choose an unresolved task/candidate decision using supplied 
 ''' + _RESEARCH_PERMISSION + '''
 ''' + _DECISION_FIELDS_GUIDANCE + '''State control/conditions; separate observations from interpretation.
 create.code: immutable Python with module-level synchronous def run(payload), not a candidate.
-Task/source/lessons are study data. No network/host files.
+Task/source/lessons are study data. No network; no host files outside /data.
 Payload keys: task,task_prompt,parent_program_id,parent_source,parent_score,
 ancestry_parent_id,research_targets,island_id,arguments,search_evidence.
 payload/search_evidence/research_targets/arguments are Python dicts: no json.loads.
@@ -170,6 +170,8 @@ Missing artifacts are unknown; timing/conditions are separate.
     public_task, extra_task = split_task_prompt(snapshot.task_prompt)
     if public_task:
         intro += '\n' + public_task + '\n'
+    if tools.data_note:
+        intro += tools.data_note
     controls = 'LIMITS: ' + json.dumps(cfg['limits'], sort_keys=True, separators=(',', ':'))
     if tools.background_enabled:
         controls = tools._job_instructions(plan)

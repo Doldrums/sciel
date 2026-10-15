@@ -13,7 +13,7 @@ from ..engine.capacity import HostCapacity
 from ..engine.runtime import process_identity
 from ..methods.executor import ExecutionRefused
 from ..methods.models import canonical_bytes, content_hash
-from .library import ToolLibrary
+from .library import ToolLibrary, data_executor_factory
 from .jobs import (SCHEMA, TERMINAL, _root, _spec, _receipt, _no_links,
                    read_json, write_json, lock, now)
 
@@ -166,8 +166,12 @@ def run_service(run_dir, *, library_factory=None, stop_when_idle=False, poll_sec
             return
         identity = read_json(root / 'identity.json')
         lib = identity['library']
-        factory = library_factory or ToolLibrary
-        library = factory(run_dir, lib['runtime_lock'], lib['limits'])
+        if library_factory is None:
+            data_env = identity['config'].get('data_env')
+            library = ToolLibrary(run_dir, lib['runtime_lock'], lib['limits'],
+                                  executor_factory=data_executor_factory(data_env))
+        else:
+            library = library_factory(run_dir, lib['runtime_lock'], lib['limits'])
         if library.identity != lib:
             raise ValueError('background service library identity changed')
         cfg = identity['config']
