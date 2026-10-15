@@ -205,17 +205,16 @@ def _active(run_dir):
 
 
 def inspect_parallel_stop(checkpoint_path):
-    """Read-only, fail-closed eligibility for ordinary unlimited parallel search."""
+    """Read-only, fail-closed eligibility for ordinary parallel search."""
     run_dir = Path(checkpoint_path).resolve().parent
     try:
         _require(not (run_dir / 'STOP').exists(), 'explicit STOP forbids provider recovery')
         directory, manifest, state = _active(run_dir)
         cfg = state['config']
         _require(cfg.get('parallel_search', {}).get('enabled') is True
-                 and cfg.get('budget') is None and cfg.get('max_iterations') is None
                  and cfg.get('research', {}).get('enabled') is True
                  and cfg['research'].get('max_aux_calls') is None,
-                 'parallel recovery requires unlimited ordinary research')
+                 'parallel recovery requires ordinary research without an auxiliary call cap')
         _require(not any(cfg.get(name, {}).get('enabled') or name in state for name in
                          ('repeat_population', 'repeat_promotion', 'circle_generation', 'circle_intervention')),
                  'specialized study protocols cannot abandon provider requests')

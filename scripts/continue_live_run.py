@@ -99,8 +99,6 @@ def main():
             parser.error('A fresh run cannot use warm_start')
     else:
         cfg = validate(json.loads(ckpt.read_text())['config'])
-    if cfg.get('budget') is not None or cfg.get('max_iterations') is not None:
-        parser.error('This supervisor is only for explicitly unlimited live runs')
     ensure_credentials(cfg)
     if not cfg.get('parallel_search', {}).get('enabled'):
         parser.error('This supervisor requires parallel_search')
