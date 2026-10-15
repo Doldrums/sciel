@@ -119,13 +119,18 @@ def resolve(target: str, *, tasks_root: str, budget=None, seed=None, console=Non
 
 
 def _runs():
+    """Unfinished runs that can continue, newest first, as (directory, status, engine alive)."""
+    from ..engine.runtime import process_matches
     rows = []
     for run in sorted((workdir() / "runs").glob("*/runtime.json"), key=lambda p: p.stat().st_mtime, reverse=True):
         try:
-            status = json.loads(run.read_text()).get("status")
+            runtime = json.loads(run.read_text())
         except (OSError, ValueError):
             continue
-        rows.append((run.parent, status))
+        alive = runtime.get("status") == "running" and process_matches(runtime) is True
+        status = "running" if alive else ("lost" if runtime.get("status") == "running" else runtime.get("status"))
+        if status != "completed" and (run.parent / "checkpoint.json").exists():
+            rows.append((run.parent, status, alive))
     return rows
 
 
@@ -144,7 +149,7 @@ def menu(tasks_root: str) -> int:
     console.print(f"[{OK}]✓[/] [{MUTED}]model[/]    {env} → {model} via {label}")
     console.print(f"[{OK}]✓[/] [{MUTED}]profile[/]  default · 3 islands · 40 evaluations")
     console.print(f"[{MUTED}]·[/] [{MUTED}]saves to[/] ./.sciel   run sciel here again to come back\n")
-    runs = [(d, s) for d, s in _runs() if s in ("paused", "running", "lost")]
+    runs = _runs()
     choices = [("1", "demo: 26 circles in a square", "a few minutes"),
                ("2", "a program of mine", "a .py file with solve() and score()")]
     if runs:
@@ -156,8 +161,8 @@ def menu(tasks_root: str) -> int:
     console.print(f"\n[{MUTED}]WATCH IN[/]  [{ACCENT}]t[/] terminal   [{ACCENT}]w[/] browser   [{ACCENT}]b[/] both [{MUTED}](default)[/]")
     mode = {"t": "terminal", "w": "web"}.get(console.input(f"[{ACCENT}]›[/] ").strip().lower(), "both")
     if pick == "3" and runs:
-        run_dir, status = runs[0]
-        child = None if status == "running" else spawn(run_dir, tasks_root=_tasks_root_of(run_dir, tasks_root))
+        run_dir, status, alive = runs[0]
+        child = None if alive else spawn(run_dir, tasks_root=_tasks_root_of(run_dir, tasks_root))
         return follow(run_dir, child, mode)
     if pick == "2":
         target = console.input(f"[{MUTED}]path to the .py file:[/] ").strip()

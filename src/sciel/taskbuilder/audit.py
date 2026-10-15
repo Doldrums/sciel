@@ -60,10 +60,13 @@ def audit(task_dir, *, timeout=300.0, repeats=3) -> dict:
         rows.append(("✗", "seed scores above 0", f"score {seed:.6g}"))
         return {"rows": rows, "verdict": "score must be positive", "admitted": False, "error": error}
     rows.append(("✓", "seed runs", f"score {seed:.6g} in {first['seconds']:.1f} s"))
-    scores = [seed] + [_run(task_dir, "full", timeout).get("score") for _ in range(repeats - 1)]
-    if any(s is None for s in scores):
-        rows.append(("✗", "repeatable", "a repeat run failed"))
-        return {"rows": rows, "verdict": "unstable seed", "admitted": False, "error": None}
+    repeats_run = [_run(task_dir, "full", timeout) for _ in range(repeats - 1)]
+    broken = next((r for r in repeats_run if not r.get("ok")), None)
+    if broken is not None:
+        error = broken.get("artifacts", {}).get("error", "a repeat run failed")
+        rows.append(("✗", "repeatable", "a repeat run failed: " + error.strip().splitlines()[-1][:100]))
+        return {"rows": rows, "verdict": "unstable seed", "admitted": False, "error": error}
+    scores = [seed] + [r["score"] for r in repeats_run]
     spread = statistics.pstdev(scores)
     eps = 2 * spread
     rows.append(("✓", "deterministic", f"{repeats} of {repeats} runs equal") if spread == 0 else
@@ -86,4 +89,4 @@ def audit(task_dir, *, timeout=300.0, repeats=3) -> dict:
             verdict, admitted = "no room: the seed already reaches the reference within noise", False
     rows.append(("!", "isolation", "candidates run in the scorer's process and could read its files"))
     return {"rows": rows, "verdict": verdict, "admitted": admitted, "error": None, "seed": seed, "upper": upper,
-            "eps": eps}
+            "eps": eps, "stochastic": spread > 0}

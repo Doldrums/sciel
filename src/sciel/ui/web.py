@@ -40,6 +40,7 @@ class Live:
     def __init__(self, run_dir, engine=None):
         self.state = RunState(run_dir)
         self.engine = engine
+        self._views = (None, None)
         self.lock = threading.Lock()
         self.at = 0.0
         self.body = b"{}"
@@ -56,9 +57,12 @@ class Live:
         with self.lock:
             if time.monotonic() - self.at >= REFRESH_SECONDS:
                 snap = self.state.refresh()
-                views = all_views(snap, self.state.code)
-                snap["views"] = {name: {"svg": svg(fig, *SIZES[name]), "caption": fig.get("caption"),
-                                        "stats": fig.get("stats")} for name, fig in views.items()}
+                key = (self.state._offset, self.state._checkpoint_mtime)
+                if self._views[0] != key:
+                    views = all_views(snap, self.state.code)
+                    self._views = (key, {name: {"svg": svg(fig, *SIZES[name]), "caption": fig.get("caption"),
+                                                "stats": fig.get("stats")} for name, fig in views.items()})
+                snap["views"] = self._views[1]
                 snap["programs"] = [{k: v for k, v in p.items() if k != "cases"} for p in snap["programs"]]
                 snap["claims"] = [c for c in snap["claims"] if c.get("rejected") and (c.get("low", 0) > 0 or c.get("high", 0) < 0)]
                 snap["edits"] = []
@@ -80,7 +84,18 @@ def _handler(live, run_dir):
             self.end_headers()
             self.wfile.write(body)
 
+        def _local(self):
+            """Refuse requests a foreign page could forge: a rebound Host, or a cross-site Origin on a write."""
+            port = self.server.server_address[1]
+            allowed = {f"localhost:{port}", f"127.0.0.1:{port}"}
+            if self.headers.get("Host") not in allowed:
+                return False
+            origin = self.headers.get("Origin")
+            return self.command == "GET" or origin in {f"http://{host}" for host in allowed}
+
         def do_GET(self):
+            if not self._local():
+                return self._send(403, b"forbidden", "text/plain")
             if self.path in ("/", "/index.html"):
                 self._send(200, page, "text/html; charset=utf-8")
             elif self.path == "/api/state":
@@ -92,6 +107,8 @@ def _handler(live, run_dir):
                 self._send(404, b"not found", "text/plain")
 
         def do_POST(self):
+            if not self._local():
+                return self._send(403, b"forbidden", "text/plain")
             if self.path == "/api/pause":
                 ok = request_pause(run_dir)
                 self._send(200 if ok else 409, json.dumps({"paused": ok}).encode(), "application/json")

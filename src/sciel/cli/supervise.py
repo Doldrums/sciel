@@ -17,7 +17,6 @@ import threading
 from ..campaign.budget import CampaignStopped
 from ..config import load_config, validate
 from ..engine import checkpoint
-from ..engine.factory import build_engine
 from ..engine.parallel_recovery import (inspect_parallel_stop, authorize_parallel_recovery,
                                         has_unabandoned_provider_failure)
 from ..engine.recovery import ProviderRecoveryError
@@ -71,21 +70,18 @@ def _owned_backoff(run_dir, seconds):
 
 def ensure_credentials(cfg):
     """File-based Codex auth is read by its adapter immediately before HTTP."""
-    llm = cfg['llm']
+    llm = cfg.get('llm') or {}
     if llm.get('mock'):
         return
-    from .profile import load_keys
-    load_keys()
-    codex = llm.get('provider') == 'codex_responses'
-    if codex and llm.get('codex_auth_file') is not None:
+    provider = llm.get('provider')
+    if provider == 'codex_responses' and llm.get('codex_auth_file') is not None:
         return
-    default = {'codex_responses': 'CODEX_TOKEN', 'anthropic': 'ANTHROPIC_API_KEY'}.get(llm.get('provider'),
-                                                                                        'OPENROUTER_API_KEY')
-    key_name = llm.get('api_key_env', default)
+    key_name, label = {'codex_responses': ('CODEX_TOKEN', 'Codex token'),
+                       'anthropic': ('ANTHROPIC_API_KEY', 'Anthropic API key')}.get(
+        provider, ('OPENROUTER_API_KEY', 'OpenRouter API key'))
+    key_name = llm.get('api_key_env', key_name)
     if not os.environ.get(key_name):
-        if not sys.stdin.isatty():
-            raise SuperviseError(f'set {key_name} in the environment')
-        os.environ[key_name] = getpass.getpass(f'{key_name} (hidden): ')
+        os.environ[key_name] = getpass.getpass(label + ' (hidden): ')
 
 
 def start_config(run_dir, fresh_config):
@@ -93,10 +89,7 @@ def start_config(run_dir, fresh_config):
     if fresh_config is not None:
         if run_dir.exists() and (not run_dir.is_dir() or any(run_dir.iterdir())):
             raise SuperviseError('a fresh run needs a new or empty output directory')
-        cfg = validate(load_config(str(fresh_config)) if not isinstance(fresh_config, dict) else fresh_config)
-        if cfg.get('warm_start') is not None:
-            raise SuperviseError('a fresh run cannot use warm_start')
-        return cfg
+        return validate(load_config(str(fresh_config)) if not isinstance(fresh_config, dict) else fresh_config)
     ckpt = run_dir / 'checkpoint.json'
     if not ckpt.exists():
         raise SuperviseError(f'no checkpoint in {run_dir}; start it with a config first')
@@ -125,16 +118,17 @@ def _explain(run_dir, cfg) -> str | None:
     return 'a model call failed in a way that cannot be retried: ' + ', '.join(kinds) if kinds else None
 
 
-def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
+def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print, tasks_root_override=False):
     """Run the engine to its end, continuing after each transient provider failure of a parallel run."""
-    from .main import _run_engine
+    from . import main as cli
     run_dir = Path(run_dir).resolve()
     ckpt = run_dir / 'checkpoint.json'
     parallel = bool(cfg.get('parallel_search', {}).get('enabled'))
     failures = 0
     initial_resume = not fresh
     while True:
-        engine = build_engine(cfg, str(tasks_root), str(run_dir), python=sys.executable)
+        engine = cli.build_engine(cfg, str(tasks_root), str(run_dir), python=sys.executable,
+                                  tasks_root_override=tasks_root_override)
         before = 0
         try:
             if not fresh:
@@ -142,11 +136,11 @@ def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
             if parallel and initial_resume and not recover and has_unabandoned_provider_failure(str(ckpt)):
                 raise SuperviseError('the checkpoint ends on an unresolved provider failure; '
                                      'resume with --abandon-provider-failure to give up that request')
-            before = engine.iteration_no
+            before = getattr(engine, "iteration_no", 0)
             if recover:
                 authorize_parallel_recovery(engine, str(ckpt), inspect_parallel_stop(str(ckpt)))
             fresh = False
-            return _run_engine(engine)
+            return cli._run_engine(engine)
         except CampaignStopped:
             if engine._stop_requested or not parallel:
                 # A graceful pause returns normally. A simultaneous stop request
@@ -167,7 +161,9 @@ def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
             log(f'Provider failure sealed; continuation after {delay}s without retrying the failed call. '
                 'Unknown charge retained in recovery history.')
         finally:
-            engine.close()
+            close = getattr(engine, 'close', None)
+            if callable(close):
+                close()
         if not backoff(run_dir, delay):
             return {'reason': 'paused'}
         recover = False
@@ -191,7 +187,7 @@ def main(argv=None):
         ensure_credentials(cfg)
         result = supervise(run_dir, cfg, tasks_root=args.tasks_root or _default_tasks_root(),
                            fresh=args.fresh_config is not None, recover=args.abandon_provider_failure,
-                           log=lambda m: print(m, flush=True))
+                           log=lambda m: print(m, flush=True), tasks_root_override=args.tasks_root is not None)
     except SuperviseError as exc:
         print(f'SuperviseError: {exc}', file=sys.stderr, flush=True)
         return 2

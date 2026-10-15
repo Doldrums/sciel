@@ -63,7 +63,11 @@ def full(program_path):
 
 
 def confirm(program_path, n=1):
-    return _run(program_path, "confirm")
+    """n fresh runs; the first failure, else the lowest score, with the number of trials taken."""
+    n = max(1, int(n or 1))
+    runs = [_run(program_path, f"confirm{i}") for i in range(n)]
+    chosen = next((r for r in runs if not r["ok"]), None) or min(runs, key=lambda r: r["score"])
+    return {**chosen, "cases": {**chosen["cases"], "n_trials": float(n)}}
 '''
 
 CONTRACT = ("Improve solve() in this program so that score(solve()) is as high as possible. "
@@ -116,7 +120,8 @@ def build(program: str | Path, root: str | Path, *, smoke=30.0, full=120.0, stoc
     source = path.read_text()
     about = _check(source, path)
     packages = _packages()
-    digest = hashlib.sha256((source + CONTRACT + EVALUATOR + ",".join(packages)).encode()).hexdigest()[:8]
+    identity = source + CONTRACT + EVALUATOR + ",".join(packages) + f"|stochastic={bool(stochastic)}"
+    digest = hashlib.sha256(identity.encode()).hexdigest()[:8]
     name = f"{path.stem}_{digest}"
     task_dir = Path(root) / SUITE / name
     if not (task_dir / "task.yaml").exists():

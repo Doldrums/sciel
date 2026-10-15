@@ -352,7 +352,9 @@ function draw(s) {
 async function tick() {
   try {
     const s = await (await fetch("/api/state", {cache: "no-store"})).json();
-    const changed = !last || JSON.stringify((s.attempts || []).slice(-3)) !== JSON.stringify((last.attempts || []).slice(-3));
+    const sign = x => JSON.stringify([(x.attempts || []).slice(-3), (x.findings || []).map(f => f.status), (x.claims || []).length,
+      (x.cells || []).map(c => c.state), (x.events || []).slice(-1), (x.islands || []).map(i => i.best), x.views && x.views.culture.stats]);
+    const changed = !last || sign(s) !== sign(last);
     last = s;
     if (changed) draw(s); else { header(s); alertBox(s); if (tab === "run") nowBox(s); }
   } catch (e) {

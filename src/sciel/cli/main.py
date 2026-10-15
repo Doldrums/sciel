@@ -65,10 +65,16 @@ def cmd_run(args) -> int:
     from .live import default_mode, follow, spawn, write_config
     from .start import StartError, next_run_dir, resolve
     from .supervise import SuperviseError, ensure_credentials, supervise
+    target = Path(args.config)
+    default_root = args.tasks_root or _default_tasks_root()
     try:
-        cfg, tasks_root, stem = resolve(args.config, tasks_root=args.tasks_root or _default_tasks_root(),
-                                        budget=args.budget, seed=args.seed)
-        ensure_credentials(cfg)
+        if target.suffix == ".py" or (not target.exists() and (Path(default_root) / args.config / "task.yaml").is_file()):
+            cfg, tasks_root, stem = resolve(args.config, tasks_root=default_root, budget=args.budget, seed=args.seed)
+        else:
+            cfg, tasks_root = _resolve_config(args.config, args.seed), default_root
+            if args.budget is not None:
+                cfg["budget"] = args.budget
+            stem = cfg["task"].replace("/", "_")
     except (StartError, SuperviseError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -84,12 +90,18 @@ def cmd_run(args) -> int:
         from ..engine.warm_start import from_run
         cfg['warm_start'] = from_run(args.warm_start_from, cfg['task'])
     mode = args.watch or default_mode()
+    override = args.tasks_root is not None or cfg["task"].startswith("local/")
     if mode == "none":
-        summary = supervise(run_dir, cfg, tasks_root=tasks_root, fresh=True,
+        summary = supervise(run_dir, cfg, tasks_root=tasks_root, fresh=True, tasks_root_override=override,
                             log=lambda m: print(m, file=sys.stderr, flush=True))
         print(json.dumps(summary))
         return 0
-    child = spawn(run_dir, fresh_config=write_config(cfg, run_dir), tasks_root=tasks_root)
+    try:
+        ensure_credentials(cfg)
+    except (OSError, EOFError) as exc:
+        print(f"no model key: {exc}", file=sys.stderr)
+        return 2
+    child = spawn(run_dir, fresh_config=write_config(cfg, run_dir), tasks_root=tasks_root if override else None)
     return follow(run_dir, child, mode)
 
 
@@ -134,8 +146,9 @@ def cmd_resume(args) -> int:
     mode = args.watch or default_mode()
     from .start import _tasks_root_of
     tasks_root = args.tasks_root or _tasks_root_of(run_dir, _default_tasks_root())
+    override = args.tasks_root is not None or cfg["task"].startswith("local/")
     if mode != "none" and not args.force_identity:
-        child = spawn(run_dir, tasks_root=tasks_root, recover=args.abandon_provider_failure)
+        child = spawn(run_dir, tasks_root=tasks_root if override else None, recover=args.abandon_provider_failure)
         return follow(run_dir, child, mode)
     if args.force_identity:
         engine = build_engine(cfg, tasks_root, str(run_dir), python=sys.executable,
@@ -147,7 +160,7 @@ def cmd_resume(args) -> int:
             engine.close()
     else:
         try:
-            summary = supervise(run_dir, cfg, tasks_root=tasks_root, fresh=False,
+            summary = supervise(run_dir, cfg, tasks_root=tasks_root, fresh=False, tasks_root_override=override,
                                 recover=args.abandon_provider_failure,
                                 log=lambda m: print(m, file=sys.stderr, flush=True))
         except checkpoint.IdentityMismatch as e:
@@ -275,6 +288,8 @@ def main(argv=None) -> int:
     # first, so the explanatory message was unreachable. It also read sys.argv rather
     # than the argv it was given, so it was wrong under programmatic calls.
     source = list(argv) if argv is not None else sys.argv[1:]
+    from .profile import load_keys
+    load_keys()
     if not source:
         from .start import menu
         return menu(_default_tasks_root())

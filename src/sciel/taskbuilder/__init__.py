@@ -69,6 +69,8 @@ def run(folder, *, tasks_root, note="", console=None):
         _steps(console, 2)
         with console.status("auditing: running the seed and the reference…", spinner="dots"):
             result = audit(Path(tasks_root) / name)
+        if result.get("stochastic"):
+            name = build(problem, tasks_root, stochastic=True)
         if result["error"] is None or attempt == REPAIRS:
             break
         console.print(Text(f"the seed failed; asking the model to fix it ({attempt + 1}/{REPAIRS})", style=ACCENT))

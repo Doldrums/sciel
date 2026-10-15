@@ -179,6 +179,8 @@ class RunState:
 
     def _attempt(self, row, child, island, parent, score):
         """One generation step as the user reads it: what was tried, on what, and what came of it."""
+        if not child and row.get("reason") == "remeasurement":
+            return
         parent_score = self.programs.get(parent, {}).get("score")
         artifacts = row.get("artifacts") if isinstance(row.get("artifacts"), dict) else {}
         error = None
