@@ -206,7 +206,7 @@ class Dashboard:
         title = Text.assemble((f"#{attempt['n']}  ", DIM), (f"I{attempt['island']}  ", island_color(attempt["island"])),
                               (f"{attempt['child'] or 'no program'} ← {attempt['parent'] or 'seed'}  ", INK),
                               (f"{OPS.get(attempt['op'], attempt['op'] or '')}  ", MUTED), _result(attempt),
-                              (f"   took {_clock(attempt['seconds'])}" if attempt.get("seconds") else "", DIM))
+                              (f"   took {_clock(attempt['seconds'])}" if (attempt.get("seconds") or 0) >= 1 else "", DIM))
         lines = [_label("selected attempt"), title]
         idea = attempt.get("idea") or attempt.get("reply")
         if idea:

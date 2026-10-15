@@ -9,6 +9,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from .render import svg
 from .state import RunState
@@ -43,6 +44,14 @@ class Live:
         self.at = 0.0
         self.body = b"{}"
 
+    def program(self, pid: str) -> dict:
+        """A program's code, its parent's code and the diff between them."""
+        with self.lock:
+            state = self.state
+            program = state.programs.get(pid) or {}
+            return {"id": pid, "parent": program.get("parent"), "code": state.source.get(pid),
+                    "parent_code": state.source.get(program.get("parent")), "diff": state.diff(pid, context=3)}
+
     def payload(self) -> bytes:
         with self.lock:
             if time.monotonic() - self.at >= REFRESH_SECONDS:
@@ -76,6 +85,9 @@ def _handler(live, run_dir):
                 self._send(200, page, "text/html; charset=utf-8")
             elif self.path == "/api/state":
                 self._send(200, live.payload(), "application/json")
+            elif self.path.startswith("/api/program"):
+                pid = parse_qs(urlsplit(self.path).query).get("id", [""])[0]
+                self._send(200, json.dumps(live.program(pid)).encode(), "application/json")
             else:
                 self._send(404, b"not found", "text/plain")
 
