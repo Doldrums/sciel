@@ -18,6 +18,7 @@
 !/src/sciel/**/*.py
 !/src/sciel/engine/prompt/templates/*.txt
 !/src/sciel/ui/static/*.html
+!/src/sciel/ui/static/*.js
 
 !/scripts/
 !/scripts/**/

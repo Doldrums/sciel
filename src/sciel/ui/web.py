@@ -74,6 +74,7 @@ class Live:
 
 def _handler(live, run_dir):
     page = files("sciel.ui").joinpath("static/index.html").read_bytes()
+    script = files("sciel.ui").joinpath("static/engine.js").read_bytes()
 
     class Handler(BaseHTTPRequestHandler):
         def _send(self, code, body, kind):
@@ -98,6 +99,8 @@ def _handler(live, run_dir):
                 return self._send(403, b"forbidden", "text/plain")
             if self.path in ("/", "/index.html"):
                 self._send(200, page, "text/html; charset=utf-8")
+            elif self.path == "/engine.js":
+                self._send(200, script, "text/javascript; charset=utf-8")
             elif self.path == "/api/state":
                 self._send(200, live.payload(), "application/json")
             elif self.path.startswith("/api/program"):

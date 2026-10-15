@@ -43,7 +43,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "sciel.engine.prompt" = ["templates/*.txt"]
-"sciel.ui" = ["static/*.html"]
+"sciel.ui" = ["static/*.html", "static/*.js"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
