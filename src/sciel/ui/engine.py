@@ -16,6 +16,7 @@ class EngineView:
         self.last_distribution = {}
         self.propensity = defaultdict(list)
         self.mode = {}
+        self.mode_history = []
         self.intensify = 0
         self.plateaus = 0
         self.niches = []
@@ -55,6 +56,8 @@ class EngineView:
         elif policy == "controller":
             self.mode[row.get("island")] = {"mode": action, "distribution": row.get("mode_dist"),
                                             "plateau": row.get("plateau"), "iteration": row.get("iteration_no")}
+            self.mode_history.append([row.get("iteration_no"), row.get("island"), action, bool(row.get("plateau"))])
+            del self.mode_history[:-2000]
         elif policy == "refine" and action == "intensify":
             self.intensify += 1
         elif policy == "opportunity_cost" and action == "plateau":
@@ -87,7 +90,8 @@ class EngineView:
         elif policy == "experiment":
             if action == "start":
                 self._keep(self.experiments, {"hypothesis": row.get("hypothesis"), "outcome": "running",
-                                              "iteration": row.get("iteration_no")})
+                                              "iteration": row.get("iteration_no"), "length": row.get("length"),
+                                              "required": row.get("required")})
             elif action == "finish":
                 for e in reversed(self.experiments):
                     if e["hypothesis"] == row.get("hypothesis") and e["outcome"] == "running":
@@ -104,7 +108,7 @@ class EngineView:
         elif policy == "trial":
             self.trials[action] += 1
         elif policy == "forecast" and action == "scored":
-            self.forecasts.append((row.get("brier"), row.get("covered")))
+            self.forecasts.append((row.get("brier"), row.get("covered"), row.get("iteration_no")))
         elif policy == "confirmation":
             self.confirmations[action] += 1
 
@@ -140,8 +144,8 @@ class EngineView:
         }
 
     def snapshot(self) -> dict:
-        briers = [b for b, _ in self.forecasts if isinstance(b, (int, float))]
-        covered = [c for _, c in self.forecasts if isinstance(c, bool)]
+        briers = [b for b, _, _ in self.forecasts if isinstance(b, (int, float))]
+        covered = [c for _, c, _ in self.forecasts if isinstance(c, bool)]
         decisions = []
         for name, counts in sorted(self.choices.items(), key=lambda kv: -sum(kv[1].values())):
             total = sum(counts.values())
@@ -159,5 +163,7 @@ class EngineView:
                 "stand_downs": self.stand_downs, "spawns": self.spawns, "experiments": self.experiments,
                 "procedures_proposed": self.procedures, "strategies": self.strategies, "trials": dict(self.trials),
                 "forecasts": {"n": len(self.forecasts), "brier": sum(briers) / len(briers) if briers else None,
-                              "coverage": sum(covered) / len(covered) if covered else None},
+                              "coverage": sum(covered) / len(covered) if covered else None,
+                              "series": [[i, b, c] for b, c, i in self.forecasts[-400:]]},
+                "mode_history": self.mode_history,
                 "confirmations": dict(self.confirmations), **self.checkpoint_state}
