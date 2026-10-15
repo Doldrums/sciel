@@ -202,6 +202,11 @@ PRICE_PER_1K = {
     # Fallback only. Verified against /api/v1/models on 2026-09-14;
     # provider usage.cost is authoritative whenever supplied.
     "gemini-2.5-flash": (0.0003, 0.0025),
+    # Anthropic first-party list prices, verified 2026-10-15 against the claude-api model table.
+    "claude-fable-5-1": (0.010, 0.050),
+    "claude-opus-5-5": (0.004, 0.020),
+    "claude-sonnet-5-5": (0.002, 0.010),
+    "claude-haiku-4-5": (0.001, 0.005),
 }
 _DEFAULT_PRICE = (0.0002, 0.0008)
 

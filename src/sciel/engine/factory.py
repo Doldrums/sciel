@@ -43,6 +43,10 @@ def build_llm(cfg: dict):
     lcfg = cfg.get("llm", {}) or {}
     if lcfg.get("mock", False):
         return MockLLM()
+    if lcfg.get('provider') == 'anthropic':
+        from .llm.anthropic_api import AnthropicLLM
+        load_env()
+        return AnthropicLLM(lcfg)
     if lcfg.get('provider') == 'codex_responses':
         from .llm.codex import CodexResponsesLLM, validate_config
         lcfg = validate_config(lcfg)
