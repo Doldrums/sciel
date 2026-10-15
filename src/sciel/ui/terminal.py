@@ -84,6 +84,7 @@ class Dashboard:
         self.snap = None
         self.selected = 0
         self.show_best = False
+        self.show_engine = False
         self._refreshed = 0.0
 
     def _failure(self):
@@ -147,9 +148,10 @@ class Dashboard:
         legend = Text(" " * (axis + 1))
         for i in islands:
             legend.append("━", style=island_color(i))
-            legend.append(f" I{i}  ", style=MUTED)
+            legend.append(f"I{i} ", style=MUTED)
         if seed is not None:
-            legend.append("┄ seed", style=DIM)
+            legend.append("┄seed", style=DIM)
+        legend.truncate(width, overflow="ellipsis")
         out.append(legend)
         return out
 
@@ -230,7 +232,60 @@ class Dashboard:
             lines.append(Text("same code as the parent", style=DIM))
         return lines
 
+    def _engine(self, snap, width):
+        """The engine's own machinery in a few lines per mechanism."""
+        e = snap.get("mechanics") or {}
+        st = e.get("start") or {}
+        line = lambda label, *parts: Text.assemble((f"{label:<13}", MUTED), *parts)
+        rows = [Text.assemble(("ENGINE", MUTED), ("   e returns to the attempts", DIM)), Text("")]
+        start = "cold: from the task's seed" if st.get("cold") else f"warm: from {st.get('warm_start') or st.get('inherit')}"
+        rows.append(line("start", (start, INK), (f" · {st.get('seed_programs', 0)} seeds · "
+                                                  f"{st.get('portfolio_designs', 0)} first designs · ε {st.get('epsilon')}", MUTED)))
+        rows.append(Text(""))
+        table = Table.grid(padding=(0, 2))
+        for _ in range(3):
+            table.add_column(no_wrap=True, overflow="ellipsis")
+        table.add_row(*(Text(h, style=DIM) for h in ("DECISION", "PICKS SO FAR", "MEAN P")))
+        for d in e.get("decisions", []):
+            picks = "  ".join(f"{c} {f:.0%}" for c, f in d["choices"][:4])
+            mean = "fixed" if not d["randomized"] else f"{d['mean_propensity']:.2f}"
+            table.add_row(Text(d["decision"], style=INK), Text(picks[:width - 30], style=MUTED),
+                          Text(mean, style=DIM if mean == "fixed" else INK))
+        rows += [table, Text("")]
+        bandit = e.get("bandit") or {}
+        rows.append(line("bandit", ("  ".join(f"{OPS.get(a, a)} {v['mean']:.2f} ({v['n']})" if v["mean"] is not None
+                                              else f"{OPS.get(a, a)} untried" for a, v in bandit.items()) or "—", INK)))
+        sch = e.get("schedule") or {}
+        rows.append(line("schedule", (f"kept {' '.join('I' + str(i) for i in sch.get('survivors') or []) or 'all'}", INK),
+                         (f" · milestone {sch.get('milestones')} · steps "
+                          + " ".join(f"I{i}:{n}" for i, n in (sch.get("dispatched") or {}).items()), MUTED)))
+        modes = "  ".join(f"I{m['island']} {m['mode']}{'*' if m.get('plateau') else ''}" for m in e.get("mode", []))
+        rows.append(line("controller", (modes or "—", INK),
+                         (f" · *plateau · {e.get('intensify', 0)} intensify", MUTED)))
+        fits, moved = e.get("policy_fits") or [], (e.get("policy") or {}).get("moved") or {}
+        rows.append(line("rl policy", (f"{len(fits)} fits" if fits else "not fitted yet", INK),
+                         (" · moved " + " ".join(f"{k} {v:.2f}" for k, v in moved.items()) if moved else
+                          " · decisions follow the base distribution", MUTED)))
+        w, f = e.get("swm") or {}, e.get("forecasts") or {}
+        trained = f"trained @{w.get('trained_at')} · {w.get('actions')} actions" if w.get("trained_at") is not None else "not trained"
+        forecast = (f" · forecasts {f['n']} Brier {f['brier']:.3f} covered {f['coverage']:.0%}"
+                    if f.get("n") and f.get("brier") is not None else "")
+        rows.append(line("world model", (trained, INK), (forecast, MUTED)))
+        niches = e.get("niches") or []
+        rows.append(line("niches", (f"{niches[-1]['niches']} in {niches[-1]['space']} space" if niches else "not built", INK),
+                         (f" · rebuilt {len(niches)}× · archive {(e.get('archive') or {}).get('cells') or 0} cells", MUTED)))
+        spawns = e.get("spawns") or []
+        rows.append(line("islands", (" ".join(f"I{x['island']}" for x in spawns) or "none opened", INK),
+                         (f" · opened after stalls, aimed at {', '.join(sorted({str(x['target']) for x in spawns}))}"
+                          if spawns else "", MUTED)))
+        exp = e.get("experiments") or []
+        running = [x for x in exp if x["outcome"] == "running"]
+        rows.append(line("experiment", (textwrap.shorten(running[-1]["hypothesis"], width - 14) if running else "none running", INK)))
+        return Group(*rows)
+
     def _center(self, snap, width, height):
+        if self.show_engine:
+            return self._engine(snap, width)
         table_rows = max(4, min(10, height // 3))
         table, attempts = self._attempts(snap, width, table_rows)
         parts = [_label("attempts, newest first"), table, Text("")]
@@ -297,7 +352,7 @@ class Dashboard:
 
     def _footer(self, width):
         keys = Text()
-        for key, label in (("↑↓", "choose attempt"), ("b", "best program"), ("w", "web"), ("p", "pause run"),
+        for key, label in (("↑↓", "choose attempt"), ("b", "best program"), ("e", "engine"), ("w", "web"), ("p", "pause run"),
                            ("q", "quit viewer")):
             keys.append(key, style=ACCENT)
             keys.append(f" {label}   ", style=MUTED)
@@ -341,7 +396,9 @@ class Dashboard:
             self.selected += 1
             self.show_best = False
         elif ch == "b":
-            self.show_best = not self.show_best
+            self.show_best, self.show_engine = not self.show_best, False
+        elif ch == "e":
+            self.show_engine, self.show_best = not self.show_engine, False
         elif ch == "q":
             self.quit = True
         elif ch == "w" and self.open_web is not None:

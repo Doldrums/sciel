@@ -61,6 +61,9 @@ pre.diff .a{color:#8BE0A4;background:rgba(61,174,124,.10)}pre.diff .r{color:#F19
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:0 48px}
 .row{padding:12px 0;border-bottom:1px solid var(--rule)}.row .m{color:var(--muted);font-size:11.5px}
 .empty{color:var(--muted);padding:8px 0}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 24px}.kv dt{color:var(--muted)}.kv dd{margin:0}
+.share{display:inline-flex;align-items:center;gap:6px;margin:0 14px 4px 0;white-space:nowrap}
+.share i{display:inline-block;height:6px;border-radius:3px;background:var(--accent);opacity:.75}
 details summary{cursor:pointer;color:var(--muted);font-size:12.5px;padding:4px 0}
 footer.wrap{padding-top:72px;padding-bottom:80px;color:var(--muted);font-size:12px}
 [hidden]{display:none!important}
@@ -113,6 +116,8 @@ footer.wrap{padding-top:72px;padding-bottom:80px;color:var(--muted);font-size:12
     </section>
   </div>
 
+  <div id="v-engine" hidden><div id="engine"></div></div>
+
   <div id="v-maps" hidden>
     <section><p class="note">Four maps of the same run. Colour is the island everywhere: <span id="maplegend"></span></p>
     <div class="maps" id="maps"></div></section>
@@ -135,7 +140,7 @@ footer.wrap{padding-top:72px;padding-bottom:80px;color:var(--muted);font-size:12
 <footer class="wrap" id="foot"></footer>
 <script>
 const COLORS = ["#E8A33D","#3DAE7C","#0A84FF","#A66BE0","#2BB3C0","#D67AB1","#D1B23F","#4F7BE8"];
-const TABS = [["run","Run"],["maps","Maps"],["learned","What it learned"]];
+const TABS = [["run","Run"],["engine","Engine"],["maps","Maps"],["learned","What it learned"]];
 const OPS = {diff:"edit", full_rewrite:"rewrite", cross:"crossover", idea:"new idea", error_repair:"repair"};
 const STAGES = {seeding:"evaluating the seed", evaluating:"evaluating", generating:"writing programs", checkpointing:"saving", provider_backoff:"waiting for the provider"};
 const MAPS = {
@@ -146,6 +151,7 @@ const MAPS = {
 let tab = "run", last = null, selected = null, follow = true;
 const programs = {};
 try { tab = localStorage.getItem("sciel-tab") || tab; } catch (e) {}
+if (TABS.some(([k]) => "#" + k === location.hash)) tab = location.hash.slice(1);
 
 function el(tag, attrs, ...kids) {
   const node = document.createElement(tag);
@@ -178,7 +184,7 @@ function table(cols, rows) {
 
 function tabs() {
   document.getElementById("seg").replaceChildren(...TABS.map(([k, label]) => el("button", {type: "button", class: k === tab ? "on" : "",
-    onclick: () => { tab = k; try { localStorage.setItem("sciel-tab", k); } catch (e) {} tabs(); if (last) draw(last); }}, label)));
+    onclick: () => { tab = k; history.replaceState(null, "", "#" + k); try { localStorage.setItem("sciel-tab", k); } catch (e) {} tabs(); if (last) draw(last); }}, label)));
   for (const [k] of TABS) document.getElementById("v-" + k).hidden = k !== tab;
 }
 
@@ -342,18 +348,74 @@ function learned(s) {
   document.getElementById("events").replaceChildren(...(s.events || []).slice(-30).reverse().map(e => el("div", {class: "row"}, el("span", {class: "muted"}, (e.t || "").slice(11, 19) + "  "), e.text)));
 }
 
+const DECISIONS = {island: "which island takes the next step", mode: "plain or exploit prompt", parent: "which program to change",
+  operator: "edit, rewrite, crossover or new idea", planner: "who steers the step: base rules, the RL policy or the theory",
+  procedure: "which research procedure runs the theory", strategy: "a strategy text added to the prompt, or none",
+  finding: "a finding delivered to the prompt, or none", origin: "change the parent or design afresh",
+  refine: "refine an elite instead of exploring", inspiration_source: "where inspiration programs come from",
+  idea_target: "what a new idea aims at", model: "which model writes", sibling: "a paired sibling trial",
+  research_open: "open a research cell now", cell_stage: "research cell stage", cell_scope: "research cell scope",
+  method: "which research method", spawn_target: "where a new island aims", eviction_planner: "which program leaves a full island"};
+function section(title, note, ...body) { return el("section", {}, el("h2", {}, title), note ? el("p", {class: "note"}, note) : null, ...body); }
+function kv(pairs) { return el("dl", {class: "kv"}, pairs.filter(p => p[1] !== null && p[1] !== undefined && p[1] !== "").flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)])); }
+function shares(list) { return el("div", {}, (list || []).map(([c, f]) => el("span", {class: "share"}, el("i", {style: "width:" + Math.max(3, f * 90) + "px"}), c + " " + Math.round(f * 100) + "%"))); }
+function engineTab(s) {
+  const e = s.mechanics || {}, st = e.start || {}, box = document.getElementById("engine");
+  const startText = st.cold ? "Cold start: the run began from the task's own seed program." : "Warm start: the run began from " + (st.warm_start || "a previous run") + ".";
+  const parts = [section("Start", startText, kv([
+      ["seed programs measured", st.seed_programs], ["first designs (portfolio)", st.portfolio ? st.portfolio_designs + " — each island starts from its own deliberately different design" : "off"],
+      ["inherited culture", st.inherit || "none: no repertoire from an earlier generation"], ["exploration share ε", st.epsilon], ["schedule", st.schedule === "sh" ? "successive halving" : st.schedule]]))];
+  parts.push(section("Randomized decisions", "Every choice is drawn from a logged distribution, so its effect can later be estimated from this run's own log. Mean propensity is the average probability of the choice that was taken; 1 means the choice was not random.",
+    (e.decisions || []).length ? table(["Decision", "What it picks", "Picks so far", "Mean propensity"], e.decisions.map(d => el("tr", {},
+      el("td", {}, el("b", {}, d.decision)), el("td", {class: "muted"}, DECISIONS[d.decision] || ""), el("td", {}, shares(d.choices)),
+      el("td", {class: "num" + (d.randomized ? "" : " muted")}, d.mean_propensity === null ? "—" : d.mean_propensity.toFixed(2) + (d.randomized ? "" : " · fixed"))))) : el("p", {class: "empty"}, "No steps yet.")));
+  const bandit = e.bandit || {}, bs = e.bandit_settings || {};
+  parts.push(section("Operator bandit", "Each operator is an arm; its reward is how its recent children did. The bandit samples operators by these rewards (temperature " + (bs.temperature ?? "—") + ", floor " + (bs.floor ?? "—") + ", window " + (bs.window ?? "—") + ").",
+    table(["Operator", "Recent rewards", "Mean reward"], Object.entries(bandit).map(([arm, v]) => el("tr", {}, el("td", {}, OPS[arm] || arm), el("td", {class: "num"}, v.n), el("td", {class: "num"}, v.mean === null ? "untried" : v.mean.toFixed(2)))))));
+  const sch = e.schedule || {};
+  parts.push(section("Schedule", "Successive halving gives every island a fair number of steps, then keeps the better half at each milestone.", kv([
+    ["islands kept", (sch.survivors || []).map(i => "I" + i).join(", ") || "all"], ["milestones passed", sch.milestones], ["fair steps before a cut", sch.min_fair],
+    ["steps given", Object.entries(sch.dispatched || {}).map(([i, n]) => "I" + i + " " + n).join(" · ")]])));
+  parts.push(section("Mode controller", "Chooses between the plain prompt and an exploit prompt per island, and shifts toward exploit while an island is on a plateau.",
+    (e.mode || []).length ? table(["Island", "Last mode", "Distribution", "Plateau"], e.mode.map(m => el("tr", {}, el("td", {}, isl(m.island)), el("td", {}, m.mode),
+      el("td", {}, shares(Object.entries(m.distribution || {}))), el("td", {class: "muted"}, m.plateau ? "yes" : "no")))) : el("p", {class: "empty"}, "No controller decisions yet."),
+    el("p", {class: "note", style: "margin-top:12px"}, e.intensify + " refine intensifications · " + e.plateaus + " plateaus detected")));
+  const pol = e.policy || {}, fits = e.policy_fits || [];
+  parts.push(section("RL step policy", "A policy learned from lineage returns that can tilt the randomized decisions. It acts only when the planner picks it and stands down if its judged value drops.", kv([
+    ["fits", fits.length], ["last fit", fits.length ? "iteration " + fits[fits.length - 1].iteration + " on " + fits[fits.length - 1].steps + " steps" + (fits[fits.length - 1].reason ? " (" + fits[fits.length - 1].reason + ")" : "") : "not fitted yet"],
+    ["how far it moved each decision", Object.keys(pol.moved || {}).length ? Object.entries(pol.moved).map(([d, v]) => d + " " + Number(v).toFixed(2)).join(" · ") : "nowhere yet: decisions follow the base distribution"],
+    ["stand-downs", e.stand_downs], ["status", pol.disabled ? "disabled" : (pol.version ? "version " + pol.version : "inactive")]])));
+  const w = e.swm || {}, f = e.forecasts || {}, sf = e.swm_fits || [];
+  parts.push(section("Search world model", "A model of how the search behaves: it values a parent and an action before children exist. It enters decisions only after passing its gate.", kv([
+    ["trained at", w.trained_at === null || w.trained_at === undefined ? "not yet" : "iteration " + w.trained_at], ["actions it knows", w.actions], ["weights", w.weights ? "fitted" : "none yet"],
+    ["last gate", sf.length ? (sf[sf.length - 1].fitted ? "passed at iteration " : "held back at iteration ") + sf[sf.length - 1].iteration : "not run"],
+    ["model forecasts scored", f.n ? f.n + " · Brier " + (f.brier ?? 0).toFixed(3) + " (lower is better) · intervals covered " + Math.round((f.coverage ?? 0) * 100) + "%" : "none yet"]])));
+  parts.push(section("Niches and archive", "Programs are grouped into niches (vector-quantized cells) in behaviour or latent space, so islands keep diverse programs instead of near-copies.",
+    (e.niches || []).length ? table(["Iteration", "Space", "Niches"], e.niches.slice().reverse().map(n => el("tr", {}, el("td", {class: "num"}, n.iteration), el("td", {}, n.space), el("td", {class: "num"}, n.niches)))) : el("p", {class: "empty"}, "Niches have not been built yet."),
+    el("p", {class: "note", style: "margin-top:12px"}, "latent archive: " + (e.archive ? e.archive.cells + " cells, " + e.archive.elites + " elites" : (e.archive_cells ? e.archive_cells + " cells" : "empty")))));
+  parts.push(section("Island lifecycle", "A stalled search opens a new island aimed at a different paradigm or an unexplored region.",
+    (e.spawns || []).length ? table(["Island", "Opened after a stall of", "Aimed at"], e.spawns.map(x => el("tr", {}, el("td", {}, isl(x.island)), el("td", {class: "num"}, x.stall ?? "—"), el("td", {}, x.target || "—")))) : el("p", {class: "empty"}, "No island has been opened during the run.")));
+  const exp = e.experiments || [], procs = e.procedures || [];
+  parts.push(section("Theory experiments", "Hypotheses about the search's own decisions, tested by randomizing the conditions in blocks. Procedures are versioned settings of how the theory works.",
+    exp.length ? table(["Hypothesis", "Outcome"], exp.slice().reverse().map(x => el("tr", {}, el("td", {}, x.hypothesis), el("td", {class: x.outcome === "running" ? "busy" : "muted"}, x.outcome)))) : el("p", {class: "empty"}, "No experiment yet."),
+    procs.length ? el("p", {class: "note", style: "margin-top:12px"}, "procedures: " + procs.map(p => p.id + " " + p.status).join(" · ")) : null));
+  box.replaceChildren(...parts);
+}
+
 function draw(s) {
   header(s); alertBox(s);
   if (tab === "run") { nowBox(s); failures(s); attempts(s); detail(s); chart(s); bestCode(s); }
   if (tab === "maps") maps(s);
   if (tab === "learned") learned(s);
+  if (tab === "engine") engineTab(s);
   document.getElementById("foot").textContent = s.run.dir + " · in your terminal: sciel watch " + s.run.dir;
 }
 async function tick() {
   try {
     const s = await (await fetch("/api/state", {cache: "no-store"})).json();
     const sign = x => JSON.stringify([(x.attempts || []).slice(-3), (x.findings || []).map(f => f.status), (x.claims || []).length,
-      (x.cells || []).map(c => c.state), (x.events || []).slice(-1), (x.islands || []).map(i => i.best), x.views && x.views.culture.stats]);
+      (x.cells || []).map(c => c.state), (x.events || []).slice(-1), (x.islands || []).map(i => i.best), x.views && x.views.culture.stats,
+      x.mechanics && [(x.mechanics.decisions || []).map(d => d.total), x.mechanics.forecasts, (x.mechanics.experiments || []).length, (x.mechanics.niches || []).length]]);
     const changed = !last || sign(s) !== sign(last);
     last = s;
     if (changed) draw(s); else { header(s); alertBox(s); if (tab === "run") nowBox(s); }

@@ -77,7 +77,9 @@ class RunState:
         self.failures = Counter()
         self._finding_island = {}
         from .activity import Activity
+        from .engine import EngineView
         self.activity = Activity(self.dir)
+        self.engine = EngineView()
 
     def refresh(self) -> dict:
         self._read_journal()
@@ -105,6 +107,7 @@ class RunState:
         del self.events[:-MAX_EVENTS]
 
     def _fold(self, row):
+        self.engine.fold(row)
         event = row.get("event")
         if event == "run_start":
             self.run.update(task=row.get("task"), run_id=row.get("run_id"), budget=row.get("budget"),
@@ -268,6 +271,7 @@ class RunState:
         except (OSError, ValueError):
             return
         self._checkpoint_mtime = mtime
+        self.engine.checkpoint(state)
         for item in (state.get("findings") or {}).get("pool", []):
             self.findings[item["id"]] = {"id": item["id"], "text": item.get("text"), "island": item.get("island"),
                                          "status": item.get("status"), "kind": item.get("kind"),
@@ -321,6 +325,7 @@ class RunState:
             "events": self.events,
             "edits": self.edits,
             "activity": self.activity.read(),
+            "mechanics": self.engine.snapshot(),
             "attempts": self.attempts[-200:],
             "failures": self.failures.most_common(6),
         }
