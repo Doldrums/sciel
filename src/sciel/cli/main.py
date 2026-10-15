@@ -63,29 +63,33 @@ def _run_engine(engine):
 def cmd_run(args) -> int:
     from pathlib import Path
     from .live import default_mode, follow, spawn, write_config
+    from .start import StartError, next_run_dir, resolve
     from .supervise import SuperviseError, ensure_credentials, supervise
-    cfg = _resolve_config(args.config, args.seed)
-    if args.budget is not None:
-        cfg["budget"] = args.budget
-    stamp = args.run_id or f"{cfg['task'].replace('/', '_')}_{int(time.time())}_s{cfg['random_seed']}"
-    run_dir = Path(args.outputs, stamp).resolve()
+    try:
+        cfg, tasks_root, stem = resolve(args.config, tasks_root=args.tasks_root or _default_tasks_root(),
+                                        budget=args.budget, seed=args.seed)
+        ensure_credentials(cfg)
+    except (StartError, SuperviseError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    if args.run_id:
+        run_dir = Path(args.outputs, args.run_id).resolve()
+    elif args.outputs != ".sciel/runs":
+        run_dir = Path(args.outputs, f"{stem}_{int(time.time())}_s{cfg['random_seed']}").resolve()
+    else:
+        run_dir = next_run_dir(stem)
     if run_dir.exists() and any(run_dir.iterdir()):
         raise ValueError('Run directory is not empty; use resume or a new --run-id')
     if getattr(args, 'warm_start_from', None):
         from ..engine.warm_start import from_run
         cfg['warm_start'] = from_run(args.warm_start_from, cfg['task'])
-    try:
-        ensure_credentials(cfg)
-    except SuperviseError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
     mode = args.watch or default_mode()
     if mode == "none":
-        summary = supervise(run_dir, cfg, tasks_root=args.tasks_root or _default_tasks_root(), fresh=True,
+        summary = supervise(run_dir, cfg, tasks_root=tasks_root, fresh=True,
                             log=lambda m: print(m, file=sys.stderr, flush=True))
         print(json.dumps(summary))
         return 0
-    child = spawn(run_dir, fresh_config=write_config(cfg, run_dir), tasks_root=args.tasks_root)
+    child = spawn(run_dir, fresh_config=write_config(cfg, run_dir), tasks_root=tasks_root)
     return follow(run_dir, child, mode)
 
 
@@ -118,10 +122,11 @@ def cmd_resume(args) -> int:
         print(str(exc), file=sys.stderr)
         return 2
     mode = args.watch or default_mode()
+    from .start import _tasks_root_of
+    tasks_root = args.tasks_root or _tasks_root_of(run_dir, _default_tasks_root())
     if mode != "none" and not args.force_identity:
-        child = spawn(run_dir, tasks_root=args.tasks_root, recover=args.abandon_provider_failure)
+        child = spawn(run_dir, tasks_root=tasks_root, recover=args.abandon_provider_failure)
         return follow(run_dir, child, mode)
-    tasks_root = args.tasks_root or _default_tasks_root()
     if args.force_identity:
         engine = build_engine(cfg, tasks_root, str(run_dir), python=sys.executable,
                               tasks_root_override=args.tasks_root is not None)
@@ -205,8 +210,8 @@ def main(argv=None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True, metavar="command")
 
     watch_help = "where to follow the run: both (default in a terminal), terminal, web, or none"
-    pr = sub.add_parser("run", help="Start a run from a config file")
-    pr.add_argument("config")
+    pr = sub.add_parser("run", help="Start a run: a config file, a .py file with solve() and score(), or a task")
+    pr.add_argument("config", metavar="target")
     pr.add_argument("--seed", type=int, default=None)
     pr.add_argument("--budget", type=int, default=None, help="number of evaluations")
     pr.add_argument("--watch", choices=("both", "terminal", "web", "none"), default=None, help=watch_help)
@@ -255,6 +260,12 @@ def main(argv=None) -> int:
     # first, so the explanatory message was unreachable. It also read sys.argv rather
     # than the argv it was given, so it was wrong under programmatic calls.
     source = list(argv) if argv is not None else sys.argv[1:]
+    if not source:
+        from .start import menu
+        return menu(_default_tasks_root())
+    if source[0].endswith(".py") and os.path.isfile(source[0]):
+        source = ["run"] + source
+        argv = source
     if source[:1] == ["_engine"]:
         from .supervise import main as supervise_main
         return supervise_main(source[1:])

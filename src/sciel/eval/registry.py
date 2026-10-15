@@ -10,7 +10,7 @@ import yaml
 
 
 REQUIRED_FIELDS = ["suite", "name", "origin", "primary_metric"]
-ORIGINS = {"math", "oe", "highlight", "heavy"}
+ORIGINS = {"math", "oe", "highlight", "heavy", "local"}
 
 
 @dataclass

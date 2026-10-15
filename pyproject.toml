@@ -25,6 +25,7 @@ dependencies = [
     "huggingface_hub>=0.23",
     "torch>=2.2",
     "rich>=13.7",
+    "anthropic>=1.0",
 ]
 
 [project.optional-dependencies]
