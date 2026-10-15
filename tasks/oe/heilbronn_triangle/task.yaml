@@ -12,7 +12,7 @@ task_prompt: >-
   record or proven bound. Duplicate/collinear triples give zero area.
   Scoring casts coordinates to binary64; boundary tolerance is 1e-6.
   Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must
-  pass smoke within 30 wall seconds; full allows 90 seconds. Confirm uses 3 repeats
+  pass smoke within 30 wall seconds. Confirm uses 3 repeats
   within 120 seconds, retaining the first failure, otherwise the worst score.
   These are stage wall limits including overhead. The seed returns eleven
   coincident zeros; construct a placement and use reproducible algorithm seeds.

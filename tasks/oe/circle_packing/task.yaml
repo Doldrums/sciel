@@ -13,7 +13,7 @@ task_prompt: >-
   combined_score=sum_radii/2.635; invalid packing scores 0.
   2.635 is a fixed normalization reference, not a current record or proven bound.
   Candidate environment has Python stdlib, NumPy and SciPy, not sklearn/cma/GPy/skopt.
-  Every candidate must pass smoke within 30 wall seconds; full allows 120 seconds,
+  Every candidate must pass smoke within 30 wall seconds,
   including execution overhead. Optional confirm uses 3 repeats within 180 seconds
   and retains the first failure, otherwise the worst score.
 research_metric:
