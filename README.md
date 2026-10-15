@@ -173,7 +173,7 @@ continuations and shared observations have separate configuration switches.
 Requires **Python 3.11–3.14** on Linux or macOS.
 
 ```sh
-pip install sciel
+pip install ./sciel-<version>-py3-none-any.whl   # from the latest release, see Releases
 sciel
 ```
 
