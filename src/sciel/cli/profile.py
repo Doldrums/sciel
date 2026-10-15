@@ -58,5 +58,8 @@ def detect():
 
 
 def default_config(task: str, llm: dict, *, budget: int = 40, seed: int = 0) -> dict:
+    """Host capacity limits are fixed per capacity root, so this profile keeps its own root in ./.sciel."""
     from ..config import validate
-    return validate({**BASE, "task": task, "budget": budget, "random_seed": seed, "llm": llm})
+    parallel = {**BASE["parallel_search"], "capacity_dir": str(Path.cwd() / ".sciel" / "capacity")}
+    return validate({**BASE, "parallel_search": parallel, "task": task, "budget": budget, "random_seed": seed,
+                     "llm": llm})

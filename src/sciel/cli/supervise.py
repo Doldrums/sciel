@@ -103,7 +103,7 @@ def start_config(run_dir, fresh_config):
     return validate(json.loads(ckpt.read_text())['config'])
 
 
-def _explain(run_dir, cfg) -> str:
+def _explain(run_dir, cfg) -> str | None:
     """Say why a parallel wave stopped, from the provider errors its calls recorded."""
     from ..engine.parallel_recovery import _calls
     try:
@@ -121,8 +121,8 @@ def _explain(run_dir, cfg) -> str:
         return (f'the model provider refused the request (HTTP {min(statuses & {400, 404})}); '
                 f'check that the model {cfg.get("llm", {}).get("models")} exists for this provider')
     kinds = sorted({e.get('cause_type', 'unknown') + (f" {e['http_status']}" if e.get('http_status') else '')
-                    for e in errors})
-    return 'a model call failed in a way that cannot be retried: ' + (', '.join(kinds) or 'unknown error')
+                    for e in errors if e})
+    return 'a model call failed in a way that cannot be retried: ' + ', '.join(kinds) if kinds else None
 
 
 def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
@@ -155,7 +155,10 @@ def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print):
             try:
                 receipt = inspect_parallel_stop(str(ckpt))
             except ProviderRecoveryError:
-                raise SuperviseError(_explain(run_dir, cfg)) from None
+                reason = _explain(run_dir, cfg)
+                if reason is None:
+                    raise
+                raise SuperviseError(reason) from None
             if not receipt.get('auto_recoverable'):
                 raise
             authorize_parallel_recovery(engine, str(ckpt), receipt)
