@@ -22,6 +22,7 @@ BASE = {"num_islands": 3, "pop_cap": 50, "archive_size": 20, "grid_bins": 10, "i
         "op_floor": 0.05, "op_window": 20, "selection_floor": 0.001, "tau_floor": 0.001, "reward_w_pop": 1.0,
         "reward_w_isl": 1.0, "base_temp": 0.7, "confirm_records": False, "checkpoint_on_milestone": True,
         "embed_grid": False, "candidate_novelty": {"enabled": True},
+        "swm": {"embedding_api_base": None, "embedding_model": "hashed-tokens"},
         "parallel_search": {"enabled": True, "workers": 4}}
 
 

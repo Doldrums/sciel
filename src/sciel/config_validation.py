@@ -95,8 +95,9 @@ def validate_experiments(cfg, defaults):
         raise ValueError('max_eval_cpu_seconds must be a positive integer or null')
     swm = cfg.get('swm')
     if (type(swm) is not dict or set(swm) != {'embedding_api_base', 'embedding_model'}
-            or type(swm['embedding_api_base']) is not str or type(swm['embedding_model']) is not str):
-        raise ValueError('swm requires embedding_api_base and embedding_model strings')
+            or type(swm['embedding_api_base']) not in (str, type(None)) or type(swm['embedding_model']) is not str):
+        raise ValueError('swm requires embedding_api_base (a URL, or null for local hashed embeddings) '
+                         'and an embedding_model string')
     if cfg.get('inherit') is not None and (not isinstance(cfg['inherit'], str) or not cfg['inherit']):
         raise ValueError('inherit must be the path of a repertoire file')
     if cfg.get('warm_start') is not None:

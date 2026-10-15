@@ -23,6 +23,8 @@ INK, MUTED, DIM, RULE = "#E8E8EA", "#8A8A8E", "#5A5A5E", "#2C2C2E"
 AMBER, UP, DOWN = "#E8A33D", "#3DAE7C", "#E5484D"
 VIEWS = (("1", "culture"), ("2", "landscape"), ("3", "code"), ("4", "edits"))
 TONE = {"best": UP, "drop": DOWN, "warn": AMBER, "finding": AMBER, "cell": INK, "child": INK}
+STAGES = {"seeding": "evaluating the seed", "evaluating": "evaluating", "generating": "writing programs",
+          "checkpointing": "saving", "provider_backoff": "waiting for the provider", "finished": "finished"}
 STATUS = {"culture": (UP, "holds"), "tested": ("#0A84FF", "tested"), "trial": (AMBER, "trial"),
           "retired": (MUTED, "dropped")}
 
@@ -72,8 +74,9 @@ def _sparkline(history, seed, width, height=3):
 
 
 class Dashboard:
-    def __init__(self, run_dir, web_url=None, open_web=None, pause=None):
+    def __init__(self, run_dir, web_url=None, open_web=None, pause=None, engine=None):
         self.state = RunState(run_dir)
+        self.engine = engine
         self.view = "culture"
         self.web_url = web_url
         self.open_web = open_web
@@ -85,9 +88,14 @@ class Dashboard:
 
     def _header(self, run, width):
         live = run.get("status") == "running"
-        status = Text("● live", style=UP) if live else Text(str(run.get("status") or "unknown"), style=AMBER)
+        stage = STAGES.get(run.get("stage"), run.get("stage"))
+        status = (Text("● live" + (f" · {stage}" if stage else ""), style=UP) if live
+                  else Text(str(run.get("status") or "unknown"), style=AMBER))
         if run.get("stage") == "provider_backoff":
-            status = Text("● waiting for provider", style=AMBER)
+            status = Text("● waiting for the provider", style=AMBER)
+        failed = self._failure()
+        if failed:
+            status = Text("● engine stopped with an error", style=DOWN)
         left = Text.assemble(("SCIEL", Style(color=AMBER, bold=True)), "  ", (str(run.get("task") or ""), INK),
                              ("  run " + str(run.get("run_id") or "")[:8], MUTED))
         budget = f"/{run['budget']}" if run.get("budget") else ""
@@ -126,7 +134,26 @@ class Dashboard:
         parts.append(table)
         return Group(*parts)
 
+    def _failure(self):
+        info = self.engine() if self.engine is not None else None
+        return info if info and info.get("exit") not in (None, 0) else None
+
+    def _status_panel(self, snap, width):
+        """What the center shows instead of a view: a failed engine, or one that has not produced a program yet."""
+        if not snap["programs"]:
+            stage = STAGES.get(snap["run"].get("stage"))
+            if snap["run"].get("status") == "starting":
+                text = "starting the engine: loading the task and the model"
+            else:
+                text = f"{stage or 'working'}: the first programs appear after the seed is scored"
+            return Group(_label("starting"), Text(text, style=INK),
+                         Text("the seed is evaluated first; with a slow evaluator this takes a minute", style=MUTED))
+        return None
+
     def _center(self, snap, width, height):
+        panel = self._status_panel(snap, width)
+        if panel is not None:
+            return panel
         tabs = Text()
         for key, name in VIEWS:
             on = name == self.view
@@ -183,8 +210,20 @@ class Dashboard:
         tail = Text(self.message or (f"web {self.web_url}" if self.web_url else ""), style=MUTED)
         return Text.assemble(keys, " " * max(1, width - keys.cell_len - tail.cell_len), tail)
 
+    def _error_screen(self, failed, width):
+        lines = [Text(""), _label("the engine stopped"), Text(""),
+                 Text(failed.get("reason") or "it exited with code " + str(failed["exit"]), style=DOWN), Text(""),
+                 Text(f"full log  {failed['log']}", style=MUTED),
+                 Text("fix the cause and start the run again; q leaves this screen", style=MUTED)]
+        return Group(*lines)
+
     def render(self, width, height):
         self.snap = self.state.refresh()
+        failed = self._failure()
+        if failed:
+            rule = Text("─" * width, style=RULE)
+            return Group(self._header(self.snap["run"], width), rule, self._error_screen(failed, width), rule,
+                         self._footer(width))
         self.figures = all_views(self.snap, self.state.code)
         left_w, right_w = 36, 46
         center_w = max(30, width - left_w - right_w - 6)
@@ -226,10 +265,10 @@ def _cbreak():
         termios.tcsetattr(fd, termios.TCSADRAIN, saved)
 
 
-def watch(run_dir, *, web_url=None, open_web=None, pause=None, alive=None):
+def watch(run_dir, *, web_url=None, open_web=None, pause=None, alive=None, engine=None):
     """Follow a run until the viewer quits, or until `alive()` turns false and the final state is drawn."""
     console = Console()
-    board = Dashboard(run_dir, web_url, open_web, pause)
+    board = Dashboard(run_dir, web_url, open_web, pause, engine)
     with _cbreak() as keys, Live(console=console, screen=True, auto_refresh=False, transient=False) as live:
         last = 0.0
         while not board.quit:

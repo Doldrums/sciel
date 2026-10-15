@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -37,13 +38,14 @@ def spawn(run_dir: Path, *, fresh_config=None, tasks_root=None, recover=False) -
                             start_new_session=True, env=os.environ.copy())
 
 
-def _wait_started(run_dir: Path, child, seconds=120):
-    """Wait until the engine has written its runtime sidecar, or has already exited."""
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        if (run_dir / "runtime.json").exists() or child.poll() is not None:
-            return
-        time.sleep(0.2)
+def _reason(lines) -> str | None:
+    """The exception line that ended the engine, without the traceback above it."""
+    found = [line.strip() for line in lines
+             if re.match(r"^[A-Za-z_][\w.]*(Error|Exception|Stopped|Interrupt|Exit)\b:?", line.strip())]
+    if found:
+        return found[-1]
+    rest = [line.strip() for line in lines if line.strip()]
+    return rest[-1] if rest else None
 
 
 def _tail(path: Path, lines=12) -> str:
@@ -57,12 +59,16 @@ def follow(run_dir: Path, child, mode: str) -> int:
     """Show the run in the chosen viewer; return the engine's exit code, or 0 if it is still running."""
     from ..ui.web import request_pause, serve
     console = Console()
-    _wait_started(run_dir, child)
     web = {}
+
+    def engine():
+        code = child.poll() if child is not None else None
+        tail = _tail(log_path(run_dir), 30).splitlines() if code not in (None, 0) else []
+        return {"exit": code, "log": str(log_path(run_dir)), "tail": tail, "reason": _reason(tail)}
 
     def open_web():
         if "url" not in web:
-            web["url"], web["server"] = serve(run_dir)
+            web["url"], web["server"] = serve(run_dir, engine=engine)
         else:
             import webbrowser
             webbrowser.open(web["url"])
@@ -73,7 +79,8 @@ def follow(run_dir: Path, child, mode: str) -> int:
     try:
         if mode in ("both", "terminal") and sys.stdin.isatty() and sys.stdout.isatty():
             from ..ui.terminal import watch
-            watch(run_dir, web_url=web.get("url"), open_web=open_web, pause=lambda: request_pause(run_dir))
+            watch(run_dir, web_url=web.get("url"), open_web=open_web, pause=lambda: request_pause(run_dir),
+                  engine=engine)
         else:
             console.print(f"[#8A8A8E]web[/] {web.get('url', '—')}   [#8A8A8E]log[/] {log_path(run_dir)}   "
                           "[#8A8A8E]Ctrl-C leaves the run going[/]")
@@ -104,8 +111,9 @@ def _farewell(console, run_dir: Path, child) -> int:
     if code == 0:
         console.print(f"Run finished. {summary}\n  {run_dir}")
     else:
-        console.print(f"[#E5484D]The run stopped with an error[/] (exit {code}). {summary}\n"
-                      f"Last lines of {log_path(run_dir)}:\n{_tail(log_path(run_dir))}")
+        reason = _reason(_tail(log_path(run_dir), 30).splitlines())
+        console.print(f"[#E5484D]The engine stopped with an error.[/] {summary}\n  {reason or ''}\n"
+                      f"  full log: {log_path(run_dir)}")
     return code
 
 

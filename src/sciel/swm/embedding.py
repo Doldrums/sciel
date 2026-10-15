@@ -1,9 +1,16 @@
-"""Frozen code embeddings for the world model, from an OpenAI-compatible embeddings endpoint, cached by source hash."""
+"""Frozen code embeddings for the world model, cached by source hash.
+
+With an endpoint they come from an OpenAI-compatible embeddings server. Without one they are hashed counts of
+the program's tokens and token pairs: no server and no weights, and programs that share code stay close.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
+import urllib.error
 import urllib.request
 
 import numpy as np
@@ -11,6 +18,20 @@ import numpy as np
 DIM = 1024
 MAX_CHARS = 16000
 BATCH = 32
+_TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|[^\sA-Za-z0-9_]")
+
+
+def hashed(code: str) -> np.ndarray:
+    """Signed feature hashing of token unigrams and bigrams, log-scaled."""
+    tokens = _TOKEN.findall(code[:MAX_CHARS * 4])
+    vector = np.zeros(DIM, dtype=np.float32)
+    counts = {}
+    for gram in tokens + [a + " " + b for a, b in zip(tokens, tokens[1:])]:
+        counts[gram] = counts.get(gram, 0) + 1
+    for gram, n in counts.items():
+        h = int.from_bytes(hashlib.blake2b(gram.encode(), digest_size=8).digest(), "little")
+        vector[h % DIM] += (1.0 if (h >> 63) else -1.0) * (1.0 + math.log(n))
+    return vector
 
 
 class CodeEmbedder:
@@ -19,8 +40,13 @@ class CodeEmbedder:
         self._cache: dict[str, np.ndarray] = {}
 
     def check(self) -> None:
-        if not self.mock:
+        if self.mock or self.api_base is None:
+            return
+        try:
             self("def probe():\n    return 0\n")
+        except (urllib.error.URLError, OSError) as exc:
+            raise RuntimeError(f"the code-embedding server at {self.api_base} is not reachable ({exc}); start it, "
+                               "or set swm.embedding_api_base: null to use local hashed embeddings") from None
 
     def _remote(self, codes: list) -> list:
         body = json.dumps({"input": [c[:MAX_CHARS] for c in codes], "model": self.model}).encode()
@@ -45,6 +71,8 @@ class CodeEmbedder:
             if self.mock:
                 vectors = [np.random.default_rng(int(self._key(c)[:16], 16)).normal(size=DIM).astype(np.float32)
                            for c in chunk]
+            elif self.api_base is None:
+                vectors = [hashed(c) for c in chunk]
             else:
                 vectors = self._remote(chunk)
             for code, vector in zip(chunk, vectors):

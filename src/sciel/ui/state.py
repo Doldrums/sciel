@@ -233,7 +233,7 @@ class RunState:
         try:
             runtime = json.loads((self.dir / "runtime.json").read_text())
         except (OSError, ValueError):
-            return {"status": "unknown", "stage": None}
+            return {"status": "starting", "stage": None}
         status = runtime.get("status")
         beat = _seconds(runtime.get("heartbeat_at"))
         stale = runtime.get("stale_after_seconds") or 10

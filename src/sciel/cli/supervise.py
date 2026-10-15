@@ -73,10 +73,14 @@ def ensure_credentials(cfg):
     llm = cfg['llm']
     if llm.get('mock'):
         return
+    from .profile import load_keys
+    load_keys()
     codex = llm.get('provider') == 'codex_responses'
     if codex and llm.get('codex_auth_file') is not None:
         return
-    key_name = llm.get('api_key_env', 'CODEX_TOKEN' if codex else 'OPENROUTER_API_KEY')
+    default = {'codex_responses': 'CODEX_TOKEN', 'anthropic': 'ANTHROPIC_API_KEY'}.get(llm.get('provider'),
+                                                                                        'OPENROUTER_API_KEY')
+    key_name = llm.get('api_key_env', default)
     if not os.environ.get(key_name):
         if not sys.stdin.isatty():
             raise SuperviseError(f'set {key_name} in the environment')

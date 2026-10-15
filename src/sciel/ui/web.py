@@ -36,8 +36,9 @@ def request_pause(run_dir) -> bool:
 class Live:
     """The run's state, refreshed at most every REFRESH_SECONDS however many viewers ask."""
 
-    def __init__(self, run_dir):
+    def __init__(self, run_dir, engine=None):
         self.state = RunState(run_dir)
+        self.engine = engine
         self.lock = threading.Lock()
         self.at = 0.0
         self.body = b"{}"
@@ -52,6 +53,7 @@ class Live:
                 snap["programs"] = [{k: v for k, v in p.items() if k != "cases"} for p in snap["programs"]]
                 snap["claims"] = [c for c in snap["claims"] if c.get("rejected") and (c.get("low", 0) > 0 or c.get("high", 0) < 0)]
                 snap["edits"] = []
+                snap["engine"] = self.engine() if self.engine is not None else None
                 self.body = json.dumps(snap, default=str).encode()
                 self.at = time.monotonic()
             return self.body
@@ -90,9 +92,9 @@ def _handler(live, run_dir):
     return Handler
 
 
-def serve(run_dir, port=PORT, open_browser=True):
+def serve(run_dir, port=PORT, open_browser=True, engine=None):
     """Start the page in a background thread; return its URL and the server."""
-    live = Live(run_dir)
+    live = Live(run_dir, engine)
     handler = _handler(live, run_dir)
     for candidate in range(port, port + 50):
         try:
