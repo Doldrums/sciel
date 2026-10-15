@@ -23,6 +23,7 @@ class EngineLifecycle:
         runtime = RuntimeStatus(self.run_dir, lambda: {
             "run_id": self.log.run_id, "segment_id": self.log.segment_id,
             "iteration_no": self.iteration_no, "B_evals": self.B_evals,
+            "stopping": bool(self._stop_requested),
             **({'parallel': self._parallel_status} if self._parallel_status is not None else {}),
         })
         self._runtime_status = runtime

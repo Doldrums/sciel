@@ -96,6 +96,11 @@ class Dashboard:
         stage = STAGES.get(run.get("stage"), run.get("stage"))
         status = (Text("● live" + (f" · {stage}" if stage else ""), style=UP) if live
                   else Text(str(run.get("status") or "unknown"), style=ACCENT))
+        if live and run.get("stopping"):
+            busy = [j for j in ((self.snap or {}).get("activity") or {}).get("jobs", []) if j["doing"] not in ("done", "queued")]
+            status = Text(f"● stopping · finishing {len(busy)} in flight" if busy else "● stopping · saving", style=ACCENT)
+        elif live and run.get("stage") == "provider_backoff":
+            status = Text("● waiting for the provider", style=ACCENT)
         if self._failure():
             status = Text("● engine stopped with an error", style=DOWN)
         left = Text.assemble(("SCIEL", Style(color=ACCENT, bold=True)), "  ", (str(run.get("task") or ""), INK),
@@ -352,8 +357,8 @@ class Dashboard:
 
     def _footer(self, width):
         keys = Text()
-        for key, label in (("↑↓", "choose attempt"), ("b", "best program"), ("e", "engine"), ("w", "web"), ("p", "pause run"),
-                           ("q", "quit viewer")):
+        for key, label in (("↑↓", "choose attempt"), ("b", "best program"), ("e", "engine"), ("w", "web"), ("p", "stop run"),
+                           ("q", "leave (run continues)")):
             keys.append(key, style=ACCENT)
             keys.append(f" {label}   ", style=MUTED)
         tail = Text(self.message or (f"web {self.web_url}" if self.web_url else ""), style=MUTED)
@@ -405,7 +410,11 @@ class Dashboard:
             self.web_url = self.open_web()
             self.message = f"opened {self.web_url}"
         elif ch == "p" and self.pause is not None:
-            self.message = "pausing after this step" if self.pause() else "the run is not running here"
+            if (self.snap or {}).get("run", {}).get("stopping"):
+                self.message = "already stopping: work already sent finishes first"
+            else:
+                self.message = ("stopping: work already sent finishes first, then the run saves" if self.pause()
+                                else "the run is not running, nothing to stop")
 
 
 @contextmanager

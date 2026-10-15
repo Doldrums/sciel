@@ -294,7 +294,8 @@ class RunState:
         if status == "running" and (beat is None or time.time() - beat > stale):
             status = "lost"
         return {"status": status, "stage": runtime.get("stage"), "reason": runtime.get("reason"),
-                "parallel": runtime.get("parallel")}
+                "parallel": runtime.get("parallel"),
+                "stopping": status == "running" and (bool(runtime.get("stopping")) or (self.dir / "STOP").exists())}
 
     def _eta(self):
         start, budget, done = _seconds(self.run["started"]), self.run["budget"], self.run["B_evals"]

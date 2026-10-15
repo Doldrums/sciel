@@ -80,7 +80,7 @@ footer.wrap{padding-top:72px;padding-bottom:80px;color:var(--muted);font-size:12
 <div class="wrap bar">
   <nav class="seg" aria-label="Views" id="seg"></nav>
   <span class="grow"></span>
-  <button class="act" id="pause" type="button">Pause run</button>
+  <button class="act" id="pause" type="button" title="Work already sent finishes first, then the run saves and stops">Stop run</button>
 </div>
 <main class="wrap">
   <div id="alert"></div>
@@ -195,9 +195,13 @@ function header(s) {
   document.getElementById("task").textContent = (r.task || "SCiEL") + (r.run_id ? " · " + r.run_id.slice(0, 8) : "");
   document.title = (r.best !== null ? fmt(r.best) + " · " : "") + (r.task || "SCiEL");
   const st = document.getElementById("status");
-  st.textContent = dead ? "engine stopped" : live ? "● live" + (STAGES[r.stage] ? " · " + STAGES[r.stage] : "") : (r.status || "unknown");
+  const inflight = ((s.activity || {}).jobs || []).filter(j => j.doing !== "done" && j.doing !== "queued").length;
+  st.textContent = dead ? "engine stopped" : live && r.stopping ? "● stopping · " + (inflight ? "finishing " + inflight + " in flight" : "saving")
+    : live ? "● live" + (STAGES[r.stage] ? " · " + STAGES[r.stage] : "") : (r.status || "unknown");
   st.className = "pill" + (live ? " live" : dead ? " bad" : " warn");
-  document.getElementById("pause").disabled = !live;
+  const pause = document.getElementById("pause");
+  pause.disabled = !live || !!r.stopping;
+  pause.textContent = live && r.stopping ? "Stopping…" : live ? "Stop run" : "Stopped";
   document.getElementById("sub").textContent = (r.models || []).join(", ");
   const gain = r.best !== null && r.seed_score !== null && r.seed_score !== undefined ? r.best - r.seed_score : null;
   const att = s.attempts || [];
@@ -385,7 +389,7 @@ document.getElementById("bestbox").addEventListener("toggle", () => { if (last) 
 document.getElementById("pause").addEventListener("click", async () => {
   const b = document.getElementById("pause"); b.disabled = true;
   const res = await fetch("/api/pause", {method: "POST"});
-  b.textContent = res.ok ? "Pausing after this step" : "Not running";
+  b.textContent = res.ok ? "Stopping…" : "Not running";
 });
 tabs(); tick(); setInterval(tick, 2000); setInterval(tickClocks, 1000);
 </script>

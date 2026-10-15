@@ -213,19 +213,41 @@ def cmd_tasks(args) -> int:
 
 
 def cmd_stop(args) -> int:
+    """Ask the run to stop, then wait until it has saved and stopped, showing what it still finishes."""
+    from pathlib import Path
     from ..engine.runtime import process_matches
+    run_dir = Path(args.run_dir)
     try:
-        with open(os.path.join(args.run_dir, 'runtime.json')) as stream:
-            runtime = json.load(stream)
-        if runtime.get('status') != 'running' or process_matches(runtime) is not True:
-            raise ValueError('no verified local running process')
-        with open(os.path.join(args.run_dir, 'STOP'), 'a'):
-            pass
-    except (OSError, ValueError, TypeError):
-        print('No verified running experiment at this path.', file=sys.stderr)
+        runtime = json.loads((run_dir / 'runtime.json').read_text())
+    except (OSError, ValueError):
+        print(f'No run at {run_dir}.', file=sys.stderr)
         return 2
-    print('Pause requested. The current iteration will finish and save a checkpoint.')
-    return 0
+    if runtime.get('status') != 'running':
+        print(f'Nothing to stop: the run is {runtime.get("status")}.', file=sys.stderr)
+        return 2
+    if process_matches(runtime) is not True:
+        print('The run says it is running, but its engine process is gone (it was killed or crashed). '
+              f'Resume it with: sciel resume {run_dir}', file=sys.stderr)
+        return 2
+    (run_dir / 'STOP').touch()
+    print('Stopping: work already sent to the model or the evaluator finishes first, then the run saves and stops.')
+    if getattr(args, 'no_wait', True):
+        return 0
+    from ..ui.activity import Activity
+    activity, started = Activity(run_dir), time.monotonic()
+    while True:
+        try:
+            runtime = json.loads((run_dir / 'runtime.json').read_text())
+        except (OSError, ValueError):
+            runtime = {}
+        if runtime.get('status') not in ('running', None) or process_matches(runtime) is False:
+            print(f'Stopped ({runtime.get("status")}) after {time.monotonic() - started:.0f} s. '
+                  f'Continue it with: sciel resume {run_dir}')
+            return 0
+        busy = [j for j in activity.read()['jobs'] if j['doing'] not in ('done', 'queued')]
+        line = ', '.join(f"I{j['island']} {j['doing']}" for j in busy) or 'saving'
+        print(f'\r  {time.monotonic() - started:4.0f} s  waiting for: {line[:90]:<90}', end='', flush=True)
+        time.sleep(1)
 
 
 def main(argv=None) -> int:
@@ -280,8 +302,9 @@ def main(argv=None) -> int:
     pt.add_argument("--tasks-root", default=None)
     pt.set_defaults(func=cmd_tasks)
 
-    ps = sub.add_parser("stop", help="Pause a run after its current step")
+    ps = sub.add_parser("stop", help="Stop a run safely: work already sent finishes, then it saves and stops")
     ps.add_argument("run_dir")
+    ps.add_argument("--no-wait", action="store_true", help="return right after asking the run to stop")
     ps.set_defaults(func=cmd_stop)
 
     # The guard has to run BEFORE parse_args: argparse rejects an unknown option
