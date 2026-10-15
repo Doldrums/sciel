@@ -61,28 +61,42 @@ def _run_engine(engine):
 
 
 def cmd_run(args) -> int:
+    from pathlib import Path
+    from .live import default_mode, follow, spawn, write_config
+    from .supervise import SuperviseError, ensure_credentials, supervise
     cfg = _resolve_config(args.config, args.seed)
     if args.budget is not None:
         cfg["budget"] = args.budget
-    tasks_root = args.tasks_root or _default_tasks_root()
     stamp = args.run_id or f"{cfg['task'].replace('/', '_')}_{int(time.time())}_s{cfg['random_seed']}"
-    run_dir = os.path.join(args.outputs, stamp)
-    if os.path.exists(run_dir) and os.listdir(run_dir):
+    run_dir = Path(args.outputs, stamp).resolve()
+    if run_dir.exists() and any(run_dir.iterdir()):
         raise ValueError('Run directory is not empty; use resume or a new --run-id')
     if getattr(args, 'warm_start_from', None):
         from ..engine.warm_start import from_run
         cfg['warm_start'] = from_run(args.warm_start_from, cfg['task'])
-    engine = build_engine(cfg, tasks_root, run_dir, python=sys.executable,
-                          campaign=args.campaign, arm=args.arm,
-                          tasks_root_override=args.tasks_root is not None)
     try:
-        summary = _run_engine(engine)
-    finally:
-        close = getattr(engine, 'close', None)
-        if callable(close):
-            close()
-    print(json.dumps(summary))
-    return 0
+        ensure_credentials(cfg)
+    except SuperviseError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    mode = args.watch or default_mode()
+    if mode == "none":
+        summary = supervise(run_dir, cfg, tasks_root=args.tasks_root or _default_tasks_root(), fresh=True,
+                            log=lambda m: print(m, file=sys.stderr, flush=True))
+        print(json.dumps(summary))
+        return 0
+    child = spawn(run_dir, fresh_config=write_config(cfg, run_dir), tasks_root=args.tasks_root)
+    return follow(run_dir, child, mode)
+
+
+def cmd_watch(args) -> int:
+    from pathlib import Path
+    from .live import follow
+    run_dir = Path(args.run_dir).resolve()
+    if not (run_dir / "sciel_events.jsonl").exists():
+        print(f"No run at {run_dir}", file=sys.stderr)
+        return 2
+    return follow(run_dir, None, "web" if args.cmd == "web" else ("both" if args.web else "terminal"))
 
 
 def cmd_resume(args) -> int:
@@ -92,26 +106,41 @@ def cmd_resume(args) -> int:
     overwritten by the checkpoint's copy on the next line: the value was never used,
     yet a validation error in that unused file aborted the resume -- which defeats
     DEPRECATED_KEYS, the mechanism that exists to keep old snapshots resumable."""
-    from ..config import validate
+    from pathlib import Path
     from ..engine import checkpoint
-    run_dir = args.run_dir
-    ckpt = os.path.join(run_dir, "checkpoint.json")
-    with open(ckpt) as f:
-        cfg = validate(json.load(f)["config"])
-    tasks_root = args.tasks_root or _default_tasks_root()
-    engine = build_engine(cfg, tasks_root, run_dir, python=sys.executable,
-                          tasks_root_override=args.tasks_root is not None)
+    from .live import default_mode, follow, spawn
+    from .supervise import SuperviseError, ensure_credentials, start_config, supervise
+    run_dir = Path(args.run_dir).resolve()
     try:
-        checkpoint.load(engine, ckpt,
-                        allow_identity_mismatch=getattr(args, "force_identity", False))
-        summary = _run_engine(engine)
-    except checkpoint.IdentityMismatch as e:
-        print(str(e), file=sys.stderr)
+        cfg = start_config(run_dir, None)
+        ensure_credentials(cfg)
+    except SuperviseError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
-    finally:
-        close = getattr(engine, 'close', None)
-        if callable(close):
-            close()
+    mode = args.watch or default_mode()
+    if mode != "none" and not args.force_identity:
+        child = spawn(run_dir, tasks_root=args.tasks_root, recover=args.abandon_provider_failure)
+        return follow(run_dir, child, mode)
+    tasks_root = args.tasks_root or _default_tasks_root()
+    if args.force_identity:
+        engine = build_engine(cfg, tasks_root, str(run_dir), python=sys.executable,
+                              tasks_root_override=args.tasks_root is not None)
+        try:
+            checkpoint.load(engine, str(run_dir / "checkpoint.json"), allow_identity_mismatch=True)
+            summary = _run_engine(engine)
+        finally:
+            engine.close()
+    else:
+        try:
+            summary = supervise(run_dir, cfg, tasks_root=tasks_root, fresh=False,
+                                recover=args.abandon_provider_failure,
+                                log=lambda m: print(m, file=sys.stderr, flush=True))
+        except checkpoint.IdentityMismatch as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        except SuperviseError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     print(json.dumps(summary))
     return 0
 
@@ -173,29 +202,41 @@ def cmd_stop(args) -> int:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="sciel")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd", required=True, metavar="command")
 
-    pr = sub.add_parser("run")
+    watch_help = "where to follow the run: both (default in a terminal), terminal, web, or none"
+    pr = sub.add_parser("run", help="Start a run from a config file")
     pr.add_argument("config")
     pr.add_argument("--seed", type=int, default=None)
-    pr.add_argument("--budget", type=int, default=None)
-    pr.add_argument("--outputs", default="outputs")
+    pr.add_argument("--budget", type=int, default=None, help="number of evaluations")
+    pr.add_argument("--watch", choices=("both", "terminal", "web", "none"), default=None, help=watch_help)
+    pr.add_argument("--outputs", default=".sciel/runs", help="where run directories go")
     pr.add_argument("--run-id", default=None)
     pr.add_argument("--tasks-root", default=None)
-    pr.add_argument("--campaign", default="adhoc")
-    pr.add_argument("--arm", default="A")
     pr.add_argument('--warm-start-from', metavar='RUN_DIR',
                     help='start a new run from a checkpoint best source, freshly evaluated')
     pr.set_defaults(func=cmd_run)
 
-    prs = sub.add_parser("resume")
+    prs = sub.add_parser("resume", help="Continue a paused or stopped run")
     prs.add_argument("--force-identity", action="store_true",
                      help="resume even though the task or the diversity axis changed "
                           "since the checkpoint was written (the archive and the new "
                           "children will not be comparable)")
+    prs.add_argument("--abandon-provider-failure", action="store_true",
+                     help="give up the provider request the run stopped on and continue")
+    prs.add_argument("--watch", choices=("both", "terminal", "web", "none"), default=None, help=watch_help)
     prs.add_argument("run_dir")
     prs.add_argument("--tasks-root", default=None)
     prs.set_defaults(func=cmd_resume)
+
+    pw = sub.add_parser("watch", help="Follow a run in the terminal")
+    pw.add_argument("run_dir")
+    pw.add_argument("--web", action="store_true", help="also open the web page")
+    pw.set_defaults(func=cmd_watch)
+
+    pweb = sub.add_parser("web", help="Open a run's live page in the browser")
+    pweb.add_argument("run_dir")
+    pweb.set_defaults(func=cmd_watch)
 
     pt = sub.add_parser("tasks")
     pt.add_argument("action", choices=["list", "validate", "hash"])
@@ -206,7 +247,7 @@ def main(argv=None) -> int:
     pt.add_argument("--tasks-root", default=None)
     pt.set_defaults(func=cmd_tasks)
 
-    ps = sub.add_parser("stop", help="Pause a local experiment after its current iteration")
+    ps = sub.add_parser("stop", help="Pause a run after its current step")
     ps.add_argument("run_dir")
     ps.set_defaults(func=cmd_stop)
 
@@ -214,6 +255,9 @@ def main(argv=None) -> int:
     # first, so the explanatory message was unreachable. It also read sys.argv rather
     # than the argv it was given, so it was wrong under programmatic calls.
     source = list(argv) if argv is not None else sys.argv[1:]
+    if source[:1] == ["_engine"]:
+        from .supervise import main as supervise_main
+        return supervise_main(source[1:])
     if source[:1] == ["run"] and "-s" in source:
         raise SystemExit("seed via --seed / overlay {random_seed: N}, not -s")
     args = p.parse_args(argv)
