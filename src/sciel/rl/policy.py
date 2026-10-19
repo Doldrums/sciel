@@ -28,6 +28,13 @@ MIN_ARM_STEPS = 10
 WINDOW = 100
 
 
+def _advantage(q: np.ndarray, mu: np.ndarray) -> np.ndarray:
+    """Pessimistic Q of each action, centred on its mean under the logging policy: the spread penalty lowers every
+    action, so a baseline without it would leave no action above zero and the tilt with nothing to move."""
+    lower = q.mean(1) - q.std(1)
+    return lower - (mu * lower).sum()
+
+
 def _pair(record):
     if isinstance(record, dict):
         return record["decision"], record["choice"], record.get("standing")
@@ -124,7 +131,7 @@ class StepPolicy:
                 actions = list(tokens)
                 q = self._q(folds[bool(odd[i])], xi, [tokens[b] for b in actions])
                 mu = np.array([record.distribution[b] for b in actions])
-                advantages.append(q.mean(1) - q.std(1) - (mu * q.mean(1)).sum())
+                advantages.append(_advantage(q, mu))
                 mus.append(mu)
                 chosen.append(actions.index(record.choice))
                 ys.append(step.y)
@@ -160,13 +167,15 @@ class StepPolicy:
         return tilted / tilted.sum()
 
     def _eta(self, advantages: list, mus: list) -> tuple[float, float]:
-        """Smallest temperature whose mean KL to the logging policy stays within DELTA / len(COVERED)."""
+        """Smallest temperature whose mean KL to the logging policy stays within DELTA / len(COVERED), searched in
+        units of the advantages' own scale, since a task's gains can sit orders of magnitude below one."""
         budget = DELTA / len(COVERED)
+        scale = float(np.mean([np.abs(adv).max() for adv in advantages])) or 1.0
 
         def kl(eta):
             return float(np.mean([(p * np.log(p / m)).sum() for adv, m in zip(advantages, mus)
                                   for p in [self._tilt(m, adv, eta)]]))
-        low, high = math.log(1e-4), math.log(1e4)
+        low, high = math.log(1e-4 * scale), math.log(1e4 * scale)
         if kl(math.exp(low)) <= budget:
             return math.exp(low), kl(math.exp(low))
         for _ in range(40):
@@ -192,8 +201,7 @@ class StepPolicy:
         actions = [index[t] for t in tokens]
         q = np.concatenate([self._q(self.folds[False], x, actions), self._q(self.folds[True], x, actions)], 1)
         mu = np.array(list(distribution.values()), dtype=float)
-        advantage = q.mean(1) - q.std(1) - (mu * q.mean(1)).sum()
-        return {a: float(p) for a, p in zip(distribution, self._tilt(mu, advantage, self.moved[decision]))}
+        return {a: float(p) for a, p in zip(distribution, self._tilt(mu, _advantage(q, mu), self.moved[decision]))}
 
     def check(self, ledger) -> bool:
         """Stand down when the arm's last steps rest on fewer distinct parents than as many recent base steps."""
