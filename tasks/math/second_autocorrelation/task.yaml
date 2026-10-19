@@ -14,7 +14,8 @@ task_prompt: >-
   invalid; set it to exactly 0. Candidate environment has Python stdlib, NumPy and SciPy. Every
   candidate must pass smoke within 30 wall seconds; full allows 120. Confirm uses 3 repeats within 400
   seconds, retaining the first failure, otherwise the worst score. These are stage wall limits
-  including overhead. Use reproducible seeds. The seed returns 50 equal heights (bound 2/3).
+  including overhead. Use reproducible seeds. The seed continues the best construction in its
+  population view and otherwise returns 50 equal heights (bound 2/3).
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
