@@ -19,25 +19,28 @@ def step_heights() -> np.ndarray:
     """
     deadline = time.time() + 0.5 * float(os.environ.get("SCIEL_STAGE_SECONDS", "30"))
     # Continue the best construction found so far; the search only has to improve on it.
-    h = np.full(400, 1.0)
+    # A flat start is a symmetric point the gradient does not leave; a fixed perturbation breaks the tie.
+    h = 1.0 + 1e-2 * np.random.default_rng(0).standard_normal(400)
     for program in population():
         if program["output"] is not None:
             h = np.array(program["output"]["heights"], dtype=float)
             break
     h = steps.clean(h)
-    best, best_value = h, steps.bound(h)
-    # Gradient descent on the soft maximum, sharpening it as the bound falls.
-    beta, rate = 50.0, 1e-3
+    value = steps.bound(h)
+    # Descent along the soft maximum's gradient, kept when the exact bound falls; the step grows on success and
+    # shrinks on failure, and once it vanishes the soft maximum sharpens.
+    beta, rate = 50.0, 1e-2
     while time.time() < deadline:
-        value, grad = steps.smooth_bound(h, beta)
-        h = steps.clean(h - rate * grad / (np.abs(grad).max() + 1e-300))
-        current = steps.bound(h)
-        if current < best_value:
-            best, best_value = h, current
+        grad = steps.smooth_bound(h, beta)[1]
+        candidate = steps.clean(h - rate * grad / (np.abs(grad).max() + 1e-300))
+        current = steps.bound(candidate)
+        if current < value:
+            h, value, rate = candidate, current, rate * 1.2
         else:
-            beta, rate = min(beta * 1.5, 1e5), rate * 0.7
-            h = best
-    return best
+            rate *= 0.5
+            if rate < 1e-6:
+                beta, rate = min(beta * 2, 1e6), 1e-2
+    return h
 
 
 # EVOLVE-BLOCK-END
