@@ -282,6 +282,7 @@ metrics and execution limits.
 | [Hidden optimization](tasks/oe/function_minimization_oracle) | Minimize an unknown function with at most 50 oracle queries per instance, under a container-isolated protocol. |
 | [Matrix multiplication tensor](tasks/oe/matmul_tensor) | Search tensor decompositions under rank and reconstruction checks. |
 | [Discrete mathematics](tasks/math) | Beat-the-average, difference bases, edges versus triangles and square-free subset tasks. |
+| [Autocorrelation and minimum overlap](tasks/math) | Step functions bounding the first, second and third autocorrelation constants and Erdős' minimum overlap constant, scored in exact rational arithmetic. |
 | [Toy quadratic](tasks/test/toy_quadratic) | An internal fixture for engine and evaluator contracts. |
 
 Inspect the task's `task.yaml` and evaluator before comparing results. A normalized

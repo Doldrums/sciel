@@ -1,0 +1,61 @@
+suite: math
+name: first_autocorrelation
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level step_heights() returning 1 to 10000 finite non-negative heights h of a step
+  function f with n equal steps on [-1/4,1/4]. It bounds the first autocorrelation constant from
+  above: C1 <= max_t (f*f)(t) / (integral f)^2 = 2n max(convolve(h,h)) / sum(h)^2. Minimize this
+  upper_bound. combined_score = 1.5029 / upper_bound; 1.5029 is a fixed normalization reference, not a
+  proven bound. Scoring is exact: binary64 heights are taken as exact rationals, the convolution is
+  computed in integers, and the bound is rounded once; there is no tolerance. A nonzero height below
+  2**-60 of the largest is invalid; set it to exactly 0. Candidate environment has Python stdlib,
+  NumPy and SciPy. Every candidate must pass smoke within 30 wall seconds; full allows 120. Confirm
+  uses 3 repeats within 400 seconds, retaining the first failure, otherwise the worst score. These are
+  stage wall limits including overhead. Use reproducible seeds. The seed returns 600 equal heights
+  (bound 2).
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: inverse_bound
+  numerator_units: reciprocal_upper_bound
+  denominator: 0.6653802648213455
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - upper_bound
+  - inverse_bound
+  - steps
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different step functions on repeats; confirm keeps
+# the worst of three, so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 120.0
+confirm_timeout: 400.0
+license: "Problem from Georgiev, Gomez-Serrano, Tao, Wagner (arXiv 2511.02864); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: an explicit closed-form or structured step function (known extremal shapes, symmetric profiles, sparse combs)"
+  - "an OPTIMIZATION approach: a good initial profile refined by linear programming or gradient methods on the exact discrete objective"
+  - "a GLOBAL-STOCHASTIC approach: multi-restart search over resolutions and profiles, keeping the best under the time budget"
