@@ -19,8 +19,8 @@ import uuid
 
 import numpy as np
 
-REFERENCE = 1.5029
-MAX_STEPS = 10000
+REFERENCE = 1.502743486709583
+MAX_STEPS = 65536
 # A nonzero height below this fraction of the largest makes the exact integers grow without
 # changing the bound; such heights must be exactly zero.
 MIN_RELATIVE = 2.0 ** -60

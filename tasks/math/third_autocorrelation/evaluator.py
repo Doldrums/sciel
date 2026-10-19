@@ -19,8 +19,8 @@ import uuid
 
 import numpy as np
 
-REFERENCE = 1.4557
-MAX_STEPS = 10000
+REFERENCE = 1.449109789331911
+MAX_STEPS = 65536
 # A nonzero height below this fraction of the largest makes the exact integers grow without
 # changing the bound; such heights must be exactly zero.
 MIN_RELATIVE = 2.0 ** -60
@@ -62,15 +62,27 @@ def _convolve(a, b):
     return [int.from_bytes(product[i * width:(i + 1) * width], "little") for i in range(len(a) + len(b) - 1)]
 
 
+def _signed(h):
+    """Exact h*h for signed integers through one non-negative convolution: with g = h + c >= 0,
+    h*h = g*g - 2c (h*1) - c^2 (1*1), where h*1 and 1*1 are sliding sums."""
+    c = max(0, -min(h))
+    n = len(h)
+    gg = _convolve([x + c for x in h], [x + c for x in h])
+    prefix = [0]
+    for x in h:
+        prefix.append(prefix[-1] + x)
+    out = []
+    for k in range(2 * n - 1):
+        lo, hi = max(0, k - n + 1), min(k, n - 1)
+        out.append(gg[k] - 2 * c * (prefix[hi + 1] - prefix[lo]) - c * c * (hi - lo + 1))
+    return out
+
+
 def bound(heights) -> Fraction:
     h = _integers(heights)
     if sum(h) == 0:
         raise ValueError("heights must not sum to zero")
-    # (P - N) * (P - N) with P and N the positive and negative parts, each convolution non-negative.
-    p, m = [max(x, 0) for x in h], [max(-x, 0) for x in h]
-    pp, pm, mm = (_convolve(a, b) if max(a) and max(b) else [0] * (2 * len(h) - 1)
-                  for a, b in ((p, p), (p, m), (m, m)))
-    return Fraction(abs(2 * len(h) * max(x - 2 * y + z for x, y, z in zip(pp, pm, mm))), sum(h) ** 2)
+    return Fraction(abs(2 * len(h) * max(_signed(h))), sum(h) ** 2)
 
 
 # --- behavior readout -------------------------------------------------------

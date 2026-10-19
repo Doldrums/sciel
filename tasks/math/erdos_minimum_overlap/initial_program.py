@@ -8,7 +8,7 @@ def step_heights() -> np.ndarray:
     whose bound (2/n) max(correlate(h, 1 - h, 'full')) on the minimum overlap constant is as small as possible.
 
     Returns:
-        heights: 1-D np.ndarray of at most 10000 step heights.
+        heights: 1-D np.ndarray of at most 65536 step heights.
     """
     return np.full(600, 0.5)
 

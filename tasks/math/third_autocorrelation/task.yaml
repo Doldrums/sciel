@@ -3,23 +3,24 @@ name: third_autocorrelation
 origin: math
 primary_metric: combined_score
 task_prompt: >-
-  Implement module-level step_heights() returning 1 to 10000 finite heights h, which may be negative,
+  Implement module-level step_heights() returning 1 to 65536 finite heights h, which may be negative,
   of a step function f with n equal steps on [-1/4,1/4]. It bounds the third autocorrelation constant
   from above: C3 <= |max_t (f*f)(t)| / (integral f)^2 = |2n max(convolve(h,h))| / sum(h)^2 (the
-  maximum, not the maximum of the absolute value). Minimize this upper_bound; sum(h) must be nonzero.
-  combined_score = 1.4557 / upper_bound; 1.4557 is a fixed normalization reference. Scoring is exact:
-  binary64 heights are taken as exact rationals, the convolution is computed in integers, and the
-  bound is rounded once; there is no tolerance. A nonzero height of absolute value below 2**-60 of the
-  largest is invalid; set it to exactly 0. Candidate environment has Python stdlib, NumPy and SciPy.
-  Every candidate must pass smoke within 30 wall seconds; full allows 120. Confirm uses 3 repeats
-  within 400 seconds, retaining the first failure, otherwise the worst score. These are stage wall
-  limits including overhead. Use reproducible seeds. The seed returns 400 equal heights (bound 2).
+  absolute value of the maximum). Minimize this upper_bound; sum(h) must be nonzero. combined_score =
+  1.449109789331911 / upper_bound, the best verified value we know as of October 2026 (EinsteinArena);
+  a score above 1 is a new record under this exact scoring. Scoring is exact: binary64 heights are
+  taken as exact rationals, the convolution is computed in integers, and the bound is rounded once;
+  there is no tolerance. A nonzero height of absolute value below 2**-60 of the largest is invalid;
+  set it to exactly 0. Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must
+  pass smoke within 30 wall seconds; full allows 120. Confirm uses 3 repeats within 400 seconds,
+  retaining the first failure, otherwise the worst score. These are stage wall limits including
+  overhead. Use reproducible seeds. The seed returns 400 equal heights (bound 2).
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
   numerator_case: inverse_bound
   numerator_units: reciprocal_upper_bound
-  denominator: 0.6869547296833138
+  denominator: 0.6900788383059879
   validity_case: validity
   valid_value: 1.0
   invalid_score: 0.0

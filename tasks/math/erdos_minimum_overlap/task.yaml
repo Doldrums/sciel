@@ -3,16 +3,17 @@ name: erdos_minimum_overlap
 origin: math
 primary_metric: combined_score
 task_prompt: >-
-  Implement module-level step_heights() returning 1 to 10000 heights h in [0,1] of a step function on
+  Implement module-level step_heights() returning 1 to 65536 heights h in [0,1] of a step function on
   [0,2] with n equal steps and integral 1, i.e. sum(h) exactly n/2. It bounds the Erdos minimum
   overlap constant from above: C <= (2/n) max(correlate(h, 1-h, mode='full')). Minimize this
-  upper_bound. combined_score = 0.380876 / upper_bound; 0.380876 is a fixed normalization reference.
-  Scoring is exact: binary64 heights are taken as exact rationals, the correlation is computed in
-  integers, and the bound is rounded once; there is no tolerance. The sum must equal n/2 in exact
-  rationals, so a float sum that only rounds to n/2 is invalid: put heights on a dyadic grid such as
-  multiples of 2**-30 and fix one height to close the sum. A height within 2**-60 of 0 or 1 must equal
-  it. Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must pass smoke within
-  30 wall seconds; full allows 120. Confirm uses 3 repeats within 400 seconds, retaining the first
+  upper_bound. combined_score = 0.38085658829748237 / upper_bound, the best verified value we know as
+  of October 2026 (EinsteinArena); a score above 1 is a new record under this exact scoring. Scoring
+  is exact: binary64 heights are taken as exact rationals, the correlation is computed in integers,
+  and the bound is rounded once; there is no tolerance. The sum must equal n/2 in exact rationals, so
+  a float sum that only rounds to n/2 is invalid: put heights on a dyadic grid such as multiples of
+  2**-30 and fix one height to close the sum. A height within 2**-60 of 0 or 1 must equal it.
+  Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must pass smoke within 30
+  wall seconds; full allows 120. Confirm uses 3 repeats within 400 seconds, retaining the first
   failure, otherwise the worst score. These are stage wall limits including overhead. Use reproducible
   seeds. The seed returns 600 heights of 0.5 (bound 0.5).
 research_metric:
@@ -20,7 +21,7 @@ research_metric:
   score_units: dimensionless
   numerator_case: inverse_bound
   numerator_units: reciprocal_upper_bound
-  denominator: 2.6255264180468183
+  denominator: 2.6256602372831015
   validity_case: validity
   valid_value: 1.0
   invalid_score: 0.0

@@ -8,7 +8,7 @@ def step_heights() -> np.ndarray:
     ||f*f||_2^2 / (||f*f||_1 ||f*f||_inf) is as large as possible.
 
     Returns:
-        heights: 1-D np.ndarray of at most 10000 step heights.
+        heights: 1-D np.ndarray of at most 65536 step heights.
     """
     return np.full(50, 1.0)
 
