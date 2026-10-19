@@ -45,7 +45,7 @@ class EngineStepPlan:
         return ""
 
     def _planners(self) -> dict:
-        arms = [name for name, ready in (("swm", self.swm.ready), ("rl", self.policy.ready),
+        arms = [name for name, ready in (("swm", self.swm.acting), ("rl", self.policy.ready),
                 ("heritage", self.heritage is not None and self.heritage.ready)) if ready]
         share = self._procedure.base_share
         return {"base": share} | {a: (1 - share) / len(arms) for a in arms} if arms else {"base": 1.0}

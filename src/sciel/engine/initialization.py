@@ -186,6 +186,7 @@ class EngineInitialization:
         self.embedder.check()
         from ..theory.claims import DECISIONS
         self.swm = SearchWorldModel(self.db, DECISIONS, self.embedder)
+        self.swm.ledger = self.ledger
         if type(self.db) is Database and self.db.niche_fn is None:
             from ..swm.niches import LatentNiches
             self.db.niche_fn = LatentNiches(self.swm)
@@ -198,6 +199,7 @@ class EngineInitialization:
         if cfg.get("inherit") is not None:
             from ..culture import Heritage
             self.heritage = Heritage(cfg["inherit"], self.db, self.embedder)
+            self.swm.inherited = self.heritage.steps
             self.strategies.pool.extend(self.heritage.strategies)
             self.procedures.pool.extend(self.heritage.procedures)
             self.findings.pool.extend(self.heritage.knowledge)

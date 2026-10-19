@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..rl import StepPolicy
 from ..swm import SearchWorldModel
+from ..swm.tabular import MAX_CONTEXT
 from ..theory import Claim, Finding, Procedure, Strategy, Theory
 from .methods import export_methods
 
@@ -72,6 +73,8 @@ class Heritage:
         self.swm = SearchWorldModel(db, (), embedder)
         self.swm.load_state(value["swm"])
         self.swm.edges = {}
+        # Operator steps of every earlier generation, the context TabPFN forecasts this run's first steps from.
+        self.steps = (self.swm.inherited + self.swm.table)[-MAX_CONTEXT:]
         self.policy = StepPolicy()
         self.policy.load_state(value["policy"])
         self.policy.world = self.swm
@@ -84,4 +87,4 @@ class Heritage:
         return {"path": self.path, "sha256": self.sha256, "generation": self.generation, **self.source,
                 "claims": len(self.theory.claims), "strategies": len(self.strategies),
                 "procedures": len(self.procedures), "knowledge": len(self.knowledge), "methods": len(self.methods),
-                "swm": self.swm.ready, "policy": self.policy.ready}
+                "swm": self.swm.ready, "step_policy": self.policy.ready, "steps": len(self.steps)}

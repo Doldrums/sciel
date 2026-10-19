@@ -34,6 +34,7 @@ dev = ["pytest>=8.2", "build>=1.2", "jsonschema>=4"]
 tasks = ["scipy>=1.11"]
 board = ["wandb>=0.16"]
 analysis = ["duckdb>=0.10", "pandas>=2.0", "psutil>=7.2"]
+tabular = ["tabpfn>=2.2"]
 
 [project.scripts]
 sciel = "sciel.cli.main:main"
