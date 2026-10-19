@@ -38,23 +38,46 @@ def freeze(engine, island: int, parent_id: str) -> list:
     return out
 
 
+def _shape(value, depth=0) -> str:
+    if isinstance(value, dict) and depth < 2:
+        return "a dict with keys " + ", ".join(f"{k} ({_shape(v, depth + 1)})" for k, v in value.items())
+    if isinstance(value, list):
+        kinds = {type(x).__name__ for x in value[:50]}
+        item = "numbers" if kinds <= {"int", "float"} else "lists" if kinds == {"list"} else "items"
+        return f"a list of {len(value)} {item}"
+    return type(value).__name__
+
+
+def describe(engine, refs: list) -> str:
+    """The structure of a program's output in the view, so a child parses it without guessing; the parent's first."""
+    for ref in sorted(refs, key=lambda r: not r['parent']):
+        output = _output(engine, ref)[1]
+        if output is not None:
+            return (f"\nPopulation view: each program's output is {_shape(output)}, as the evaluator recorded it "
+                    f"(shown for {ref['program_id']}).\n")
+    return ""
+
+
+def _output(engine, ref) -> tuple:
+    from .research_artifacts import saved_evaluation_by_hash
+    if ref['evaluation_id'] is None:
+        return None, None
+    try:
+        saved = saved_evaluation_by_hash(engine, ref['source_sha256'], ref['evaluation_id'])
+    except ValueError:
+        return None, None
+    if saved['status'] != 'available':
+        return None, None
+    result = saved['record']['result']
+    witness = (result.get('artifacts') or {}).get('full_output')
+    return result.get('cases'), None if witness is None else json.loads(witness).get('output')
+
+
 def materialize(engine, refs: list, path: str) -> str:
     """Write the view for frozen references and return the sha256 of its bytes."""
-    from .research_artifacts import saved_evaluation_by_hash
     programs = []
     for ref in refs:
-        cases = output = None
-        if ref['evaluation_id'] is not None:
-            try:
-                saved = saved_evaluation_by_hash(engine, ref['source_sha256'], ref['evaluation_id'])
-            except ValueError:
-                saved = {'status': 'unavailable'}
-            if saved['status'] == 'available':
-                result = saved['record']['result']
-                cases = result.get('cases')
-                witness = (result.get('artifacts') or {}).get('full_output')
-                if witness is not None:
-                    output = json.loads(witness).get('output')
+        cases, output = _output(engine, ref)
         programs.append({'program_id': ref['program_id'], 'score': ref['score'], 'parent': ref['parent'],
                          'cases': cases, 'output': output})
     data = json.dumps({'schema': SCHEMA, 'programs': programs}, sort_keys=True, separators=(',', ':'),

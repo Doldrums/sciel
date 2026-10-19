@@ -23,9 +23,16 @@ _REQUEST = None
 _INVOKE = None
 
 
+def _plain(value):
+    """NumPy scalars and arrays a tool returns become their Python values; anything else stays unserializable."""
+    if hasattr(value, 'tolist'):
+        return value.tolist()
+    raise TypeError(f'Object of type {type(value).__name__} is not JSON serializable')
+
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
-                      allow_nan=False).encode('utf-8')
+                      allow_nan=False, default=_plain).encode('utf-8')
 
 
 def digest(value):
