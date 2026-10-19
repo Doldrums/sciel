@@ -1,4 +1,6 @@
-"""Search world model fitted online to the decision ledger with inverse-propensity weights."""
+"""Search world model fitted online to the decision ledger with inverse-propensity weights: it forecasts whether a
+step's child raises its lineage's best, which is known when the step is scored and carries signal that the island
+event of a whole horizon does not."""
 
 from __future__ import annotations
 
@@ -24,6 +26,10 @@ BETA = 8.0
 GAMMA = 0.9
 BONUS = 1.0
 UNCERTAIN_QUANTILE = 0.75
+# A run holds a few hundred steps, too few for the 256 token hashes and the frozen embedding as they are: both enter
+# through their leading principal components over the run's programs, the readouts stay as they are.
+COMPONENTS = 16
+DENSE = slice(8, 264)
 
 
 def _logit(p):
@@ -31,9 +37,13 @@ def _logit(p):
     return np.log(p / (1 - p))
 
 
-def _log_loss(p, y) -> float:
+def _log_loss(p, y, w=None) -> float:
     p = np.clip(p, 1e-6, 1 - 1e-6)
-    return float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
+    return float(-np.average(y * np.log(p) + (1 - y) * np.log(1 - p), weights=w))
+
+
+def _step(r) -> tuple:
+    return r.iteration, r.island, r.state, r.child
 
 
 def _context(context: str) -> list:
@@ -55,6 +65,7 @@ class SearchWorldModel:
         self.gate = None
         self.shrink = 0.0
         self.cells = {}
+        self.center = self.basis = None
         self._cache: dict[str, np.ndarray] = {}
         self._latents: dict = {}
 
@@ -63,6 +74,8 @@ class SearchWorldModel:
         return self.net is not None
 
     def _program(self, pid: str) -> np.ndarray | None:
+        if self.basis is None:
+            return None
         if pid not in self._cache:
             program = self.db._all.get(pid)
             if program is None:
@@ -76,16 +89,33 @@ class SearchWorldModel:
         if self.embedder is not None:
             self.embedder.prefetch(p.code for p in self.db._all.values())
 
-    def features(self, code: str, cases: dict) -> np.ndarray:
-        """Behavior and AST readouts plus the frozen code embedding; until the next batched prefetch the embedding is
-        imputed with its training mean, which the normalization maps to zero."""
-        base = featurize(code, cases).astype(np.float32)
+    def _dense(self, code: str, base: np.ndarray) -> np.ndarray | None:
+        """Token hashes and the frozen code embedding, the high-dimensional part of a program's features."""
         if self.embedder is None:
-            return base
+            return base[DENSE]
         vector = self.embedder.get(code)
-        if vector is None:
-            vector = self.mean[len(base):len(base) + DIM] if self.mean is not None else np.zeros(DIM, np.float32)
-        return np.concatenate([base, vector]).astype(np.float32)
+        return None if vector is None else np.concatenate([base[DENSE], vector])
+
+    def _project(self) -> bool:
+        dense = [self._dense(p.code, featurize(p.code, p.cases).astype(np.float32)) for p in self.db._all.values()]
+        dense = [d for d in dense if d is not None]
+        if len(dense) < COMPONENTS:
+            return False
+        dense = np.stack(dense)
+        self.center = dense.mean(0)
+        self.basis = np.linalg.svd(dense - self.center, full_matrices=False)[2][:COMPONENTS].T.astype(np.float32)
+        self._cache = {}
+        return True
+
+    def features(self, code: str, cases: dict) -> np.ndarray:
+        """Behavior and AST readouts plus the principal components of token hashes and the frozen code embedding;
+        until the next batched prefetch the embedding is imputed with its mean, which the components map to zero."""
+        base = featurize(code, cases).astype(np.float32)
+        dense = self._dense(code, base)
+        if dense is None:
+            dense = np.concatenate([base[DENSE], self.center[DENSE.stop - DENSE.start:]])
+        readouts = np.concatenate([base[:DENSE.start], base[DENSE.stop:]])
+        return np.concatenate([readouts, (dense - self.center) @ self.basis]).astype(np.float32)
 
     def _x(self, pid: str, context: str) -> np.ndarray | None:
         state = self._program(pid)
@@ -94,11 +124,9 @@ class SearchWorldModel:
     def _norm(self, pid: str, context: str) -> np.ndarray:
         return ((self._x(pid, context) - self.mean) / self.std).astype(np.float32)
 
-    def _rows(self, ledger, iteration: int | None = None) -> list:
-        """Labeled rows; for training, only rows whose horizon has passed, so recent failures and successes enter
-        together."""
-        return [r for r in ledger.rows if r.outcome is not None and r.state is not None
-                and (iteration is None or iteration - r.iteration > ledger.horizon)
+    def _rows(self, ledger) -> list:
+        """Rows of scored steps from a recorded parent; island-scope rows have no child of their own to judge."""
+        return [r for r in ledger.rows if r.scope == "lineage" and r.state is not None
                 and r.decision in self.decisions and len(r.distribution) > 1
                 and self._program(r.state) is not None]
 
@@ -113,7 +141,7 @@ class SearchWorldModel:
             node = self.db._all[node.parent_id]
         return chain[::-1]
 
-    def _batch(self, states: list, contexts: list, populations: list, actions: list, children=None) -> dict:
+    def _batch(self, states: list, contexts: list, populations: list, actions: list, children=None, prior=None) -> dict:
         """Rows reference a shared table of context-free program features; index len(table) is padding."""
         ids: dict[str, int] = {}
 
@@ -140,24 +168,36 @@ class SearchWorldModel:
         pad = len(ids)
         batch = {"x": np.stack([self._norm(p, c) for p, c in zip(states, contexts)]), "a": np.asarray(actions),
                  "table": table, "pop": np.where(pop < 0, pad, pop), "pop_mask": pop < 0,
-                 "lin": np.where(lin < 0, pad, lin), "lin_a": lin_a, "lin_r": lin_r, "lin_mask": lin < 0}
+                 "lin": np.where(lin < 0, pad, lin), "lin_a": lin_a, "lin_r": lin_r, "lin_mask": lin < 0,
+                 "prior": np.zeros(n, np.float32) if prior is None else _logit(np.asarray(prior)).astype(np.float32)}
         if child is not None:
             batch["child"] = np.where(child < 0, pad, child)
         return batch
 
     @staticmethod
-    def _weights(rows) -> np.ndarray:
+    def _shares(rows) -> np.ndarray:
+        """Each step counts once: its decision rows share one outcome, so each row carries a share of the step."""
+        size: dict = {}
+        for r in rows:
+            size[_step(r)] = size.get(_step(r), 0) + 1
+        return np.array([1.0 / size[_step(r)] for r in rows], dtype=np.float32)
+
+    @staticmethod
+    def _weights(rows, shares) -> np.ndarray:
         """Stabilized inverse-propensity weights: normalized to mean one and capped, since the action is an input."""
         raw = np.array([1.0 / r.propensity for r in rows], dtype=np.float32)
-        return np.minimum(raw / raw.mean(), MAX_WEIGHT).astype(np.float32)
+        return (np.minimum(raw / raw.mean(), MAX_WEIGHT) * shares / shares.mean()).astype(np.float32)
 
     def due(self, iteration: int) -> bool:
         return self.trained_at is None or iteration - self.trained_at >= FIT_INTERVAL
 
     def fit(self, ledger, iteration: int, seed: int) -> bool:
         self.prefetch()
-        rows = self._rows(ledger, iteration)[-MAX_TRAIN:]
         self.trained_at = iteration
+        if not self._project():
+            self.net = None
+            return False
+        rows = self._rows(ledger)[-MAX_TRAIN:]
         if len(rows) < MIN_ROWS:
             self.net = None
             return False
@@ -177,43 +217,70 @@ class SearchWorldModel:
         data = self._batch([r.state for r in rows], [r.context for r in rows],
                            [r.population or self._population(r.state) for r in rows],
                            [index[f"{r.decision}:{r.choice}"] for r in rows], children)
+        y = np.array([r.gain > 0 for r in rows], dtype=np.float32)
+        shares = self._shares(rows)
         data.update(
-            y=np.array([r.outcome for r in rows], dtype=np.float32),
+            y=y,
             reward=np.array([r.reward for r in rows], dtype=np.float32),
-            w=self._weights(rows),
+            w=self._weights(rows, shares),
             valid=np.array([r.child is not None for r in rows], dtype=np.float32),
             boot=np.random.default_rng(seed).poisson(1.0, size=(len(rows), model.HEADS)).astype(np.float32),
             has_child=np.array([c is not None for c in children]))
         rng = np.random.default_rng(seed)
+        steps = np.array([hash(_step(r)) for r in rows])
+        keys = [f"{r.decision}:{r.choice}" for r in rows]
+        islands = np.array([r.island for r in rows])
 
         def train(indices, offset):
-            order = rng.permutation(indices)
-            cut = max(len(order) // 5, 1)
-            return model.fit(model.rows(data, order[cut:]), model.rows(data, order[:cut]), len(self.vocab),
+            """Early stopping holds out whole islands where the fold has several, else whole steps: the gate scores
+            other islands, and a step's rows share their outcome and nearly all inputs."""
+            groups = islands if len(np.unique(islands[indices])) > 1 else steps
+            order = rng.permutation(np.unique(groups[indices]))
+            share = np.array([np.isin(groups[indices], order[:k + 1]).mean() for k in range(len(order))])
+            held = np.isin(groups[indices], order[:int(np.argmin(np.abs(share - 0.2))) + 1])
+            return model.fit(model.rows(data, indices[~held]), model.rows(data, indices[held]), len(self.vocab),
                              seed + offset)[0]
 
         def cells(indices):
             return _outcome_model([SimpleNamespace(context=rows[i].context, choice=f"{rows[i].decision}:{rows[i].choice}",
-                                                   outcome=rows[i].outcome) for i in indices])
+                                                   outcome=float(y[i])) for i in indices])
 
-        learned, cell = np.zeros(len(rows)), np.zeros(len(rows))
-        for side in (False, True):
-            fitted, scored = np.flatnonzero(parity == side), np.flatnonzero(parity != side)
-            learned[scored] = model.predict(train(fitted, int(side)), model.rows(data, scored))["value"]
-            self.cells = cells(fitted)
-            cell[scored] = [self._cell(rows[i].context, f"{rows[i].decision}:{rows[i].choice}") for i in scored]
-        y = data["y"]
-        losses = {a: _log_loss(1 / (1 + np.exp(-(a * _logit(learned) + (1 - a) * _logit(cell)))), y) for a in SHRINKS}
+        def base_rate(indices):
+            return {("*", "*"): float(np.average(y[indices], weights=shares[indices]))}
+
+        # The reference the network must beat is the better of the base rate and the cell means, both out of fold:
+        # cell means alone can lose to the base rate, and a gate against them would pass a model no better than it.
+        def forecast(table, indices):
+            return np.array([_q(table, rows[i].context, keys[i]) for i in indices])
+
+        folds = [(np.flatnonzero(parity == side), np.flatnonzero(parity != side)) for side in (False, True)]
+        cell, base = np.zeros(len(rows)), np.zeros(len(rows))
+        for fitted, scored in folds:
+            cell[scored] = forecast(cells(fitted), scored)
+            base[scored] = forecast(base_rate(fitted), scored)
+        cell_loss, base_loss = _log_loss(cell, y, shares), _log_loss(base, y, shares)
+        reference, by_cells = (cell, True) if cell_loss < base_loss else (base, False)
+        prior_of = cells if by_cells else base_rate
+        # The network corrects the reference: on each fold it starts from the reference fitted on that fold.
+        learned = np.zeros(len(rows))
+        for side, (fitted, scored) in enumerate(folds):
+            data["prior"] = _logit(forecast(prior_of(fitted), range(len(rows)))).astype(np.float32)
+            learned[scored] = model.predict(train(fitted, side), model.rows(data, scored))["value"]
+        losses = {a: _log_loss(1 / (1 + np.exp(-(a * _logit(learned) + (1 - a) * _logit(reference)))), y, shares)
+                  for a in SHRINKS}
         self.shrink = min(SHRINKS, key=lambda a: (losses[a], a))
-        self.gate = {"held_out": len(rows), "shrink": self.shrink, "swm_log_loss": losses[1.0],
-                     "cell_mean_log_loss": losses[0.0], "blend_log_loss": losses[self.shrink]}
+        self.gate = {"held_out": len(rows), "steps": int(round(shares.sum())), "base_rate": float(np.average(y, weights=shares)),
+                     "shrink": self.shrink, "reference": "cells" if by_cells else "base_rate",
+                     "swm_log_loss": losses[1.0], "cell_mean_log_loss": cell_loss, "base_rate_log_loss": base_loss,
+                     "blend_log_loss": losses[self.shrink]}
         self._latents = {}
         if self.shrink == 0:
             self.net = None
             return False
         # The gate judged the procedure out of fold; the acting model is that procedure fitted on every island.
         everything = np.arange(len(rows))
-        self.cells = cells(everything)
+        self.cells = prior_of(everything)
+        data["prior"] = _logit(forecast(self.cells, everything)).astype(np.float32)
         self.net = train(everything, 2)
         spread = model.predict(self.net, model.rows(data, everything))["epistemic"]
         self.uncertain_above = float(np.quantile(spread, UNCERTAIN_QUANTILE))
@@ -228,7 +295,8 @@ class SearchWorldModel:
             return None
         index = {k: i for i, k in enumerate(self.vocab)}
         n = len(actions)
-        return self._batch([pid] * n, [context] * n, [self._population(pid)] * n, [index[k] for k in keys])
+        return self._batch([pid] * n, [context] * n, [self._population(pid)] * n, [index[k] for k in keys],
+                           prior=[self._cell(context, k) for k in keys])
 
     def state_values(self, states: list, contexts: list) -> np.ndarray:
         """TD value of programs under the search, from the world model's critic head."""
@@ -288,6 +356,8 @@ class SearchWorldModel:
                 "uncertain_above": self.uncertain_above, "edges": self.edges, "shrink": self.shrink,
                 "cells": [[c, a, v] for (c, a), v in self.cells.items()],
                 "mean": None if self.mean is None else self.mean.tolist(),
+                "center": None if self.center is None else self.center.tolist(),
+                "basis": None if self.basis is None else self.basis.tolist(),
                 "std": None if self.std is None else self.std.tolist()}
 
     def load_state(self, data: dict) -> None:
@@ -298,8 +368,10 @@ class SearchWorldModel:
         self.edges = {k: tuple(v) for k, v in data["edges"].items()}
         self._cache, self._latents = {}, {}
         self.net = None
-        if data["weights"] is not None:
+        if data["weights"] is not None and data.get("basis") is not None:
             self.mean = np.asarray(data["mean"], dtype=np.float32)
+            self.center = np.asarray(data["center"], dtype=np.float32)
+            self.basis = np.asarray(data["basis"], dtype=np.float32)
             self.std = np.asarray(data["std"], dtype=np.float32)
             net = model.Network(len(self.mean), len(self.vocab))
             net.load_state_dict(torch.load(io.BytesIO(base64.b64decode(data["weights"]))))

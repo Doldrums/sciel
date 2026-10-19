@@ -2,7 +2,7 @@
 
 State = program encoder latent + Set-Transformer summary of the island population + causal lineage summary.
 A mixture density predicts the child's latent against an EMA target encoder (JEPA style); an ensemble
-of heads predicts the lineage event and a head predicts validity.
+of heads predicts the step outcome as a correction to a prior logit, and a head predicts validity.
 """
 
 from __future__ import annotations
@@ -46,6 +46,9 @@ class Network(nn.Module):
         self.lineage = LineageEncoder(LATENT, actions, LINEAGE)
         self.mixture = _mlp(4 * LATENT, COMPONENTS * (1 + 2 * LATENT))
         self.value = nn.ModuleList(_mlp(4 * LATENT, 1) for _ in range(HEADS))
+        for head in self.value:
+            nn.init.normal_(head[-1].weight, std=0.01)
+            nn.init.zeros_(head[-1].bias)
         self.valid = _mlp(4 * LATENT, 1)
         self.critic = _mlp(3 * LATENT, 1)
 
@@ -63,8 +66,9 @@ class Network(nn.Module):
     def state_value(self, z, context):
         return self.critic(torch.cat([z, context], -1)).squeeze(-1)
 
-    def heads(self, h):
-        return torch.cat([head(h) for head in self.value], -1), self.valid(h).squeeze(-1)
+    def heads(self, h, prior):
+        """Value heads add to the prior's logit and start near zero, so an untrained net forecasts the prior."""
+        return torch.cat([head(h) for head in self.value], -1) + prior[:, None], self.valid(h).squeeze(-1)
 
     def density(self, h):
         out = self.mixture(h)
@@ -106,7 +110,7 @@ def rows(batch: dict, index) -> dict:
 def _loss(net, batch, bce):
     z, context = net.context(batch)
     h = net.joint(z, context, batch["a"])
-    values, validity = net.heads(h)
+    values, validity = net.heads(h, batch["prior"])
     weight = batch["boot"] * batch["w"][:, None]
     loss = (bce(values, batch["y"][:, None].expand_as(values)) * weight).sum() / weight.sum().clamp(min=1e-6)
     loss = loss + bce(validity, batch["valid"]).mean() + VAR_WEIGHT * _variance(z)
@@ -125,7 +129,7 @@ def _loss(net, batch, bce):
 def _held_out(net, batch, bce) -> float:
     net.eval()
     z, context = net.context(batch)
-    values, _ = net.heads(net.joint(z, context, batch["a"]))
+    values, _ = net.heads(net.joint(z, context, batch["a"]), batch["prior"])
     p = torch.sigmoid(values).mean(-1).clamp(1e-6, 1 - 1e-6)
     return float(-(batch["y"] * p.log() + (1 - batch["y"]) * (1 - p).log()).mean())
 
@@ -140,7 +144,8 @@ def fit(train_data: dict, valid_data: dict, actions: int, seed: int, steps: int 
     opt = torch.optim.Adam([p for p in net.parameters() if p.requires_grad], lr=lr, weight_decay=1e-3)
     bce = nn.BCEWithLogitsLoss(reduction="none")
     generator = torch.Generator().manual_seed(seed)
-    best, best_state = float("inf"), deepcopy(net.state_dict())
+    # The untrained net forecasts the prior, so training must beat the prior on held-out steps to be kept.
+    best, best_state = _held_out(net, valid, bce), deepcopy(net.state_dict())
     for step in range(1, steps + 1):
         net.train()
         batch = rows(train, torch.randint(n, (size,), generator=generator)) if n > size else train
@@ -167,12 +172,14 @@ def lookahead(net: Network, batch: dict, actions: np.ndarray, gamma: float, bonu
     z, context = net.context(tensors(batch))
     z, context = z.expand(n, -1), context.expand(n, -1)
     first = torch.tensor(actions)
+    prior = tensors(batch)["prior"].expand(n)
     h1 = net.joint(z, context, first)
-    p1 = torch.sigmoid(net.heads(h1)[0])
+    p1 = torch.sigmoid(net.heads(h1, prior)[0])
     log_pi, mu, _ = net.density(h1)
     z2 = mu.reshape(n * k, LATENT)
     c2 = context.repeat_interleave(k, 0)
-    second = torch.stack([_optimistic(torch.sigmoid(net.heads(net.joint(z2, c2, first.new_full((n * k,), int(a))))[0]),
+    p2 = prior.repeat_interleave(k, 0)
+    second = torch.stack([_optimistic(torch.sigmoid(net.heads(net.joint(z2, c2, first.new_full((n * k,), int(a))), p2)[0]),
                                       bonus) for a in actions], -1).max(-1).values.reshape(n, k)
     return (_optimistic(p1, bonus) + gamma * (log_pi.exp() * second).sum(-1)).numpy()
 
@@ -187,7 +194,7 @@ def state_values(net: Network, batch: dict) -> np.ndarray:
 def predict(net: Network, batch: dict) -> dict:
     t = tensors(batch)
     z, context = net.context(t)
-    values, validity = net.heads(net.joint(z, context, t["a"]))
+    values, validity = net.heads(net.joint(z, context, t["a"]), t["prior"])
     p = torch.sigmoid(values)
     return {"value": p.mean(-1).numpy(), "epistemic": p.std(-1).numpy(),
             "valid": torch.sigmoid(validity).numpy()}
