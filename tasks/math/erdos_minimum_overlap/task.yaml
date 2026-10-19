@@ -13,7 +13,7 @@ task_prompt: >-
   a float sum that only rounds to n/2 is invalid: put heights on a dyadic grid such as multiples of
   2**-30 and fix one height to close the sum. A height within 2**-60 of 0 or 1 must equal it.
   Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must pass smoke within 30
-  wall seconds; full allows 120. Confirm uses 3 repeats within 400 seconds, retaining the first
+  wall seconds; full allows 300. Confirm uses 3 repeats within 960 seconds, retaining the first
   failure, otherwise the worst score. These are stage wall limits including overhead. Use reproducible
   seeds. The seed continues the best construction in its population view and otherwise returns 600
   heights of 0.5 (bound 0.5).
@@ -55,8 +55,8 @@ resources: cpu
 stochastic: true
 confirm_n: 3
 smoke_timeout: 30.0
-full_timeout: 120.0
-confirm_timeout: 400.0
+full_timeout: 300.0
+confirm_timeout: 960.0
 license: "Problem from Georgiev, Gomez-Serrano, Tao, Wagner (arXiv 2511.02864); evaluator written for SCiEL"
 paradigms:
   - "a CONSTRUCTIVE approach: an explicit closed-form or structured step function (known extremal shapes, symmetric profiles, sparse combs)"

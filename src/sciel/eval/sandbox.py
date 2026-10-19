@@ -218,6 +218,8 @@ def run_stage(
         env["PYTHONHASHSEED"] = str(seed % 2 ** 32)
     if population is not None:
         env["SCIEL_POPULATION"] = population
+    # A program can spend its stage: smoke checks it quickly, full and each confirm repeat may search.
+    env["SCIEL_STAGE_SECONDS"] = repr(timeout / (n or 1))
     proc = stderr = None
     try:
         proc = subprocess.Popen(

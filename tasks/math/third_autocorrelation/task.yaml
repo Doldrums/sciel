@@ -12,7 +12,7 @@ task_prompt: >-
   taken as exact rationals, the convolution is computed in integers, and the bound is rounded once;
   there is no tolerance. A nonzero height of absolute value below 2**-60 of the largest is invalid;
   set it to exactly 0. Candidate environment has Python stdlib, NumPy and SciPy. Every candidate must
-  pass smoke within 30 wall seconds; full allows 120. Confirm uses 3 repeats within 400 seconds,
+  pass smoke within 30 wall seconds; full allows 300. Confirm uses 3 repeats within 960 seconds,
   retaining the first failure, otherwise the worst score. These are stage wall limits including
   overhead. Use reproducible seeds. The seed continues the best construction in its population view
   and otherwise returns 400 equal heights (bound 2).
@@ -54,8 +54,8 @@ resources: cpu
 stochastic: true
 confirm_n: 3
 smoke_timeout: 30.0
-full_timeout: 120.0
-confirm_timeout: 400.0
+full_timeout: 300.0
+confirm_timeout: 960.0
 license: "Problem from Georgiev, Gomez-Serrano, Tao, Wagner (arXiv 2511.02864); evaluator written for SCiEL"
 paradigms:
   - "a CONSTRUCTIVE approach: an explicit closed-form or structured step function (known extremal shapes, symmetric profiles, sparse combs)"
