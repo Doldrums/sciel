@@ -14,7 +14,7 @@ KNOWN_KEYS = {
     "grid_bins", "inflight_cap", "dup_cap", "backstop_k", "random_seed",
     "schedule_policy", "milestone_fracs", "op_temperature", "op_floor",
     "op_window", "selection_floor", "tau_floor", "reward_w_pop", "reward_w_isl",
-    "llm", "base_temp", "confirm_records",
+    "llm", "base_temp", "confirm_records", "population_access",
     "checkpoint_on_milestone", "wandb", "sciel_tasks_revision", "op_fixed",
     "selection_policy", "selection_cap", "selection_temperature", "selection_window",
     "sciel_tasks_repo", "plateau_shadow", "policy",
@@ -56,6 +56,8 @@ DEFAULTS = {
     "milestone_fracs": [0.5, 0.75],
     "inflight_cap": 4,
     "confirm_records": False,
+    # Candidates may read the population view of their step while evaluated (engine/population_view.py).
+    "population_access": True,
     "sh_min_fair_evals": 16,
     "log_population": True,
     "crossover": True,

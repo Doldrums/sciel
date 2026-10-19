@@ -75,7 +75,7 @@ def prepare(engine, *, ordinary_jobs=0):
 
 def execute(engine, snapshot):
     submissions = []
-    evaluator = engine._evaluation_callback(snapshot.island)
+    evaluator = engine._evaluation_callback(snapshot.island, population=snapshot.population)
     novelty = engine._candidate_novelty_callback(snapshot.island)
 
     def evaluate(source, provenance):

@@ -313,6 +313,9 @@ class EngineStepPlan:
             task_prompt=self.task_prompt, bet_enabled=True,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
+        if self.cfg["population_access"] and origin != "fresh":
+            from .population_view import freeze
+            snap.population = freeze(self, island, parent.id)
         if self.research_tools is not None and origin != "fresh" and block is None:
             from .research_tool_signals import snapshot_signals
             from .research_targets import freeze_targets

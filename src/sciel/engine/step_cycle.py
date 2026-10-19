@@ -64,7 +64,8 @@ class EngineStepCycle:
         snapshot = plan['snap']
         episode = None
         submitted = []
-        evaluator = evaluate_fn or self._evaluation_callback(snapshot.island, seed=(plan.get('block') or {}).get('seed'))
+        evaluator = evaluate_fn or self._evaluation_callback(snapshot.island, seed=(plan.get('block') or {}).get('seed'),
+                                                            population=snapshot.population)
         novelty_check = self._candidate_novelty_callback(snapshot.island)
         def evaluate_tool_candidate(source, provenance):
             if len(submitted) >= 3 or any(row.meta.get('evaluation_count', 0) for row in submitted):

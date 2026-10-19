@@ -95,6 +95,8 @@ def _snapshot(snapshot):
         value.pop('research_cells_context', None)
     if value.get('research_targets') is None:
         value.pop('research_targets', None)
+    if value.get('population') is None:
+        value.pop('population', None)
     value['code_hashes'] = sorted(value['code_hashes'])
     return value
 
@@ -297,7 +299,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 if bootstrap:
                     def execute(plan=plan):
                         return run_worker('full_rewrite', plan['snap'], engine.llm,
-                            engine._evaluation_callback(plan['snap'].island),
+                            engine._evaluation_callback(plan['snap'].island, population=plan['snap'].population),
                             dup_cap=1, base_temp=.9,
                             novelty_check=engine._candidate_novelty_callback(plan['snap'].island))
                 else:

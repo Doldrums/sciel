@@ -324,3 +324,12 @@ class EngineInitialization:
                 "functions by name -- your program MUST keep each one, with the same name and "
                 "return signature as in the current program. Renaming or removing any scores 0: "
                 f"{', '.join(self.required_entrypoints)}.")
+        self._population_refs = {}
+        if cfg["population_access"] and not (cfg.get("evaluation") or {}).get("backend"):
+            self.task_prompt += (
+                "\n\nPOPULATION ACCESS: while it is evaluated, your program may call "
+                "`from sciel.population import population`; population() returns the best programs of the island "
+                "this change was built from, best first, with its parent and the run's best: dicts with program_id, "
+                "score, parent (True for the program you are changing), cases, and output -- the exact object the "
+                "evaluator scored for that program. Continue the best constructions instead of rebuilding them; "
+                "it returns an empty list when no view is given.")

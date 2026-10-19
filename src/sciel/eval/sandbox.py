@@ -196,6 +196,7 @@ def run_stage(
     mem_bytes: int | None = None,
     python: str | None = None,
     seed: int | None = None,
+    population: str | None = None,
 ) -> EvalResult:
     validate_stage_limits(timeout, n, cpu_seconds, mem_bytes)
     if os.name != "posix" and (cpu_seconds is not None or mem_bytes is not None):
@@ -215,6 +216,8 @@ def run_stage(
     if seed is not None:
         argv.extend(["--seed", str(seed)])
         env["PYTHONHASHSEED"] = str(seed % 2 ** 32)
+    if population is not None:
+        env["SCIEL_POPULATION"] = population
     proc = stderr = None
     try:
         proc = subprocess.Popen(

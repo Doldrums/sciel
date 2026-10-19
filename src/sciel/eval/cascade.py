@@ -17,17 +17,18 @@ class CascadeOutcome:
 
 
 def cascade_evaluate(task, program_path: str, record_candidate: bool = False,
-                     python: str | None = None, seed: int | None = None) -> CascadeOutcome:
+                     python: str | None = None, seed: int | None = None,
+                     population: str | None = None) -> CascadeOutcome:
     smoke = run_stage(task.evaluator_path, "smoke", program_path,
                       timeout=task.smoke_timeout, cpu_seconds=task.cpu_seconds,
-                      mem_bytes=task.mem_bytes, python=python, seed=seed)
+                      mem_bytes=task.mem_bytes, python=python, seed=seed, population=population)
     if not smoke.ok:
         return CascadeOutcome(result=smoke, raw_first_score=smoke.score,
                               reached="smoke")
 
     full = run_stage(task.evaluator_path, "full", program_path,
                      timeout=task.full_timeout, cpu_seconds=task.cpu_seconds,
-                     mem_bytes=task.mem_bytes, python=python, seed=seed)
+                     mem_bytes=task.mem_bytes, python=python, seed=seed, population=population)
     raw_first = full.score
     if not full.ok:
         return CascadeOutcome(result=full, raw_first_score=raw_first,
@@ -37,7 +38,7 @@ def cascade_evaluate(task, program_path: str, record_candidate: bool = False,
         conf = run_stage(task.evaluator_path, "confirm", program_path,
                          timeout=task.confirm_timeout, n=task.confirm_n,
                          cpu_seconds=task.cpu_seconds, mem_bytes=task.mem_bytes,
-                         python=python, seed=seed)
+                         python=python, seed=seed, population=population)
         trials = conf.cases.get("n_trials", 0.0)
         enough_samples = (trials >= max(2, task.confirm_n) and float(trials).is_integer())
         if conf.ok and conf.confirmed_sampled and enough_samples:

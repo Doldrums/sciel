@@ -43,6 +43,8 @@ class Snapshot:
     research_targets: dict | None = None
     research_search_evidence: dict | None = None
     operator_decision: dict | None = None
+    # References to the programs a candidate may read while it is evaluated (population_view.py).
+    population: list | None = None
 
 
 @dataclass

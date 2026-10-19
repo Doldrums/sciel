@@ -10,8 +10,18 @@ from .runtime import observed_stage
 
 class EngineEvaluation:
 
-    def _evaluation_callback(self, island, seed=None):
-        return lambda code: self._evaluate(code, island_id=island, seed=seed)
+    def _evaluation_callback(self, island, seed=None, population=None):
+        return lambda code: self._evaluate(code, island_id=island, seed=seed, population=population)
+
+    def _population_file(self, code: str, path: str, refs) -> tuple[str | None, dict]:
+        """The population view beside a candidate, and the request field binding its bytes; a native evaluation only,
+        since the candidate-only backend gives its containers no files beyond the source."""
+        if refs is None or self.evaluation_backend is not None:
+            return None, {}
+        from .population_view import materialize
+        view = path[:-len('.py')] + '.population.json'
+        self._population_refs[hashlib.sha256(code.encode()).hexdigest()] = refs
+        return view, {'population_sha256': materialize(self, refs, view)}
 
     @observed_stage("evaluating")
     def _confirmation_score(self, code: str, seed=None) -> float | None:
@@ -24,26 +34,30 @@ class EngineEvaluation:
         fd, path = tempfile.mkstemp(suffix=".py", prefix=purpose + "_", dir=self.run_dir)
         with os.fdopen(fd, "w") as f:
             f.write(code)
+        # A re-measurement reads the population view its first measurement read.
+        view, bound = self._population_file(code, path, self._population_refs.get(hashlib.sha256(code.encode()).hexdigest()))
         try:
             io = getattr(self, '_parallel_io', None)
             backend = self.evaluation_backend
             request = {'source': code, 'task_hash': self.task.task_hash, purpose: True,
-                       **({'seed': seed} if seed is not None else {})}
+                       **({'seed': seed} if seed is not None else {}), **bound}
             if backend is not None:
                 outcome = io.call('evaluation', {**request, 'evaluation_backend': backend.identity},
                     lambda: backend.evaluate(code.encode('utf-8'), evaluation_id=f'{purpose}:{seed}:' + hashlib.sha256(code.encode()).hexdigest(),
                                              confirm=False))
             elif io is None:
-                outcome = _public.cascade_evaluate(self.task, path, python=self.python, seed=seed)
+                outcome = _public.cascade_evaluate(self.task, path, python=self.python, seed=seed, population=view)
             else:
                 outcome = io.call('evaluation', request,
-                    lambda: _public.cascade_evaluate(self.task, path, python=self.python, seed=seed))
+                    lambda: _public.cascade_evaluate(self.task, path, python=self.python, seed=seed, population=view))
             return outcome.result.score if outcome.result.ok else None
         finally:
             os.unlink(path)
+            if view is not None:
+                os.unlink(view)
 
     @observed_stage("evaluating")
-    def _evaluate(self, code: str, *, remeasurement: bool = False, island_id=None, seed=None):
+    def _evaluate(self, code: str, *, remeasurement: bool = False, island_id=None, seed=None, population=None):
         from . import loop as _public
         registry = getattr(self, 'candidate_novelty', None)
         novelty = registry.inspect(code, remeasurement=remeasurement) if registry else None
@@ -76,6 +90,7 @@ class EngineEvaluation:
         fd, path = tempfile.mkstemp(suffix=".py", prefix="cand_", dir=self.run_dir)
         with os.fdopen(fd, "w") as f:
             f.write(code)
+        view, bound = self._population_file(code, path, population)
         measurement_returned = False
         try:
             with open(path, "rb") as source:
@@ -98,14 +113,14 @@ class EngineEvaluation:
                     evaluation_id=evaluation_id, confirm=record_candidate))
             elif io is None:
                 outcome = _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python,
-                                                   seed=seed)
+                                                   seed=seed, population=view)
             else:
                 outcome = io.call('evaluation', {'source': code, 'task_hash': task.task_hash,
                     'confirm_records': record_candidate,
                     'output_resolution': self.cfg.get('candidate_novelty', {}).get('output_resolution'),
-                    **({'seed': seed} if seed is not None else {})},
+                    **({'seed': seed} if seed is not None else {}), **bound},
                     lambda: _public.cascade_evaluate(task, path, record_candidate=record_candidate, python=python,
-                                                     seed=seed))
+                                                     seed=seed, population=view))
             if registry is not None:
                 registry.register(code, evaluation_id, evaluation_ok=bool(outcome.result.ok))
                 measurement_returned = True
@@ -162,7 +177,9 @@ class EngineEvaluation:
                     remeasurement=novelty['remeasurement'])
             raise
         finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            for leftover in (path, view):
+                try:
+                    if leftover is not None:
+                        os.unlink(leftover)
+                except OSError:
+                    pass
