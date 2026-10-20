@@ -1,6 +1,6 @@
 # SCiEL
 
-**A search system that gets better at getting better.**
+**Recursive self-improvement through cultural transmission: it gets better at getting better.**
 
 [![Release 0.18.0](https://img.shields.io/badge/release-0.18.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
 [![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
@@ -8,7 +8,7 @@
 
 SCiEL (*Scientific Closed-Loop Evolution*) is a step toward **recursive self-improvement** you can run on one
 machine. Like AlphaEvolve, it gives a language model a program and a score, asks for changes, tests every change and
-keeps what works. Unlike it, SCiEL also improves **how it searches**:
+keeps what works. Unlike it, SCiEL also improves **the way it improves**:
 
 - it writes **tools** and runs **experiments** about the problem, and keeps the ones that measure something;
 - it learns **which of its own moves pay off**: which parent, which kind of edit, which hint;
