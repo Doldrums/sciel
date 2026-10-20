@@ -111,7 +111,8 @@ The skill:
 4. **fixes** what the audit finds, **runs** SCiEL, and **re-checks** the best solution independently.
 
 Problems that fit share three traits: a result you can check exactly or on held-out data, room to improve beyond
-the best known answer, and progress that takes many attempts rather than one good idea.
+the best known answer, and an answer that improves step by step over hundreds of tries rather than being found in
+one go.
 
 | Field | Example task | What SCiEL improves | How it is checked |
 | --- | --- | --- | --- |
