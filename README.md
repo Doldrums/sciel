@@ -2,10 +2,10 @@
 
 **Recursive self-improvement through cultural transmission.**
 
-[![Release 0.18.0](.github/assets/release-badge.svg)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
-[![Python 3.11–3.14](.github/assets/python-badge.svg)](#quick-start)
-[![11 task packages](.github/assets/tasks-badge.svg)](#tasks)
-[![Runs in Empira](.github/assets/empira-badge.svg)](https://github.com/Doldrums/arena)
+[![Release 0.18.0](https://img.shields.io/badge/release-0.18.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
+[![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
+[![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
+[![Runs in Empira](https://img.shields.io/badge/runs_in-Empira-64d2ff)](https://github.com/Doldrums/arena)
 
 SCiEL evolves programs with a language model and studies a specific question: **can a system learn, during a run, to
 improve the methods it uses to make further progress?** Every choice it makes (parent, edit operator, hint, which
@@ -24,7 +24,7 @@ next run, but only after a trial shows it helps.
 [Quick start](#quick-start) · [Components](#components) · [Models](#local-inference-or-an-api) ·
 [Contributing](CONTRIBUTING.md)
 
-[![The SCiEL run page: attempts, failures and the idea and diff of each step](../../raw/assets/sciel-web_run.png)](#see-it-run)
+[![A run of SCiEL. Left: islands as sectors, lineages as trees, findings passed between islands as crimson chords. Right: the same programs placed by their code, shaded by score](../../raw/assets/sciel-hero.png)](#see-it-run)
 
 ## Results snapshot — v0.18.0
 
@@ -34,7 +34,7 @@ As of **20 October 2026**, SCiEL reaches frontier answers at a **fraction of the
 | Result reached | What it cost SCiEL | Closest system with reported cost | Difference |
 | --- | --- | --- | --- |
 | The best known packing of 26 circles in a square, to six digits | **370 model calls · $1.92 · 9.3 h** · 27B open model | TTT-Discover: **25,600 samples · a few hundred $** · 120B open model, trained with RL during the search | **69× fewer model calls, ~100× cheaper, 4× smaller model, no training** |
-| AlphaEvolve's published bound on an analysis constant | **37–204 calls · $0.13–0.79 · 1–7 h** in each of 3 runs; **11 calls, $0.03, 17 min** in the current version | AlphaEvolve: Gemini 2.0 Flash + Pro ensemble, cost not disclosed. ThetaEvolve: 8B model trained with RL, stopped at 1.4930 | reached in 3 of 3 runs, with an open model and without training |
+| AlphaEvolve's published bound on an analysis constant | fastest: **11 calls · $0.03 · 17 min**; every run of three: at most 204 calls · $0.79 · 7 h | AlphaEvolve: Gemini 2.0 Flash + Pro ensemble, cost not disclosed. ThetaEvolve: 8B model trained with RL, stopped at 1.4930, short of it | **matched for 3 cents in 17 minutes** on an open model, where a model trained for the task fell short |
 
 | Final answer after one run | Best of 3 runs | Average of 3 runs |
 | --- | ---: | ---: |
