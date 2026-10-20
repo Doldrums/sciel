@@ -34,9 +34,28 @@ This is **recursive self-improvement framed as cultural transmission**: each bra
 to other branches and to the next run, is only what survived a trial. A run leaves two histories, the **lineage of
 solutions** and the **lineage of methods** that produced them.
 
-[Results](#results) · [See it run](#see-it-run) · [Quick start](#quick-start) ·
+[Tasks it is for](#what-tasks-sciel-is-for) · [Results](#results) · [See it run](#see-it-run) · [Quick start](#quick-start) ·
 [How it works](#the-framework-at-a-glance) · [Components](#components) · [Models](#local-inference-or-an-api) ·
 [Tasks](#tasks)
+
+## What tasks SCiEL is for
+
+SCiEL is built for **long-horizon search**: tasks where a single edit rarely helps, progress takes hundreds of
+evaluations, and what the run learns early (tools, tested findings, which moves pay off) keeps paying later. On a task
+that 150 samples saturate, there is nothing for culture to compound on.
+
+We make this precise. A task is a tuple ⟨X, F, h, h\*, M, B⟩: candidates X the model writes, a feasible set F, the
+objective h the search sees and the true objective h\*, the model's edit operator M, and the evaluation budget B. Its
+landscape is defined by M, so it moves as culture changes the context M sees. The key quantity is the chance that an
+edit at the frontier beats its parent by more than the noise radius ε:
+
+π_ε(x) = P_{x′∼M(·∣x)} [ h(x′) > h(x) + ε ], and escaping a plateau takes ≈ 1/π_ε evaluations.
+
+A task is admitted to a run when its check is exact (h = h\*, no exploitable tolerance), the headroom between the
+best reference and a known bound exceeds 4ε at the planned budget, and the upper confidence bound of π_ε at the
+frontier is at least 5/B. The effect of transmission is expected exactly where π_ε at the frontier is **small but
+nonzero**: rare improvements, a long run, and a culture that raises π_ε for the next step. `sciel task` measures
+the noise radius and the headroom before a search starts.
 
 ## Results
 
@@ -44,6 +63,8 @@ solutions** and the **lineage of methods** that produced them.
 autocorrelation constant (1.46138 vs 1.4688) and matches the best known 26-circle packing to six digits.**
 
 All values come from the task's own exact verifier; three seeds per task, Qwen3.8-27B served by vLLM on 2× H100.
+Circle packing and Heilbronn n = 11 are saturated calibration tasks; the long-horizon targets are the autocorrelation
+constants, where improvements kept arriving after 180 evaluations.
 
 | Task (sense) | Best of 3 | Mean of 3 | Gap to best known | Evaluations | LLM calls (research) | Tokens in / out | Wall time (to best) | $ at API price¹ | H100-hours² |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
