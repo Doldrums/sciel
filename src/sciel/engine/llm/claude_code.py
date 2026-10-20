@@ -8,6 +8,7 @@ bills an API account. A usage limit comes back as HTTP 429 with a retry-after, w
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import json
 import os
 import re
@@ -16,6 +17,7 @@ import subprocess
 import tempfile
 import time
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .client import (COST_PROVENANCE_SCHEMA, CLAUDE_CODE_ENDPOINT_SHA256, LLMError, LLMResponse, _tokens,
                      validate_response_format)
@@ -52,11 +54,23 @@ APIStatusError = type('APIStatusError', (_Status,), {})
 
 
 def _reset_seconds(text: str) -> float:
-    """Seconds until the usage window resets, from the CLI's 'limit reached|<epoch>' form, else a fixed wait."""
+    """Seconds until the usage window resets, from 'resets 7:40am (UTC)' or 'limit reached|<epoch>', else a fixed wait."""
     match = re.search(r'\|(\d{9,11})\b', text or '')
     if match:
         return max(60.0, float(match.group(1)) - time.time())
-    return LIMIT_WAIT
+    match = re.search(r'resets (\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([^)]+)\)', text or '', re.I)
+    if match is None:
+        return LIMIT_WAIT
+    try:
+        zone = ZoneInfo(match.group(4).strip())
+    except (ZoneInfoNotFoundError, ValueError):
+        return LIMIT_WAIT
+    hour = int(match.group(1)) % 12 + (12 if match.group(3).lower() == 'pm' else 0)
+    now = datetime.now(zone)
+    reset = now.replace(hour=hour, minute=int(match.group(2) or 0), second=0, microsecond=0)
+    if reset <= now:
+        reset += timedelta(days=1)
+    return max(60.0, (reset - now).total_seconds() + 60.0)
 
 
 class ClaudeCodeLLM:
