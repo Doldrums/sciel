@@ -6,19 +6,33 @@
 [![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
 [![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
 
-SCiEL (*Scientific Closed-Loop Evolution*) is a step toward **recursive self-improvement** you can run on one
-machine. Like AlphaEvolve, it gives a language model a program and a score, asks for changes, tests every change and
-keeps what works. Unlike it, SCiEL also improves **the way it improves**:
+SCiEL (*Scientific Closed-Loop Evolution*) evolves programs with a language model and, in the same run, **learns
+to steer its own evolution**. Every choice it makes (parent, edit operator, hint, which planner decides) is
+randomized and logged with its probability. That ledger trains a **ladder of controllers**, matched to how much data
+the run has. Each one joins as a randomized planner arm only after it beats the rung below it out of fold, and keeps
+acting only while it wins:
 
-- it writes **tools** and runs **experiments** about the problem, and keeps the ones that measure something;
-- it learns **which of its own moves pay off**: which parent, which kind of edit, which hint;
-- it hands what it learned to other branches of the search and to the **next run**, but only after a trial shows
-  it helps.
+| Data so far | Who steers | What it learns |
+| --- | --- | --- |
+| first steps | **online bandits** | operators, modes and presets from rewards, from a cold start |
+| ~60 steps | **search world model, TabPFN stage** | whether a step will raise its lineage's best, from a pretrained tabular model plus the rows of earlier runs |
+| a run's worth | **world model network** | a residual on that forecast, with code embeddings |
+| 200+ steps | **RL step policy** | a KL-bounded off-policy improvement over five decisions; two critics by island parity; acts only above two standard errors |
+| always | **theory of the search** | e-processes test every decision while the run goes; e-BH bounds false discoveries; proven actions tilt sampling |
 
-We frame this as **cultural transmission**. Each branch of the search learns on its own; the culture is what gets
-passed on, and only after the recipient tried it. A run therefore leaves two histories: the **lineage of solutions**,
-and the **lineage of methods** that produced them. A tool written while studying one candidate can outlive it and be
-reused on another branch, or in another run.
+Around the ladder:
+
+- **Research cells.** Persistent questions that write tools, run them in Docker on the step's frozen inputs, revise
+  them, submit candidates and pass methods to other islands after a recipient trial.
+- **Culture across runs.** A run exports its repertoire: claims, findings, tools, step policy and world-model rows.
+  The next run inherits each item as one more randomized arm and keeps it only if it wins again.
+- **Optimization machinery.** Islands with MAP-Elites, learned grids or VQ niches; run-wide novelty by hash, AST and
+  output; a smoke → full → confirm cascade that keeps the worst repeat; a population view and task modules a candidate
+  imports while it runs; parallel waves with shared capacity; checkpointed, replayable recovery.
+
+This is **recursive self-improvement framed as cultural transmission**: each branch learns, and what gets passed on,
+to other branches and to the next run, is only what survived a trial. A run leaves two histories, the **lineage of
+solutions** and the **lineage of methods** that produced them.
 
 [Results](#results) · [See it run](#see-it-run) · [Quick start](#quick-start) ·
 [How it works](#the-framework-at-a-glance) · [Components](#components) · [Models](#local-inference-or-an-api) ·
@@ -26,24 +40,46 @@ reused on another branch, or in another run.
 
 ## Results
 
-**With an open 27B model on one machine, SCiEL beat AlphaEvolve's bound on the third autocorrelation constant:
-1.46138 against 1.4688, within 0.1% of the best known value.** On circle packing it matches the best known
-packing to six digits.
+**An open 27B model on one machine, ~$1–3 of tokens per run: SCiEL beats AlphaEvolve's bound on the third
+autocorrelation constant (1.46138 vs 1.4688) and matches the best known 26-circle packing to six digits.**
 
-Every number below is the task's own exact verifier, not a model's report. Budgets are evolutionary evaluations.
+All values come from the task's own exact verifier; three seeds per task, Qwen3.8-27B served by vLLM on 2× H100.
 
-| Task | SCiEL | Reference | Setup |
-| --- | --- | --- | --- |
-| Third autocorrelation constant, \|f*f\| inside the max (minimize) | **1.46138** | AlphaEvolve 1.4688; best known 1.45999 | Qwen3.8-27B local, ~220 evaluations, ~10 h, exact rational scoring |
-| Circle packing, 26 circles (maximize Σr) | **2.635977** with exact radii | AlphaEvolve 2.635; best known 2.635983 | Qwen3.8-27B local, 400 evaluations |
-| Heilbronn, 11 points in a triangle (maximize the smallest area) | 0.03441 | AlphaEvolve 0.03653 | Qwen3.8-27B local, 400 evaluations |
+| Task (sense) | Best of 3 | Mean of 3 | Gap to best known | Evaluations | LLM calls (research) | Tokens in / out | Wall time (to best) | $ at API price¹ | H100-hours² |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Third autocorrelation, \|f*f\| inside (min) | **1.46138** | 1.46392 | +0.10% | 207–227 | 306–327 (50–58) | 2.3 M / 1.0 M | 10.3 h (9.5–10.0 h) | $1.18–1.40 | ≈3 |
+| Circle packing, n = 26 (max) | **2.635977**³ | 2.635203 | −0.0002% | 427–468 | 512–568 (0) | 3.3 M / 2.5 M | 12.3–13.5 h (6.8–11.4 h) | $2.59–2.84 | ≈4 |
+| Heilbronn triangle, n = 11 (max) | 0.03441 | 0.03346 | −5.8% | 431–477 | 500–557 (0) | 2.6 M / 2.2 M | 11.0–12.7 h (8.3–12.7 h) | $2.14–2.39 | ≈3 |
 
-Its circle packing reports 2.635988 under the task's 10⁻⁶ overlap tolerance; we
-quote the value after recomputing the radii exactly.
+¹ Tokens priced at $0.2 / $0.8 per million (a hosted 27B open model); our own runs paid no API fees.
+² The run's share of two H100s that served 6–9 runs at once. ³ Radii recomputed exactly; 2.635988 under the task's
+10⁻⁶ overlap tolerance. Circle and Heilbronn runs had research cells off; the autocorrelation runs had them on.
 
-What these numbers do not yet show: how much of the gain comes from SCiEL's own parts. That needs ablations on equal
-budgets (full SCiEL, without research cells, without the learned planners, a plain evolutionary baseline), which come
-next. Until then, read the table as what the system reached, not as what each component adds.
+**Against other systems** (values as each paper reports them; "—" where it reports none):
+
+| Task | System | Value | Model (parameters) | Samples or calls | Cost |
+| --- | --- | --- | --- | --- | --- |
+| Third autocorrelation, inside (min) | AlphaEvolve | 1.4688 | Gemini 2.0 Flash + Pro (closed) | — | — |
+| | ThetaEvolve | 1.4930 | DeepSeek-R1-Qwen3-8B + test-time RL | — | — |
+| | DeepMind repo PR #13 | 1.45999 | no LLM: L-BFGS + grid refinement | — | — |
+| | **SCiEL** | **1.46138** | **Qwen3.8-27B (open, dense)** | **~220 evaluations, ~320 calls** | **$1.4** |
+| Circle packing, n = 26 (max) | AlphaEvolve | 2.63586 | Gemini 2.0 Flash + Pro (closed) | — | — |
+| | OpenEvolve | 2.541 | as rerun by AdaEvolve | 100 iterations | — |
+| | ShinkaEvolve | 2.635983, strict 2.635978 | Claude Sonnet 4, o4-mini, GPT-4.1 (closed) | ~150 evaluations | — |
+| | AdaEvolve | 2.636 | GPT-5, Gemini 3 Pro (closed) | 100 iterations | — |
+| | CodeEvolve | 2.63598 | Qwen3-Coder-30B-A3B (open) | 100–900 epochs | — |
+| | ThetaEvolve | 2.6359857 (tolerant) | DeepSeek-R1-Qwen3-8B + RL training | — | — |
+| | TTT-Discover | 2.635983 | gpt-oss-120b + test-time RL | 25.6k samples | a few hundred $ |
+| | **SCiEL** | **2.635977 strict** | **Qwen3.8-27B (open, dense)** | **~430 evaluations, ~510 calls** | **$2.8** |
+| Heilbronn triangle, n = 11 (max) | AlphaEvolve | 0.03653 | Gemini 2.0 Flash + Pro (closed) | — | — |
+| | GigaEvo | 0.036354 | Qwen3-235B-A22B Thinking (open) | — | — |
+| | **SCiEL** | 0.03441 | **Qwen3.8-27B (open, dense)** | ~470 evaluations, ~560 calls | $2.1 |
+
+What this does and does not show. SCiEL reaches frontier values with a mid-size open model, a few hundred calls and a
+few dollars of tokens, without training the model. The record on the
+third autocorrelation constant (1.45999) came from a numerical optimizer without an LLM, and SCiEL is 0.1% above it.
+Heilbronn n = 11 is still 5.8% short. How much each SCiEL component contributes needs budget-matched ablations,
+which come next.
 
 ## See it run
 
