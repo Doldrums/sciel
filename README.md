@@ -92,6 +92,27 @@ $\pi_\varepsilon$ at the frontier is **small but nonzero**: rare improvements, a
 $\pi_\varepsilon$ for the next step. `sciel task` measures
 the noise radius and the headroom before a search starts.
 
+### In plain words
+
+You do not need to write the task yourself. Give **Claude Code** or **Codex** the `sciel-task` skill and your
+materials (a description, a paper, a notebook, data) and ask it to solve the problem with SCiEL. The skill:
+
+1. **formulates** the task: what is being improved, how it is scored, the best known result to beat;
+2. **builds** it for the search: an exact checker, helper functions the candidates can import, a seed that searches;
+3. **audits** it before spending compute: leaks and exploits, noise, headroom, and how often an edit improves;
+4. **fixes** what the audit finds, **runs** SCiEL, and **re-checks** the best solution independently.
+
+Problems that fit share three traits: a result you can check exactly or on held-out data, room to improve beyond
+the best known answer, and progress that takes many attempts rather than one good idea.
+
+| Field | Example task | What SCiEL improves | How it is checked |
+| --- | --- | --- | --- |
+| Finance | Executing a large order over a day with the least slippage | the rule that splits the order over time | average cost on held-out trading days |
+| Mathematics | Bounds on constants, packings, extremal configurations | the construction | exact arithmetic |
+| Algorithms | A scheduling or bin-packing heuristic | the heuristic's code | cost on a fixed set of instances |
+| Science | Decoding behaviour from recorded neural activity | the decoder's code | accuracy on a held-out regime |
+| Engineering | A faster numerical kernel | the implementation | speed, with outputs equal to a reference |
+
 ## See it run
 
 `sciel watch` follows a run in the terminal; `sciel web` opens the same run as a local page. Both read the run's
