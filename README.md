@@ -46,17 +46,6 @@ As of **20 October 2026**, SCiEL reaches frontier answers at a **fraction of the
 | Reproduced the state-of-the-art result on circle packing from scratch | **370 model calls · $1.92 · 9.3 h** · 27B open model | TTT-Discover: **25,600 samples · a few hundred $** · 120B open model, trained with RL during the search | **69× fewer model calls, ~100× cheaper, 4× smaller model, no training** |
 | Reproduced AlphaEvolve's result on an autocorrelation constant from scratch | fastest: **11 calls · $0.03 · 17 min**; every run of three: at most 204 calls · $0.79 · 7 h | AlphaEvolve: Gemini 2.0 Flash + Pro ensemble, cost not disclosed. ThetaEvolve: 8B model trained with RL, stopped at 1.4930, short of it | **matched for 3 cents in 17 minutes** on an open model, where a model trained for the task fell short |
 
-| Final answer after one run | Best of 3 runs | Average of 3 runs |
-| --- | ---: | ---: |
-| Analysis constant (lower is better; AlphaEvolve 1.4688, best known 1.45999) | **1.46138** | 1.46392 |
-| 26 circles, total radius (higher is better; best known 2.635983) | **2.635977** | 2.635203 |
-| 11 points in a triangle, smallest triangle (higher is better; best known 0.03653) | 0.03441 | 0.03346 |
-
-Every answer is checked by the task's exact verifier, with no rounding slack; the circle value is recomputed with
-exact radii. Costs price the tokens as a hosted 27B open model ($0.2 / $0.8 per million); our runs paid no API fees.
-The circle packing reached the state of the art in one of three runs. TTT-Discover's figures are its paper's per-problem
-budget. How much each SCiEL component contributes needs budget-matched ablations, which come next.
-
 ## Inside SCiEL
 
 A **ladder of controllers** steers the search, matched to how much data the run has. Each one joins as a randomized
