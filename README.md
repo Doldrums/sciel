@@ -2,9 +2,9 @@
 
 **Recursive self-improvement through cultural transmission.**
 
-[![Release 0.18.0](https://img.shields.io/badge/release-0.18.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
+[![Release 0.19.0](https://img.shields.io/badge/release-0.19.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.19.0)
 [![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
-[![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
+[![17 task packages](https://img.shields.io/badge/task_packages-17-6c5ce7)](#tasks)
 [![Runs in Empira](https://img.shields.io/badge/runs_in-Empira-64d2ff)](https://github.com/Doldrums/arena)
 
 SCiEL evolves programs with a language model, **learns to steer its own evolution while it runs**, and **hands what
@@ -36,13 +36,14 @@ it learned to the next run**:
 
 [![A run of SCiEL. Left: islands as sectors, lineages as trees, findings passed between islands as crimson chords. Right: the same programs placed by their code, shaded by score](../../raw/assets/sciel-hero.png)](#see-it-run)
 
-## Results snapshot — v0.18.0
+## Results snapshot — v0.19.0
 
 As of **20 October 2026**, SCiEL reaches frontier answers at a **fraction of the compute** comparable open-model systems report: an
 **open 27B model, not trained during the search**, served from two H100 GPUs.
 
 | Result reached | What it cost SCiEL | Closest system with reported cost | Difference |
 | --- | --- | --- | --- |
+| **New record** on the third autocorrelation constant with the absolute value inside the maximum: bound **1.4594848222** (28,800 steps), below 1.4599890469 claimed on 17 October 2026 (AlphaEvolve repository PR 13) and AlphaEvolve's published 1.4687620697; verified in exact rational arithmetic | **183 evaluations · 9.2 h · ~$1.22** · 27B open model, from scratch; from the earlier best construction, 1.4595809787 in **50 evaluations · 2 h** | AlphaEvolve and the PR 13 construction: cost not disclosed | **below the best value we know**, on an open model without training |
 | Reproduced the state-of-the-art result on circle packing from scratch | **370 model calls · $1.92 · 9.3 h** · 27B open model | TTT-Discover: **25,600 samples · a few hundred $** · 120B open model, trained with RL during the search | **69× fewer model calls, ~100× cheaper, 4× smaller model, no training** |
 | Reproduced AlphaEvolve's result on an autocorrelation constant from scratch | fastest: **11 calls · $0.03 · 17 min**; every run of three: at most 204 calls · $0.79 · 7 h | AlphaEvolve: Gemini 2.0 Flash + Pro ensemble, cost not disclosed. ThetaEvolve: 8B model trained with RL, stopped at 1.4930, short of it | **matched for 3 cents in 17 minutes** on an open model, where a model trained for the task fell short |
 
@@ -393,14 +394,14 @@ subprocesses with resource limits, which bound resources but do not isolate file
 
 ## Tasks
 
-The **v0.18.0** task bundle contains **11 packages**: ten research tasks and one test fixture. Each defines its
+The **v0.19.0** task bundle contains **17 packages**: sixteen research tasks and one test fixture. Each defines its
 candidate interface, evaluator, metrics and limits.
 
 | Task | Search objective |
 | --- | --- |
 | [Circle packing](tasks/oe/circle_packing) | Maximize the sum of radii of 26 non-overlapping circles in a unit square; a [stochastic seed variant](tasks/oe/circle_packing_seed) too. |
 | [Heilbronn triangle](tasks/oe/heilbronn_triangle) | Place 11 points in a triangle to maximize the smallest triangle area. |
-| [Autocorrelation and minimum overlap](tasks/math) | Step functions bounding the first, second and both third autocorrelation constants and Erdős' minimum overlap, scored in exact rational arithmetic against the best verified values of October 2026. |
+| [Autocorrelation and minimum overlap](tasks/math) | Step functions bounding the first, second and both third autocorrelation constants and Erdős' minimum overlap, scored in exact rational arithmetic against the best verified values of October 2026; a variant of the absolute third constant starts from the best earlier construction. |
 | [Discrete mathematics](tasks/math) | Beat-the-average, difference bases, edges versus triangles, square-free subsets. |
 | [Function minimization](tasks/oe/function_minimization) · [hidden oracle](tasks/oe/function_minimization_oracle) | A specified 2-D objective; an unknown function with 50 queries per instance in a container. |
 | [Matrix multiplication tensor](tasks/oe/matmul_tensor) | Tensor decompositions under rank and reconstruction checks. |
@@ -439,14 +440,14 @@ python -m arena --root /absolute/path/to/sciel-runs
 
 ## Releases
 
-[SCiEL 0.18.0](https://github.com/Doldrums/sciel/releases/tag/v0.18.0) provides a wheel, a source distribution, a
+[SCiEL 0.19.0](https://github.com/Doldrums/sciel/releases/tag/v0.19.0) provides a wheel, a source distribution, a
 separate task bundle and SHA-256 checksums.
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install './sciel-0.18.0-py3-none-any.whl[tasks]'
-tar -xzf sciel-0.18.0-tasks.tar.gz
-.venv/bin/sciel tasks list --tasks-root ./sciel-0.18.0-tasks/tasks
+.venv/bin/python -m pip install './sciel-0.19.0-py3-none-any.whl[tasks]'
+tar -xzf sciel-0.19.0-tasks.tar.gz
+.venv/bin/sciel tasks list --tasks-root ./sciel-0.19.0-tasks/tasks
 ```
 
 ## Development
