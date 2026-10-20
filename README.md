@@ -1,187 +1,57 @@
 # SCiEL
 
-**Evolutionary program search that develops its own research methods.**
+**A search system that gets better at getting better.**
 
 [![Release 0.18.0](https://img.shields.io/badge/release-0.18.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
 [![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
 [![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
 
-SCiEL — **Scientific Closed-Loop Evolution** — studies a specific question:
-**can a search system improve the methods it uses to make further progress?**
+SCiEL (*Scientific Closed-Loop Evolution*) is a step toward **recursive self-improvement** you can run on one
+machine. Like AlphaEvolve, it gives a language model a program and a score, asks for changes, tests every change and
+keeps what works. Unlike it, SCiEL also improves **how it searches**:
 
-The engine evolves programs against an executable task contract. Every search
-decision is randomized and logged with its probability; a theory of the search,
-tested anytime-validly on that log, and a learned world model of the search shape
-later decisions and proposals. Persistent research cells can also
-write tools, run numerical experiments, retain intermediate state, and share
-methods across branches of the search.
+- it writes **tools** and runs **experiments** about the problem, and keeps the ones that measure something;
+- it learns **which of its own moves pay off**: which parent, which kind of edit, which hint;
+- it hands what it learned to other branches of the search and to the **next run**, but only after a trial shows
+  it helps.
 
-This creates two histories: **the lineage of solutions** and **the lineage of
-methods used to obtain them**. A tool developed while investigating one candidate
-can survive that candidate and later be used on another branch.
+We frame this as **cultural transmission**. Each branch of the search learns on its own; the culture is what gets
+passed on, and only after the recipient tried it. A run therefore leaves two histories: the **lineage of solutions**,
+and the **lineage of methods** that produced them. A tool written while studying one candidate can outlive it and be
+reused on another branch, or in another run.
 
-[Quick start](#quick-start) · [Architecture](#architecture) · [Research cells](#research-cells)
-· [Tasks](#tasks) · [Empira](#inspect-runs-in-empira) · [Contributing](CONTRIBUTING.md)
+[See it run](#see-it-run) · [Quick start](#quick-start) · [Results](#results-so-far) ·
+[How it works](#the-framework-at-a-glance) · [Components](#components) · [Models](#local-inference-or-an-api) ·
+[Tasks](#tasks)
 
-## Architecture
+## See it run
 
-The architecture builds outward from an **Engine + Tree Search** core.
-**Theory + World Model** form the scientific search loop around it.
-**Research Units + Tools** extend that loop with persistent investigations and
-reusable methods.
+`sciel watch` follows a run in the terminal; `sciel web` opens the same run as a local page. Both read the run's
+journal, so they work on a live run or a finished one. Shown: the best run on the third autocorrelation constant
+below, with a local Qwen3.8-27B.
 
-```mermaid
-flowchart TB
-    subgraph SCIEL["SCiEL"]
-        direction TB
-        subgraph CORE["Scientific search"]
-            direction TB
-            subgraph SEARCH["Search core"]
-                direction LR
-                ENGINE["Engine"]
-                TREE["Tree Search"]
-                ENGINE <--> TREE
-                CONTROL["Search control<br/>Bandits · RL<br/>Progress monitors"]
-                STORE["Island populations<br/>MAP-Elites · VQ<br/>Learned grids"]
-                CONTROL -->|"Decisions"| TREE
-                TREE <-->|"Retain / sample"| STORE
-                ENGINE -->|"Feedback"| CONTROL
-            end
-            KB["Theory<br/>claims · experiments · knowledge"]
-            HYP["World model"]
-            SEARCH -->|"Decision ledger"| KB
-            SEARCH -->|"Transitions"| HYP
-            KB -->|"Tilts · lessons · findings"| SEARCH
-            HYP -->|"Planner arms · niches · memory"| SEARCH
-        end
-        UNITS["Research Units"]
-        TOOLS["Tools"]
-        CORE -->|"Questions and artifacts"| UNITS
-        UNITS -->|"Research experiments"| TOOLS
-        TOOLS -->|"Evidence and artifacts"| CORE
-    end
+![The terminal viewer: best score, islands, attempts with their diffs, research cells and what the search learned](../../raw/assets/sciel-terminal.png)
 
-    style SCIEL fill:#ffffff,stroke:#a5a9b0,color:#222;
-    style CORE fill:#f7f8fa,stroke:#c3c7cd,color:#222;
-    style SEARCH fill:#fff9e6,stroke:#c89c22,color:#222;
-    classDef search fill:#fff7d6,stroke:#c89c22,color:#222;
-    classDef memory fill:#eef4ff,stroke:#7f9bc4,color:#222;
-    classDef research fill:#f0edff,stroke:#8b79c6,color:#222;
-    classDef control fill:#e7f5ee,stroke:#6a9b81,color:#222;
-    class ENGINE,TREE search;
-    class CONTROL control;
-    class KB,HYP,STORE memory;
-    class UNITS,TOOLS research;
-```
-
-**Tree Search** denotes evolutionary branching and selection over program
-lineages and island populations. **Research Units** are persistent research cells.
-The decision ledger feeds the theory and the world model; proven claims, findings
-and lessons reach later decisions only as randomized arms judged by the same ledger. Units create, run and revise tools, returning observations and
-saved artifacts to the scientific loop. Tool-produced candidates pass through the
-engine's source validation and ordinary task evaluation.
-
-Independent research continuations can be enabled so an open question progresses
-without waiting for its island to be selected for another mutation.
-
-**Bandits, RL and progress monitors** control how the search uses its population.
-Profiles select compatible combinations of these control paths:
-
-```mermaid
-flowchart LR
-    FEEDBACK["Evaluation and<br/>population state"]
-    BANDITS["Online bandits"]
-    LEARNED["RL / learned policies<br/>Frozen model weights"]
-    MONITORS["Progress monitors"]
-    DECISIONS["Parent and operator<br/>selection"]
-    UNITS["Research Units"]
-
-    FEEDBACK -->|"Rewards"| BANDITS
-    BANDITS -->|"Modes · presets · operators"| DECISIONS
-    FEEDBACK -->|"State features"| LEARNED
-    LEARNED -->|"Mode mix · parent preference"| DECISIONS
-    FEEDBACK -->|"Improvement history"| MONITORS
-    MONITORS -->|"Configured interventions"| DECISIONS
-    MONITORS -->|"Research opportunities"| UNITS
-
-    classDef state fill:#f6f7f8,stroke:#a5a9b0,color:#222;
-    classDef control fill:#e7f5ee,stroke:#6a9b81,color:#222;
-    classDef search fill:#fff7d6,stroke:#c89c22,color:#222;
-    classDef research fill:#f0edff,stroke:#8b79c6,color:#222;
-    class FEEDBACK state;
-    class BANDITS,LEARNED,MONITORS control;
-    class DECISIONS search;
-    class UNITS research;
-```
-
-The **operator bandit** selects a diff, rewrite, eligible repair or crossover.
-**Mode and preset bandits** adjust parent-selection preferences; presets are an
-alternative to the mode-controller path. **Learned policies** supply mode
-probabilities through a mode MLP or parent preferences through the three-head
-policy's promise head.
-**Progress monitors** detect stagnation and, when enabled, intervene in search or
-trigger research work. Population storage determines niches and candidate
-retention separately from these policies.
-
-| Capability | What it controls |
+| | |
 | --- | --- |
-| **Population and diversity** | Island populations with MAP-Elites grids, learned descriptor grids, VQ niches, or other configured containers. Seeding, crossover and island creation are separate choices. |
-| **Search decisions** | Parent and operator selection, mode mixtures and online bandits. Optional trained policies influence decisions using their saved model weights. |
-| **Theory of search** | Randomized decisions with logged probabilities; anytime-valid claims, discriminating experiments, theorist strategies, and a knowledge pool of cell findings and lessons. |
-| **Candidate novelty** | Run-wide SHA-256 and AST repeat detection, code-similarity context, and optional output-repeat checks. The registry survives eviction and checkpoint/resume. |
-| **Research cells** | Persistent questions, tool revisions, saved artifacts, sequential experiments, background jobs and cross-island method exchange. |
-| **Parallel execution** | Configured search workers and shared capacity limits for model requests, evaluators and research work. |
-| **Provenance and recovery** | Append-only journals, saved model calls, task and source identities, checkpoints, request accounting and explicit recovery decisions. |
-
-These capabilities are selected through configuration, with validated dependencies
-and compatibility constraints. Online bandits update during a run; neural policies are
-trained offline and loaded for inference. Enabling a trained policy does not start
-an online neural-training loop.
-
-See the [configuration defaults](src/sciel/config.py),
-[maintained profiles](configs) and [engine modules](src/sciel/engine).
-
-## Research cells
-
-A research cell holds a question and its experimental history across generations
-of candidate programs. It receives search context, available tools, prior
-observations and references to saved candidate artifacts. Depending on the
-profile, work can begin proactively, after a stagnation signal, or as a
-continuation of an unfinished question.
-
-| Stage | Recorded evidence |
-| --- | --- |
-| **Propose** | A concrete question, the selected tool or proposed source, and the decision the experiment is intended to inform. |
-| **Execute and repair** | The exact tool revision, inputs, resource limits, outputs and failures. Explicitly returned and saved state can be used by a later invocation. |
-| **Interpret and continue** | Measurements, their limitations, and a decision to revise the tool, run another experiment, submit a candidate or close the question. |
-| **Independent replay** | A separate invocation of the assigned version, with its own execution record. |
-| **Adopt** | A recipient trial and the resulting immutable revision history. |
-| **Use again** | A later recorded invocation showing that the adopted method was actually reused. |
-
-Observations enter subsequent generation context with their source and scope.
-A candidate produced through a tool still goes through the ordinary task
-validation path. Tool availability, successful execution, adoption and demonstrated
-benefit have separate evidence: a release or an adoption event alone establishes
-neither a quality improvement nor a better research process.
-
-The implementation lives in [research_tools](src/sciel/research_tools) and
-[methods](src/sciel/methods). Background execution, proactive work, independent
-continuations and shared observations have separate configuration switches.
+| ![Run: attempts, failures and the selected diff](../../raw/assets/sciel-web_run.png) | ![Maps: the culture disk and the behaviour landscape](../../raw/assets/sciel-web_maps.png) |
+| **Run.** Every attempt, why candidates fail, the idea and diff of each step. | **Maps.** The culture disk: islands as sectors, lineages as trees, findings passed between islands as chords. |
+| ![Engine: how the run started and every island's attempts](../../raw/assets/sciel-web_engine.png) | ![What it learned: findings and where they were delivered](../../raw/assets/sciel-web_what.png) |
+| **Engine.** How the islands were seeded and every attempt of every island. | **What it learned.** Findings of research cells and improvements, and where each was delivered. |
 
 ## Quick start
 
 Requires **Python 3.11–3.14** on Linux or macOS.
 
 ```sh
-pip install ./sciel-<version>-py3-none-any.whl   # from the latest release, see Releases
+pip install ./sciel-<version>-py3-none-any.whl   # from the latest release
 sciel
 ```
 
-`sciel` with no arguments finds a model key (`ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`, or asks for one
-once), takes the default profile and asks what to improve: the bundled circle-packing demo, a program of
-yours, or a run to continue. Runs and generated tasks are kept in `./.sciel`.
+`sciel` alone finds a model key (`ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`, or asks once), takes the default
+profile and asks what to improve: the bundled circle-packing demo, a program of yours, or a run to continue.
 
-**Your own problem** is one Python file with `solve()` and `score(result)`:
+**Your own problem** is one Python file:
 
 ```python
 def solve():                # the search rewrites this
@@ -190,134 +60,289 @@ def solve():                # the search rewrites this
 def score(result) -> float: # fixed during the search; higher is better, valid results score above 0
     x, y = result
     return 1 / (1 + (x - 1.7) ** 2 + (y + 0.7) ** 2)
-
-def metrics(result):        # optional: numbers that describe how a result behaves, for the landscape maps
-    return {"x": result[0], "y": result[1]}
 ```
 
 ```sh
-sciel solve.py --budget 40
+sciel solve.py --budget 40                 # search
+sciel task ./materials --note "..."        # draft a task from papers, notebooks or data, then audit it
+sciel watch .sciel/runs/<run>              # terminal viewer; w opens the page, p pauses, q leaves it running
+sciel stop .sciel/runs/<run>               # finish the work in flight, save and stop
+sciel resume .sciel/runs/<run>
 ```
 
-**From materials to a task.** Point `sciel task` at a folder with a description, papers, notebooks or data.
-A model drafts `problem.py`, the seed is run and repaired if it fails, and an audit checks repeatability,
-the noise floor and the headroom between the seed and a reference before the search starts:
+`sciel task` has a model draft `problem.py`, runs and repairs the seed, and audits repeatability, the noise floor and
+the headroom between the seed and a reference before any search starts. A mock model needs no credentials:
+`sciel run configs/smoke_mock.yaml --tasks-root ./tasks --budget 6 --watch none` from a source checkout with
+`pip install -e '.[tasks]'`.
 
-```sh
-sciel task ./materials --note "decode the order book, not forecast prices"
+## Results so far
+
+Every number below is the task's own exact verifier, not a model's report. Budgets are evolutionary evaluations.
+
+| Task | SCiEL | Reference | Setup |
+| --- | --- | --- | --- |
+| Third autocorrelation constant, \|f*f\| inside the max (minimize) | **1.46138** | AlphaEvolve 1.4688; best known 1.45999 | Qwen3.8-27B local, ~220 evaluations, ~10 h, exact rational scoring |
+| Circle packing, 26 circles (maximize Σr) | **2.635977** with exact radii | AlphaEvolve 2.635; best known 2.635983 | Qwen3.8-27B local, 400 evaluations |
+| Heilbronn, 11 points in a triangle (maximize the smallest area) | 0.03441 | AlphaEvolve 0.03653 | Qwen3.8-27B local, 400 evaluations |
+
+On the autocorrelation constant SCiEL improves on AlphaEvolve's published bound with an open 27B model, and is
+0.1% from the best known value. Its circle packing reports 2.635988 under the task's 10⁻⁶ overlap tolerance; we
+quote the value after recomputing the radii exactly.
+
+What these numbers do not yet show: how much of the gain comes from SCiEL's own parts. That needs ablations on equal
+budgets (full SCiEL, without research cells, without the learned planners, a plain evolutionary baseline), which are
+running now. Until then, read the table as what the system reached, not as what each component adds.
+
+---
+
+## The framework at a glance
+
+```mermaid
+flowchart LR
+    TASK["Task<br/>program · evaluator · assets"]
+    subgraph RUN["One run"]
+        direction TB
+        PLAN["Plan a step<br/>parent · operator · hints"]
+        LLM["Language model<br/>local or API"]
+        EVAL["Evaluate<br/>smoke → full → confirm"]
+        POP["Islands<br/>MAP-Elites · novelty"]
+        LEDGER["Decision ledger<br/>every choice + its probability"]
+        THEORY["Theory<br/>anytime-valid claims"]
+        SWM["World model<br/>forecasts a step"]
+        RL["Step policy<br/>off-policy RL"]
+        CELLS["Research cells<br/>tools · experiments"]
+        PLAN --> LLM --> EVAL --> POP --> PLAN
+        PLAN --> LEDGER
+        EVAL --> LEDGER
+        LEDGER --> THEORY & SWM & RL
+        THEORY & SWM & RL -->|"tilt the next choices"| PLAN
+        POP -->|"questions"| CELLS
+        CELLS -->|"findings · candidates"| PLAN
+    end
+    REP["Repertoire<br/>claims · tools · models"]
+    TASK --> RUN
+    RUN -->|"export"| REP
+    REP -->|"inherit, then re-test"| RUN
 ```
 
-**Following a run.** The engine runs in the background. The terminal shows the score, islands, what the
-search has learned, research cells and four views: the culture disk (islands as sectors, lineages as trees,
-findings passed between islands as chords), the landscape in behaviour axes, the same programs in code
-axes, and parent-versus-child edits against the noise band. The same views open as a local web page.
+The inner loop is ordinary evolution. Everything around it learns about the loop itself, from a ledger in which every
+choice is randomized and logged with its probability. That is what makes "this helps" testable inside a run, and what
+lets a later run inherit only what was shown to help.
 
-```sh
-sciel watch .sciel/runs/circles-1        # terminal; w opens the page, p pauses, q leaves the run going
-sciel web .sciel/runs/circles-1          # page only
-sciel stop .sciel/runs/circles-1         # pause after the current step
-sciel resume .sciel/runs/circles-1       # continue
+## Project layout
+
+```
+src/sciel/
+  engine/          the search: step planning, generation, evaluation, islands, checkpoints, parallel waves
+    llm/           providers: OpenAI-compatible (vLLM, OpenRouter), Anthropic, Codex, Claude Code CLI, mock
+  eval/            task loading, sandboxed stages, output identity and certification
+  causal/          decision ledger, doubly robust estimators, e-processes
+  theory/          claims, experiments, strategies, findings and procedures
+  swm/             search world model: TabPFN stage, residual network, niches, archive
+  rl/              step policy: critics, returns, KL-bounded improvement
+  research_tools/  research cells: questions, tools, experiments, sharing between islands
+  methods/         isolated tool execution in Docker, tool registry, method exchange
+  culture/         the repertoire one run exports and the next inherits
+  components/      selection, population containers, learned policies
+  ui/ cli/         terminal and web viewers, command line
+  taskbuilder/     `sciel task`: draft and audit a task from materials
+tasks/             task packages: evaluator.py, initial_program.py, task.yaml, optional assets/
+configs/           maintained profiles
 ```
 
-A transient provider failure (rate limit, server error, timeout) pauses a parallel run and continues it;
-the lost request is never resent and its unknown charge stays in the record.
+## Engine
 
-From a source checkout, a mock model needs no credentials:
+One step of the search, as `engine/step_plan.py` and `engine/step_cycle.py` run it:
 
-```sh
-python3 -m venv .venv && .venv/bin/python -m pip install -e '.[tasks]'
-.venv/bin/sciel run configs/smoke_mock.yaml --tasks-root ./tasks --budget 6 --watch none
+```python
+def step(island):
+    ctx = context_of(engine)                                   # phase, progress, island state
+    parent = sample("parent", selection(island))               # every sample() is logged with its probability
+    planner = sample("planner", theory.tilt({"base": .., "swm": .., "rl": ..}))
+    operator = sample("operator", steered(planner, bandit.operator_probs(ctx)))   # diff, rewrite, cross, idea, repair
+    hints = sample("finding", steered(planner, knowledge.offer(island)))          # tested findings, strategy cards
+    refs = freeze_population(island, parent)                   # what the child may read while it runs
+    child = llm.generate(prompt(task, parent, operator, hints, describe(refs)))
+    if novelty.repeat(child): return reject(child)             # SHA-256 and AST repeats, run-wide
+    result = cascade(child, stages=["smoke", "full", "confirm"], population=refs)  # confirm keeps the worst repeat
+    islands[island].admit(child, result)                       # MAP-Elites cell, eviction, migration
+    ledger.record(decisions, outcome=result)                   # feeds theory, world model and step policy
 ```
 
-`budget` counts successful evolutionary evaluations. Seeding and failed attempts are accounted
-separately. Checkpoints bind task, source and execution identities; changing the engine can require
-a fresh run.
+| | Parent choice | Edits | Learns during the run | Methods outlive candidates |
+| --- | --- | --- | --- | --- |
+| FunSearch | islands, score-weighted | whole function | no | no |
+| AlphaEvolve | MAP-Elites + islands | diffs, Gemini Flash/Pro ensemble | no | no |
+| OpenEvolve | MAP-Elites + islands, fixed exploit ratio | diffs | no | no |
+| ShinkaEvolve | sigmoid(fitness) × 1/(1+children) | diffs, rewrites, crossover | UCB1 over LLMs | meta-scratchpad text |
+| AdaEvolve | per-island intensity | diffs | UCB over islands; LLM meta-guidance on stalls | no |
+| **SCiEL** | islands + learned grids, tilted by the planners | diffs, rewrites, crossover, ideas, repair | every choice: bandits, world model, step policy, tested claims | **tools, findings and models, with trials** |
 
-### Configure a live experiment
+**Why it is built this way.** The systems above adapt one or two knobs from a heuristic reward. They cannot say
+whether an adaptation helped, because their choices are not logged with probabilities. AdaEvolve's ablation shows the
+lever that matters most is its LLM meta-guidance (2.629 → 2.521 on circle packing without it), yet that guidance
+is untested text. SCiEL randomizes every choice and logs it, so each adaptation, including a model's advice, is a
+treatment with a measurable effect, and it is kept only while the effect holds.
 
-Start with a [profile](configs), then explicitly choose the task, provider and
-models, search budget, storage, research features and execution limits.
-Chat-provider credentials come from the environment variable named by
-`llm.api_key_env`. The Codex Responses transport also supports a configured
-`codex_auth_file`. The two transports retain their own configuration and accounting.
+## Components
 
-| Optional dependency | Purpose |
-| --- | --- |
-| `tasks` | SciPy for the supplied numerical tasks. |
-| `analysis` | Dataframe tools and sampled process-memory telemetry. |
-| `board` | An optional Weights & Biases sink. |
-| `dev` | Tests, schema validation and package builds. |
+### Search control: bandits and the step policy
 
-For example, install the numerical tasks with
-`.venv/bin/python -m pip install -e '.[tasks]'`.
+```python
+# rl/policy.py: one KL-bounded improvement over the logging policy per decision
+Q_even, Q_odd = fit_critic(rows by island parity)              # each scores the other half's rows
+adv = pessimistic(Q) - E_mu[pessimistic(Q)]                    # centred on the logged policy
+pi = mu * exp(eta * adv), with KL(pi || mu) <= 0.2              # eta searched in units of the advantages
+act only if ESS >= 200 and V_oof(pi) > V(mu) + 2 * SE_clustered_by_parent
+```
 
-Learned profiles require external weights, normally under `../sciel-artifacts/`.
-Configure `embed_grid_path` and `embed_axis_path`, or `embed_niche_path`.
-Missing required artifacts stop startup; `embed_axis_path: null` explicitly
-selects legacy projection. YAML `extends` paths are relative to the YAML file;
-artifact paths are relative to the process working directory. Use absolute
-artifact paths when launching from another location.
+Others use a small bandit from the first step, with rewards like ShinkaEvolve's `exp(max(Δ, 0)) − 1`. Gains at
+budgets of 50–800 calls are modest, and larger ones come from training the model itself on 10⁴–10⁵ samples
+(EvoTune, ThetaEvolve). Hierarchical selection that values a node by its descendants (HGM) predicts progress far
+better than the node's own score. SCiEL keeps online bandits for the cheap decisions and adds a **step policy over
+step features**: it waits for 200 steps, values a step by the rise of the best along its lineage rather than the
+child's own score, and moves only when an out-of-fold estimate clears its own error. No system we surveyed fits such
+a critic with a warm-up and a gate.
 
-Research tools require `parallel_search`, `candidate_novelty`, a single provider
-attempt (`llm.max_retries: 1`) and an immutable Docker image. A single search worker
-is supported. See [integration validation](src/sciel/config_validation.py) and
-[research-tool configuration](src/sciel/research_tools/config.py).
+### World model of the search
 
-Native subprocess limits bound resources but do not isolate filesystem or network
-access; container execution provides the separately configured isolation boundary.
-An unlimited overall search still has bounded individual evaluations and tool
-invocations.
+```python
+# swm/world.py, swm/tabular.py: forecast whether a step raises its lineage's best
+reference = best_of(base_rate, cell_means, TabPFN(operator rows, inherited rows))  # out of fold by island parity
+net = residual_network(code_embedding_pca16, step_features, start=reference)        # cannot forecast worse
+if gate(net beats reference out of fold): planner arm "swm" tilts the operator choice
+```
+
+Most leading systems have no learned predictor of a step's success and rely on filters and evaluation cascades.
+Where one exists it is trained once (LLaMEA-SAGE, used only as a prompt hint and not significant at n = 5) or scores
+pairs before the call (DGS, 200 evaluations). SCiEL's model starts from a pretrained tabular model, so it can forecast
+from a few dozen rows, inherits the operator rows of earlier runs, and **acts only as one randomized arm of the
+planner**, so its effect on progress is measured like any other arm's.
+
+### Theory of the search
+
+```python
+# theory/claims.py, causal/sequential.py: "this action changes the child's event rate"
+for decision in FAMILY:                                         # operator, planner, origin, finding, ...
+    e = mixture_of_bets(doubly_robust_contrasts(ledger, decision))   # an e-process, valid at any stopping time
+claims = e_BH(all e-values, alpha=0.05)                        # false discovery rate under any dependence
+theory.tilt(decision) shifts sampling toward proven actions, and keeps exploring the rest
+```
+
+Others report ablations after the fact. SCiEL tests its own choices **while it runs**, without peeking penalties, and
+a claim enters a later run only as an inherited prior that is re-tested there.
+
+### Research cells and tools
+
+```python
+# research_tools/: a question with an experimental history
+cell = open_question(trigger=stall or schedule)                # "what structure of the task changes the design?"
+while steps < max_steps:
+    tool = llm.write("def run(payload): ...")                  # imports what a candidate imports
+    obs = docker_run(tool, payload=frozen(parent, best), no_network=True, limits)
+    decide(revise | another experiment | submit candidate | finish)  # finish only after a trial
+share(tool, to=other islands) → recipient trial → adopted only if it ran there
+```
+
+AlphaEvolve and OpenEvolve keep no methods; ShinkaEvolve keeps a meta-scratchpad of summaries; AdaEvolve asks a model
+for new tactics on stalls. None of them separates an untested idea from a measured one. In SCiEL a cell writes
+**executable tools** that run in an isolated container on the frozen inputs of the step. Their observations carry
+their source, and a tool reaches another island only through a recipient trial. The tool sees the same population
+view and task modules a candidate sees, so a cell can measure exactly the object it is reasoning about.
+
+### Population view and task assets
+
+```python
+# inside a candidate while it is evaluated
+from sciel.population import population    # island best, parent and run best, with the exact scored outputs
+from sciel.task import asset
+steps = asset("steps")                      # the task's own objective, gradients and refinement
+h = population()[0]["output"]["heights"]    # continue the best construction instead of rebuilding it
+budget = float(os.environ["SCIEL_STAGE_SECONDS"])   # check fast in smoke, search in full and confirm
+```
+
+A child that can only read code rebuilds its parent's construction from scratch every time. Here it continues from
+the measured object, and the request binds the view's hash, so a re-measurement reads the same view. On the third
+autocorrelation constant, the view, the stage budget and the task's objective module together took the best bound
+from about 1.55 to 1.462 after the same 50 evaluations, and to 1.461 by the end of the run.
+
+### Culture across runs
+
+```python
+# culture/repertoire.py
+export(run) = {claims, surviving strategies, findings, tools, step policy, world-model rows}
+inherit(next_run): each item enters as one more randomized arm, and is kept only if it wins there
+```
+
+A Darwin or Huxley-Gödel machine changes the agent itself. SCiEL changes the **repertoire around the model**, so a
+weaker model can inherit what a stronger run learned, and nothing inherited is trusted without a new trial.
+
+## Local inference or an API
+
+| Provider | Configuration | Used for |
+| --- | --- | --- |
+| Local vLLM (OpenAI-compatible) | `llm.api_base: http://127.0.0.1:8000/v1` | our runs: Qwen3.8-27B on 2× H100, data parallel, prefix caching |
+| OpenRouter | `api_base: https://openrouter.ai/api/v1` | any hosted model, weighted ensembles |
+| Anthropic API | `ANTHROPIC_API_KEY` | Claude models, the default of the zero-config start |
+| Claude Code CLI | `provider: claude_code` | Claude on a subscription; pauses until a usage limit resets |
+| Codex Responses | `provider: codex_responses` | OpenAI models through a Codex login |
+| Mock | `configs/smoke_mock.yaml` | engine checks without a model |
+
+A local model costs electricity rather than tokens, so a run can afford long full and confirm stages and many research
+experiments. A transient provider failure pauses a parallel run and continues it; a lost request is never resent, and
+its unknown charge stays in the record. Research tools need Docker and an immutable image; candidates run as native
+subprocesses with resource limits, which bound resources but do not isolate files or network.
 
 ## Tasks
 
-The **v0.18.0** task bundle contains **11 packages**: ten research-task packages and
-one internal test fixture. Each task defines its candidate interface, evaluator,
-metrics and execution limits.
+The **v0.18.0** task bundle contains **11 packages**: ten research tasks and one test fixture. Each defines its
+candidate interface, evaluator, metrics and limits.
 
 | Task | Search objective |
 | --- | --- |
-| [Circle packing](tasks/oe/circle_packing) | Maximize the sum of radii of 26 non-overlapping circles inside a unit square. A [stochastic seed variant](tasks/oe/circle_packing_seed) is also included. |
-| [Heilbronn triangle](tasks/oe/heilbronn_triangle) | Place 11 points in an equilateral triangle to maximize the smallest triangle area over all triples. |
-| [Function minimization](tasks/oe/function_minimization) | Search a specified two-dimensional objective. |
-| [Hidden optimization](tasks/oe/function_minimization_oracle) | Minimize an unknown function with at most 50 oracle queries per instance, under a container-isolated protocol. |
-| [Matrix multiplication tensor](tasks/oe/matmul_tensor) | Search tensor decompositions under rank and reconstruction checks. |
-| [Discrete mathematics](tasks/math) | Beat-the-average, difference bases, edges versus triangles and square-free subset tasks. |
-| [Autocorrelation and minimum overlap](tasks/math) | Step functions bounding the first, second and both third autocorrelation constants and Erdős' minimum overlap constant, scored in exact rational arithmetic against the best verified values of October 2026. |
-| [Toy quadratic](tasks/test/toy_quadratic) | An internal fixture for engine and evaluator contracts. |
+| [Circle packing](tasks/oe/circle_packing) | Maximize the sum of radii of 26 non-overlapping circles in a unit square; a [stochastic seed variant](tasks/oe/circle_packing_seed) too. |
+| [Heilbronn triangle](tasks/oe/heilbronn_triangle) | Place 11 points in a triangle to maximize the smallest triangle area. |
+| [Autocorrelation and minimum overlap](tasks/math) | Step functions bounding the first, second and both third autocorrelation constants and Erdős' minimum overlap, scored in exact rational arithmetic against the best verified values of October 2026. |
+| [Discrete mathematics](tasks/math) | Beat-the-average, difference bases, edges versus triangles, square-free subsets. |
+| [Function minimization](tasks/oe/function_minimization) · [hidden oracle](tasks/oe/function_minimization_oracle) | A specified 2-D objective; an unknown function with 50 queries per instance in a container. |
+| [Matrix multiplication tensor](tasks/oe/matmul_tensor) | Tensor decompositions under rank and reconstruction checks. |
+| [Toy quadratic](tasks/test/toy_quadratic) | A fixture for engine and evaluator contracts. |
 
-Inspect the task's `task.yaml` and evaluator before comparing results. A normalized
-score's denominator may be a fixed reference; it is not necessarily a current
-record. Comparisons need compatible validity rules, tolerances and evaluation
-conditions, alongside the models and resources used.
+A normalized score's denominator may be a fixed reference rather than a record; read `task.yaml` and the evaluator
+before comparing results.
+
+## Configure a live experiment
+
+Start from a [profile](configs) and choose the task, provider and models, budget, storage, research features and
+limits. `budget` counts successful evolutionary evaluations; seeding and failed attempts are counted separately.
+Checkpoints bind task, source and execution identities, so changing the engine can require a fresh run.
+
+| Optional dependency | Purpose |
+| --- | --- |
+| `tasks` | SciPy for the numerical tasks. |
+| `tabular` | TabPFN for the world model's tabular stage. |
+| `analysis` | Dataframes and process-memory telemetry. |
+| `board` | A Weights & Biases sink. |
+| `dev` | Tests, schema validation and builds. |
+
+Research tools require `parallel_search`, `candidate_novelty`, `llm.max_retries: 1` and an immutable Docker image;
+see [integration validation](src/sciel/config_validation.py) and the
+[research-tool configuration](src/sciel/research_tools/config.py). Learned profiles need external weights
+(`embed_grid_path`, `embed_axis_path` or `embed_niche_path`); missing ones stop startup.
 
 ## Inspect runs in Empira
 
-[Empira](https://github.com/Doldrums/arena) is the separate Arena application for
-the research board and experiment workspace. SCiEL writes the native run evidence
-that its observer reads: progress, candidate lineages, source changes, research
-cells, tools, model calls and saved artifacts.
-
-Follow [Empira's setup instructions](https://github.com/Doldrums/arena#quick-start),
-then point its observer at your run directories from the Arena checkout:
+[Empira](https://github.com/Doldrums/arena) is the research board and experiment workspace. It reads the same run
+evidence: progress, lineages, source changes, research cells, tools, model calls and artifacts.
 
 ```sh
 python -m arena --root /absolute/path/to/sciel-runs
 ```
 
-The engine's run directories remain the source of execution evidence. Provider
-records distinguish known monetary charges from unavailable costs and requests
-with unknown outcomes. Model tokens, evaluations, elapsed time and recorded
-compute should be inspected together when assessing how a result was obtained.
-
 ## Releases
 
-[SCiEL 0.18.0](https://github.com/Doldrums/sciel/releases/tag/v0.18.0) provides a wheel,
-source distribution, separate task bundle, release manifest and SHA-256 checksums.
-The wheel and source distribution contain the Python package; task packages and
-configuration profiles are distributed separately through the task bundle and
-repository checkout respectively.
-
-After downloading the release assets:
+[SCiEL 0.18.0](https://github.com/Doldrums/sciel/releases/tag/v0.18.0) provides a wheel, a source distribution, a
+separate task bundle and SHA-256 checksums.
 
 ```sh
 python3 -m venv .venv
@@ -326,36 +351,15 @@ tar -xzf sciel-0.18.0-tasks.tar.gz
 .venv/bin/sciel tasks list --tasks-root ./sciel-0.18.0-tasks/tasks
 ```
 
-Use a checked-out profile or your own YAML configuration for `sciel run`, and pass
-the extracted task root explicitly. Learned weights and credentials are supplied
-by the deployment environment.
-
-## Development and validation
+## Development
 
 ```sh
 .venv/bin/python -m pip install -e '.[tasks,dev,analysis]'
 .venv/bin/python scripts/check_repository.py
-.venv/bin/python -m pytest tests -q
 .venv/bin/python -m build
 git diff --check
 ```
 
-Releases are built from tagged commits by the release workflow: wheel, source
-distribution, task bundle and checksums.
-
-| Path | Responsibility |
-| --- | --- |
-| [`engine/`](src/sciel/engine) | Search scheduling, population, generation, checkpoints and replay. |
-| [`eval/`](src/sciel/eval) | Task loading, execution, evaluation and result certification. |
-| [`causal/`](src/sciel/causal) | Decision ledger, off-policy estimators and anytime-valid inference. |
-| [`theory/`](src/sciel/theory) | Claims, experiments, strategies, procedures and the knowledge pool. |
-| [`swm/`](src/sciel/swm) | World model of the search, population learner, niches, archive and targets. |
-| [`culture/`](src/sciel/culture) | Repertoire exported by one generation and inherited by the next. |
-| [`evidence/`](src/sciel/evidence) | Measurement contracts and evidence codecs. |
-| [`research_tools/`](src/sciel/research_tools) | Research cells, experimental execution and evidence delivery. |
-| [`methods/`](src/sciel/methods) | Tool registries, resource budgets and method exchange. |
-| [`components/`](src/sciel/components) | Selection, population containers and learned policies. |
-
-Maintained files have a **500-line limit**, enforced by the repository check.
-Experiment outputs, model weights and working notes live outside the source tree.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for implementation and verification rules.
+Maintained files have a **500-line limit**, enforced by the repository check. Experiment outputs, model weights and
+working notes live outside the source tree. See [CONTRIBUTING.md](CONTRIBUTING.md) for implementation and
+verification rules.
