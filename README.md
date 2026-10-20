@@ -94,8 +94,16 @@ the noise radius and the headroom before a search starts.
 
 ### In plain words
 
-You do not need to write the task yourself. Give **Claude Code** or **Codex** the `sciel-task` skill and your
-materials (a description, a paper, a notebook, data) and ask it to solve the problem with SCiEL. The skill:
+You do not need to write the task yourself. Give **Claude Code** or **Codex** the
+[`sciel-task` skill](skills/sciel-task) and your materials (a description, a paper, a notebook, data) and ask it to
+solve the problem with SCiEL:
+
+```sh
+cp -r skills/sciel-task ~/.claude/skills/    # Claude Code
+cp -r skills/sciel-task ~/.codex/skills/     # Codex
+```
+
+The skill:
 
 1. **formulates** the task: what is being improved, how it is scored, the best known result to beat;
 2. **builds** it for the search: an exact checker, helper functions the candidates can import, a seed that searches;
@@ -219,6 +227,7 @@ src/sciel/
   taskbuilder/     `sciel task`: draft and audit a task from materials
 tasks/             task packages: evaluator.py, initial_program.py, task.yaml, optional assets/
 configs/           maintained profiles
+skills/sciel-task/ an agent skill for Claude Code and Codex: formulate, audit, run and verify a task
 ```
 
 ## Engine

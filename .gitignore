@@ -20,6 +20,11 @@
 !/src/sciel/ui/static/*.html
 !/src/sciel/ui/static/*.js
 
+!/skills/
+!/skills/**/
+!/skills/**/*.md
+!/skills/**/*.py
+
 !/scripts/
 !/scripts/**/
 !/scripts/**/*.py

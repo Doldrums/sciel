@@ -34,7 +34,9 @@ def main():
         if path.is_symlink() or not path.is_file():
             failures.append(f'{name}: source entries must be regular files')
             continue
-        if path.suffix.lower() in {'.md', '.markdown', '.rst'} and name not in MARKDOWN:
+        # Agent skills are instructions in Markdown by their format, not documentation.
+        if (path.suffix.lower() in {'.md', '.markdown', '.rst'} and name not in MARKDOWN
+                and not name.startswith('skills/')):
             failures.append(f'{name}: documentation belongs in README.md or CONTRIBUTING.md')
         try:
             lines = len(path.read_text(encoding='utf-8').splitlines())
