@@ -11,6 +11,8 @@
 !/.github/
 !/.github/workflows/
 !/.github/workflows/*.yml
+!/.github/assets/
+!/.github/assets/*.svg
 
 !/src/
 !/src/sciel/

@@ -1,16 +1,56 @@
 # SCiEL
 
-**Recursive self-improvement through cultural transmission: it gets better at getting better.**
+**Recursive self-improvement through cultural transmission.**
 
-[![Release 0.18.0](https://img.shields.io/badge/release-0.18.0-f2c94c)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
-[![Python 3.11–3.14](https://img.shields.io/badge/python-3.11%E2%80%933.14-3776ab)](#quick-start)
-[![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
+[![Release 0.18.0](.github/assets/release-badge.svg)](https://github.com/Doldrums/sciel/releases/tag/v0.18.0)
+[![Python 3.11–3.14](.github/assets/python-badge.svg)](#quick-start)
+[![11 task packages](.github/assets/tasks-badge.svg)](#tasks)
+[![Runs in Empira](.github/assets/empira-badge.svg)](https://github.com/Doldrums/arena)
 
-SCiEL (*Scientific Closed-Loop Evolution*) evolves programs with a language model and, in the same run, **learns
-to steer its own evolution**. Every choice it makes (parent, edit operator, hint, which planner decides) is
-randomized and logged with its probability. That ledger trains a **ladder of controllers**, matched to how much data
-the run has. Each one joins as a randomized planner arm only after it beats the rung below it out of fold, and keeps
-acting only while it wins:
+SCiEL evolves programs with a language model and studies a specific question: **can a system learn, during a run, to
+improve the methods it uses to make further progress?** Every choice it makes (parent, edit operator, hint, which
+planner decides) is randomized and logged with its probability, and that ledger trains the controllers that make the
+next choices. What a run learns (tools, tested findings, models of its own search) passes to other branches and to the
+next run, but only after a trial shows it helps.
+
+<p>
+  Made by
+  <a href="https://cpil-lab.github.io/"><img src="../../raw/assets/brand-cpil.png" alt="CPIL logo" width="48" height="48" align="middle"> CPIL Research Group</a>
+  at
+  <a href="https://mbzuai.ac.ae/"><img src="../../raw/assets/brand-mbzuai.png" alt="MBZUAI logo" width="48" height="48" align="middle"> MBZUAI</a>.
+</p>
+
+[Results](#results-snapshot--v0180) · [Inside SCiEL](#inside-sciel) · [Tasks it is for](#what-tasks-sciel-is-for) ·
+[Quick start](#quick-start) · [Components](#components) · [Models](#local-inference-or-an-api) ·
+[Contributing](CONTRIBUTING.md)
+
+[![The SCiEL run page: attempts, failures and the idea and diff of each step](../../raw/assets/sciel-web_run.png)](#see-it-run)
+
+## Results snapshot — v0.18.0
+
+As of **20 October 2026**, SCiEL reaches frontier answers at a **fraction of the compute** comparable open-model systems report: an
+**open 27B model, not trained during the search**, served from two H100 GPUs.
+
+| Result reached | What it cost SCiEL | Closest system with reported cost | Difference |
+| --- | --- | --- | --- |
+| The best known packing of 26 circles in a square, to six digits | **370 model calls · $1.92 · 9.3 h** · 27B open model | TTT-Discover: **25,600 samples · a few hundred $** · 120B open model, trained with RL during the search | **69× fewer model calls, ~100× cheaper, 4× smaller model, no training** |
+| AlphaEvolve's published bound on an analysis constant | **37–204 calls · $0.13–0.79 · 1–7 h** in each of 3 runs; **11 calls, $0.03, 17 min** in the current version | AlphaEvolve: Gemini 2.0 Flash + Pro ensemble, cost not disclosed. ThetaEvolve: 8B model trained with RL, stopped at 1.4930 | reached in 3 of 3 runs, with an open model and without training |
+
+| Final answer after one run | Best of 3 runs | Average of 3 runs |
+| --- | ---: | ---: |
+| Analysis constant (lower is better; AlphaEvolve 1.4688, best known 1.45999) | **1.46138** | 1.46392 |
+| 26 circles, total radius (higher is better; best known 2.635983) | **2.635977** | 2.635203 |
+| 11 points in a triangle, smallest triangle (higher is better; best known 0.03653) | 0.03441 | 0.03346 |
+
+Every answer is checked by the task's exact verifier, with no rounding slack; the circle value is recomputed with
+exact radii. Costs price the tokens as a hosted 27B open model ($0.2 / $0.8 per million); our runs paid no API fees.
+The circle packing reached six digits in one of three runs. TTT-Discover's figures are its paper's per-problem
+budget. How much each SCiEL component contributes needs budget-matched ablations, which come next.
+
+## Inside SCiEL
+
+A **ladder of controllers** steers the search, matched to how much data the run has. Each one joins as a randomized
+planner arm only after it beats the rung below it out of fold, and keeps acting only while it wins.
 
 | Data so far | Who steers | What it learns |
 | --- | --- | --- |
@@ -30,14 +70,6 @@ Around the ladder:
   output; a smoke → full → confirm cascade that keeps the worst repeat; a population view and task modules a candidate
   imports while it runs; parallel waves with shared capacity; checkpointed, replayable recovery.
 
-This is **recursive self-improvement framed as cultural transmission**: each branch learns, and what gets passed on,
-to other branches and to the next run, is only what survived a trial. A run leaves two histories, the **lineage of
-solutions** and the **lineage of methods** that produced them.
-
-[Tasks it is for](#what-tasks-sciel-is-for) · [Results](#results) · [See it run](#see-it-run) · [Quick start](#quick-start) ·
-[How it works](#the-framework-at-a-glance) · [Components](#components) · [Models](#local-inference-or-an-api) ·
-[Tasks](#tasks)
-
 ## What tasks SCiEL is for
 
 SCiEL is built for **long-horizon search**: tasks where a single edit rarely helps, progress takes hundreds of
@@ -56,41 +88,6 @@ best reference and a known bound exceeds 4ε at the planned budget, and the uppe
 frontier is at least 5/B. The effect of transmission is expected exactly where π_ε at the frontier is **small but
 nonzero**: rare improvements, a long run, and a culture that raises π_ε for the next step. `sciel task` measures
 the noise radius and the headroom before a search starts.
-
-## Results
-
-- **Beat Google DeepMind's AlphaEvolve by 0.5%** on one of the math problems AlphaEvolve was presented with, and came
-  within **0.1%** of the best answer anyone has found.
-- **Tied the best known answer** on a classic packing puzzle, to within 0.0002%.
-- With an **open 27B model on our own two GPUs**: about **10–13 hours, 300–550 model calls and $1–3** per run.
-
-| Problem, in plain words | vs AlphaEvolve | vs best known | Model calls | Time | Cost¹ |
-| --- | --- | --- | --- | --- | --- |
-| Draw a step function whose overlap with itself has the lowest peak (a constant in analysis; lower is better) | **0.5% better** | 0.1% behind | ~320 | 10 h | $1.4 |
-| Pack 26 circles into a square with the largest total radius | **0.004% better** | tied (0.0002% behind) | ~510 | 13 h | $2.8 |
-| Place 11 points in a triangle so that no three form a tiny triangle | 5.8% behind | 5.8% behind | ~560 | 11 h | $2.1 |
-
-Best of three runs per problem; the average of the three is within 0.2% of the best on the first two problems. Every
-answer is checked by an exact verifier, with no rounding slack to exploit.
-
-**What others spent to get there:**
-
-| System | Model | Open model? | Compute reported |
-| --- | --- | --- | --- |
-| AlphaEvolve (Google DeepMind) | Gemini 2.0 Flash + Pro | no | not disclosed |
-| ShinkaEvolve (Sakana) | Claude Sonnet 4, o4-mini, GPT-4.1 | no | ~150 evaluations |
-| AdaEvolve | GPT-5, Gemini 3 Pro | no | 100 iterations |
-| TTT-Discover | gpt-oss-120b, trained during the search | yes, 120B | 25,600 samples, a few hundred $ |
-| ThetaEvolve | an 8B model, trained during the search | yes, 8B | RL training per problem |
-| **SCiEL** | **Qwen3.8-27B, not trained** | **yes, 27B** | **300–550 calls, $1–3** |
-
-The best known answer to the first problem came from a numerical optimizer without a language model, after AlphaEvolve
-published its own. The circle and triangle problems are well studied and serve as calibration; the first problem is the
-kind of long-horizon task SCiEL targets, where improvements kept arriving after 180 evaluations. How much each SCiEL
-component contributes needs budget-matched ablations, which come next.
-
-¹ Tokens priced as a hosted 27B open model ($0.2 / $0.8 per million); our runs paid no API fees. Exact values and
-per-seed figures are in the run journals.
 
 ## See it run
 
