@@ -20,15 +20,36 @@ passed on, and only after the recipient tried it. A run therefore leaves two his
 and the **lineage of methods** that produced them. A tool written while studying one candidate can outlive it and be
 reused on another branch, or in another run.
 
-[See it run](#see-it-run) · [Quick start](#quick-start) · [Results](#results-so-far) ·
+[Results](#results) · [See it run](#see-it-run) · [Quick start](#quick-start) ·
 [How it works](#the-framework-at-a-glance) · [Components](#components) · [Models](#local-inference-or-an-api) ·
 [Tasks](#tasks)
+
+## Results
+
+**With an open 27B model on one machine, SCiEL beat AlphaEvolve's bound on the third autocorrelation constant:
+1.46138 against 1.4688, within 0.1% of the best known value.** On circle packing it matches the best known
+packing to six digits.
+
+Every number below is the task's own exact verifier, not a model's report. Budgets are evolutionary evaluations.
+
+| Task | SCiEL | Reference | Setup |
+| --- | --- | --- | --- |
+| Third autocorrelation constant, \|f*f\| inside the max (minimize) | **1.46138** | AlphaEvolve 1.4688; best known 1.45999 | Qwen3.8-27B local, ~220 evaluations, ~10 h, exact rational scoring |
+| Circle packing, 26 circles (maximize Σr) | **2.635977** with exact radii | AlphaEvolve 2.635; best known 2.635983 | Qwen3.8-27B local, 400 evaluations |
+| Heilbronn, 11 points in a triangle (maximize the smallest area) | 0.03441 | AlphaEvolve 0.03653 | Qwen3.8-27B local, 400 evaluations |
+
+Its circle packing reports 2.635988 under the task's 10⁻⁶ overlap tolerance; we
+quote the value after recomputing the radii exactly.
+
+What these numbers do not yet show: how much of the gain comes from SCiEL's own parts. That needs ablations on equal
+budgets (full SCiEL, without research cells, without the learned planners, a plain evolutionary baseline), which come
+next. Until then, read the table as what the system reached, not as what each component adds.
 
 ## See it run
 
 `sciel watch` follows a run in the terminal; `sciel web` opens the same run as a local page. Both read the run's
 journal, so they work on a live run or a finished one. Shown: the best run on the third autocorrelation constant
-below, with a local Qwen3.8-27B.
+above, with a local Qwen3.8-27B.
 
 ![The terminal viewer: best score, islands, attempts with their diffs, research cells and what the search learned](../../raw/assets/sciel-terminal.png)
 
@@ -74,24 +95,6 @@ sciel resume .sciel/runs/<run>
 the headroom between the seed and a reference before any search starts. A mock model needs no credentials:
 `sciel run configs/smoke_mock.yaml --tasks-root ./tasks --budget 6 --watch none` from a source checkout with
 `pip install -e '.[tasks]'`.
-
-## Results so far
-
-Every number below is the task's own exact verifier, not a model's report. Budgets are evolutionary evaluations.
-
-| Task | SCiEL | Reference | Setup |
-| --- | --- | --- | --- |
-| Third autocorrelation constant, \|f*f\| inside the max (minimize) | **1.46138** | AlphaEvolve 1.4688; best known 1.45999 | Qwen3.8-27B local, ~220 evaluations, ~10 h, exact rational scoring |
-| Circle packing, 26 circles (maximize Σr) | **2.635977** with exact radii | AlphaEvolve 2.635; best known 2.635983 | Qwen3.8-27B local, 400 evaluations |
-| Heilbronn, 11 points in a triangle (maximize the smallest area) | 0.03441 | AlphaEvolve 0.03653 | Qwen3.8-27B local, 400 evaluations |
-
-On the autocorrelation constant SCiEL improves on AlphaEvolve's published bound with an open 27B model, and is
-0.1% from the best known value. Its circle packing reports 2.635988 under the task's 10⁻⁶ overlap tolerance; we
-quote the value after recomputing the radii exactly.
-
-What these numbers do not yet show: how much of the gain comes from SCiEL's own parts. That needs ablations on equal
-budgets (full SCiEL, without research cells, without the learned planners, a plain evolutionary baseline), which are
-running now. Until then, read the table as what the system reached, not as what each component adds.
 
 ---
 
