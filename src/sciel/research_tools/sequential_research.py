@@ -221,6 +221,10 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
                 scope='Model proposal before execution; no result or efficacy is established.')
             state['transfer_review_pending'] = False
             if action['action'] in ('finish','skip'):
+                # A cell that closes before any trial only restates its plan; a failed trial is still a result.
+                if not any(row.get('receipt_id') for row in state['steps']):
+                    raise ValueError('this cell has run no experiment yet: run the check you describe with create '
+                                     '(or use a visible tool) before finishing; a tool error is a result too')
                 if action['action'] == 'finish' and action['conclusion'] in ('supported','refuted'):
                     if not any(row.get('receipt_id') and row.get('status') == 'success' for row in state['steps']):
                         raise ValueError('a supported/refuted conclusion requires recorded experiment evidence')

@@ -49,11 +49,40 @@ def invoke_dependency(method_id, value):
     return _invoke(method_id, value)
 
 
+def _view(target, parent):
+    saved = target.get('saved_evaluation') or {}
+    result = (saved.get('record') or {}).get('result') or {} if saved.get('status') == 'available' else {}
+    witness = (result.get('artifacts') or {}).get('full_output')
+    return {'program_id': target.get('program_id'), 'score': target.get('selection_score'), 'parent': parent,
+            'cases': result.get('cases'), 'output': None if witness is None else json.loads(witness).get('output')}
+
+
+def _candidate_environment(payload):
+    """What a candidate imports while it is evaluated: the task's assets through sciel.task, and through
+    sciel.population the run's best and the selected program from the tool's frozen input, best first."""
+    if not Path('/runtime/task/evaluator.py').is_file():
+        return
+    sys.path.insert(0, '/runtime/lib')
+    os.environ['SCIEL_TASK_ROOT'] = '/runtime/task'
+    targets = payload.get('research_targets') if isinstance(payload, dict) else None
+    if not isinstance(targets, dict):
+        return
+    selected, best = targets.get('selected') or {}, targets.get('population_best')
+    programs = [_view(selected, True)]
+    if best is not None and best.get('program_id') != selected.get('program_id'):
+        programs.insert(0, _view(best, False))
+    path = '/tmp/sciel_population.json'
+    Path(path).write_text(json.dumps({'schema': 'sciel-population-view/1', 'programs': programs}))
+    os.environ['SCIEL_POPULATION'] = path
+
+
 def _call(request_path):
     global _REQUEST, _INVOKE
     if os.geteuid() != 10001 or os.getpid() == 1:
         raise RuntimeError('method calls require the unprivileged container child')
     _REQUEST = json.loads(Path(request_path).read_text())
+    # Before the file-size limit, which bounds the tool's output and not the view written for it.
+    _candidate_environment(_REQUEST['input'])
     limits = _REQUEST['limits']
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))

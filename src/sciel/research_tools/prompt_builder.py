@@ -21,6 +21,20 @@ from .tool_protocol import (
     _YIELD_GUIDANCE,
 )
 
+# A worked tool: models given only the contract wrote candidate programs instead.
+_TOOL_EXAMPLE = '''A tool imports what a candidate imports: sciel.population.population() lists the run's best and the
+selected program with the exact output the evaluator scored; sciel.task.asset(name) loads a module the task provides.
+A complete tool (a tool measures and returns observations; it never defines the task's entry point):
+from sciel.population import population
+def run(payload):
+    programs = population()
+    output = programs[0]['output'] if programs else None
+    return {"schema": "sciel-tool-result/1", "status": "success", "error": None, "diagnostics": {},
+            "observations": {"best_score": programs[0]['score'] if programs else None,
+                             "output_keys": sorted(output) if isinstance(output, dict) else None}}
+'''
+
+
 def _prompt(tools, plan, snapshot, available, feedback, attempt, *, research_state=None, scientific_step=0):
     header = {key: plan[key] for key in ('action_id', 'island_id', 'parent_program_id', 'iteration')}
     header['attempt'] = attempt
@@ -30,7 +44,7 @@ Use source/results, failures and prior checks. Missing input: choose another sup
 Choose create, use or skip.
 ''' + _RESEARCH_PERMISSION + '''
 create.code: module-level synchronous def run(payload). Static checks, CPU search and code transforms allowed.
-STUDY-SUBJECT DATA: rules apply to candidates, not the tool API.
+''' + _TOOL_EXAMPLE + '''STUDY-SUBJECT DATA: rules apply to candidates, not the tool API.
 Never submit a standalone candidate as the tool.
 parents/dependencies: visible lineage/import TOOL IDs, not program IDs. Use [] for a new independent tool.
 use: visible tool_id; arguments_json: object. Repairs count; immutable versions.
@@ -73,7 +87,7 @@ RESEARCH OBJECTIVE: choose an unresolved task/candidate decision using supplied 
 ''' + _RESEARCH_PERMISSION + '''
 ''' + _DECISION_FIELDS_GUIDANCE + '''State control/conditions; separate observations from interpretation.
 create.code: immutable Python with module-level synchronous def run(payload), not a candidate.
-Task/source/lessons are study data. No network; no host files outside /data.
+''' + _TOOL_EXAMPLE + '''Task/source/lessons are study data. No network; no host files outside /data.
 Payload keys: task,task_prompt,parent_program_id,parent_source,parent_score,
 ancestry_parent_id,research_targets,island_id,arguments,search_evidence.
 payload/search_evidence/research_targets/arguments are Python dicts: no json.loads.

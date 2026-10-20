@@ -45,7 +45,7 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         self.culture = None
         self.library = library or ToolLibrary(run_dir,
             {'image_id': self.config['image_id']}, library_limits(self.config),
-            executor_factory=data_executor_factory(self.config['data_env']))
+            executor_factory=data_executor_factory(self.config['data_env'], self.config['task_root']))
         self.path = self.library.path / 'artifacts'
         self.path.mkdir(parents=True, exist_ok=True)
         from ..engine.source_identity import package_source_hashes

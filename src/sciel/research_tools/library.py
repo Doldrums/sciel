@@ -103,14 +103,15 @@ def validate_tool_entrypoint(code):
         raise _entrypoint_error('run cannot be called with one positional input', functions)
 
 
-def data_executor_factory(data_env):
-    """Executor factory mounting the directory named by data_env; None keeps the default."""
-    if data_env is None:
+def data_executor_factory(data_env, task_root=None):
+    """Executor factory mounting the directory named by data_env and staging the task's files; None keeps the
+    default."""
+    if data_env is None and task_root is None:
         return None
-    data_dir = os.environ.get(data_env)
-    if not data_dir:
+    data_dir = os.environ.get(data_env) if data_env is not None else None
+    if data_env is not None and not data_dir:
         raise ValueError(f'research_tools.data_env names an unset variable: {data_env}')
-    return lambda image_id: DockerExecutor(image_id, data_dir=data_dir)
+    return lambda image_id: DockerExecutor(image_id, data_dir=data_dir, task_dir=task_root)
 
 
 class ToolLibrary:

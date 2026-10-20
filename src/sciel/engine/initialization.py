@@ -300,6 +300,8 @@ class EngineInitialization:
             from ..research_tools.controller import ResearchTools
             tool_options = ({'capacity_config': cfg['parallel_search']}
                             if cfg['research_tools'].get('jobs', {}).get('enabled') else {})
+            if cfg['research_tools'].get('task_root') is None:
+                cfg['research_tools']['task_root'] = os.path.abspath(task.root)
             self.research_tools = ResearchTools(cfg['research_tools'], run_dir,
                 task_identity={'task': task.qualified_name, 'task_hash': task.task_hash},
                 emit=self.log.research_tool, charge=self._charge_research, **tool_options)

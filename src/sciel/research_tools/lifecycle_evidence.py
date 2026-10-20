@@ -94,7 +94,7 @@ def load_state(lifecycle, state):
             raise ValueError('invalid research cell affinity')
     # The immutable source reader does not initialize an executor or Docker.
     library = ToolLibrary(lifecycle.run_dir, {'image_id': lifecycle.config['image_id']}, library_limits(lifecycle.config),
-                          executor_factory=data_executor_factory(lifecycle.config['data_env']))
+                          executor_factory=data_executor_factory(lifecycle.config['data_env'], lifecycle.config['task_root']))
     history, receipts = {}, {}
     for cell_id, cell in cells.items():
         chain, head = {}, cell['head_revision']

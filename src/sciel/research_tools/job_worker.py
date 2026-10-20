@@ -167,9 +167,9 @@ def run_service(run_dir, *, library_factory=None, stop_when_idle=False, poll_sec
         identity = read_json(root / 'identity.json')
         lib = identity['library']
         if library_factory is None:
-            data_env = identity['config'].get('data_env')
             library = ToolLibrary(run_dir, lib['runtime_lock'], lib['limits'],
-                                  executor_factory=data_executor_factory(data_env))
+                                  executor_factory=data_executor_factory(identity['config'].get('data_env'),
+                                                                         identity['config'].get('task_root')))
         else:
             library = library_factory(run_dir, lib['runtime_lock'], lib['limits'])
         if library.identity != lib:

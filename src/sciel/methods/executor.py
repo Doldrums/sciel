@@ -67,6 +67,41 @@ def _digest_files(root, files):
                 bytes=sum(p.stat().st_size for p in files), sha256=digest.hexdigest())
 
 
+# A tool imports what a candidate imports: the task's evaluator and assets, and the part of sciel a candidate reads.
+TASK_TARGET = '/runtime/task'
+_CANDIDATE_LIBRARY = ('__init__.py', 'task.py', 'population.py', 'candidate_modules/__init__.py')
+
+
+def _snapshot(root, paths):
+    """Exact bytes of files under root, read once so every invocation stages the same content."""
+    files = {}
+    for rel in paths:
+        path = Path(root) / rel
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('task and library files must be regular files: ' + rel)
+        files[rel] = path.read_bytes()
+    return files
+
+
+def _task_files(task_dir):
+    root = Path(task_dir)
+    if not root.is_absolute() or not (root / 'evaluator.py').is_file():
+        raise ValueError('a research task directory must be absolute and hold evaluator.py')
+    rels = ['evaluator.py', 'task.yaml']
+    assets = root / 'assets'
+    if assets.is_dir():
+        rels += sorted(p.relative_to(root).as_posix() for p in assets.rglob('*')
+                       if p.is_file() and '__pycache__' not in p.parts and p.suffix not in ('.pyc', '.pyo'))
+    return _snapshot(root, [rel for rel in rels if (root / rel).exists()])
+
+
+def _record(files, target):
+    digest = hashlib.sha256()
+    for rel in sorted(files):
+        digest.update(rel.encode() + b'\0' + hashlib.sha256(files[rel]).digest())
+    return dict(target=target, files=len(files), bytes=sum(map(len, files.values())), sha256=digest.hexdigest())
+
+
 class ExecutionRefused(ValueError):
     """Proven refusal before entering Docker transport; no method was dispatched."""
     dispatch_status = 'not_dispatched'
@@ -214,10 +249,13 @@ class DockerExecutor:
     # these additional bounds; materialization is size-bounded and charged too.
     overhead_wall_bound = 12
 
-    def __init__(self, image_id, *, data_dir=None):
+    def __init__(self, image_id, *, data_dir=None, task_dir=None):
         if not isinstance(image_id, str) or _IMAGE.fullmatch(image_id) is None:
             raise ValueError('an immutable sha256 Docker image ID is required')
         self._data_dir, data = _data_record(data_dir) if data_dir is not None else (None, None)
+        self._task = _task_files(task_dir) if task_dir is not None else None
+        self._library = (_snapshot(Path(__file__).resolve().parents[1], _CANDIDATE_LIBRARY)
+                         if task_dir is not None else None)
         image = _cli(['image', 'inspect', '--format', '{{.Id}} {{.Os}} {{.Architecture}}', image_id])
         parts = image.stdout.decode('utf-8', 'replace').strip().split()
         if image.returncode or len(parts) != 3 or parts[0] != image_id or parts[1] != 'linux':
@@ -233,6 +271,9 @@ class DockerExecutor:
             loader_sha256=hashlib.sha256(self._loader).hexdigest(), policy=deepcopy(POLICY))
         if data is not None:
             self._identity['data'] = data
+        if self._task is not None:
+            self._identity['task'] = _record(self._task, TASK_TARGET)
+            self._identity['candidate_library'] = _record(self._library, '/runtime/lib/sciel')
 
     @property
     def identity(self):
@@ -378,6 +419,11 @@ class DockerExecutor:
                 (directory / 'runtime').mkdir()
                 (directory / 'runtime' / '_runner.py').write_bytes(self._runner)
                 (directory / 'runtime' / '_loader.py').write_bytes(self._loader)
+                for root, files in ((directory / 'runtime' / 'task', self._task),
+                                    (directory / 'runtime' / 'lib' / 'sciel', self._library)):
+                    for rel, data in (files or {}).items():
+                        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                        (root / rel).write_bytes(data)
                 (directory / 'request.json').write_bytes(canonical_bytes(request))
                 entered_transport = True
                 options = {'cancel_requested': cancel_requested} if cancel_requested is not None else {}

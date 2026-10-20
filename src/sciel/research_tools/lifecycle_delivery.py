@@ -62,7 +62,7 @@ def _delivery_measurement(lifecycle, card, episode=None):
     from .comparison_assessment import from_record, CARD_SCHEMA as ASSESSED_CARD_SCHEMA
     if lifecycle._shared_evidence_index is None:
         library = ToolLibrary(lifecycle.run_dir, {'image_id':lifecycle.config['image_id']}, library_limits(lifecycle.config),
-                              executor_factory=data_executor_factory(lifecycle.config['data_env']))
+                              executor_factory=data_executor_factory(lifecycle.config['data_env'], lifecycle.config['task_root']))
         lifecycle._shared_evidence_index = EvidenceIndex(lifecycle, library)
     index = lifecycle._shared_evidence_index
     index.update()
@@ -144,7 +144,7 @@ def delivery_context(lifecycle, context, *, recipient_cell_id=None, episode=None
             if library is None:
                 library = ToolLibrary(lifecycle.run_dir, {'image_id':lifecycle.config['image_id']},
                                       library_limits(lifecycle.config),
-                                      executor_factory=data_executor_factory(lifecycle.config['data_env']))
+                                      executor_factory=data_executor_factory(lifecycle.config['data_env'], lifecycle.config['task_root']))
             evidence = interpretation_evidence(lifecycle, library, card, episode=episode)
             if not evidence['supported'] and card['cell_id'] != recipient_cell_id:
                 value['omitted_count'] += 1

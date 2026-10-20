@@ -38,6 +38,8 @@ DEFAULTS = {
     'image_id': None,
     # Environment variable naming a directory mounted read-only at /data for tools.
     'data_env': None,
+    # The task directory, set by the engine: tools import its evaluator and assets as a candidate does.
+    'task_root': None,
     'jobs': {'enabled': False, 'max_active': 1, 'max_pending': 16,
              'max_cpu_seconds': 3600.0, 'max_wall_seconds': 7200.0},
     'limits': {
@@ -115,6 +117,9 @@ def validate_config(value=None):
     data_env = cfg['data_env']
     if data_env is not None and (type(data_env) is not str or not re.fullmatch(r'[A-Z][A-Z0-9_]*', data_env)):
         raise ValueError('research_tools.data_env must be an environment variable name or null')
+    root = cfg['task_root']
+    if root is not None and (type(root) is not str or not root.startswith('/')):
+        raise ValueError('research_tools.task_root must be an absolute path or null')
     if cfg['enabled'] and image is None:
         raise ValueError('enabled research_tools requires an immutable Docker image_id')
     for name, limit in cfg['limits'].items():
