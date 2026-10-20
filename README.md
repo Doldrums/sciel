@@ -415,6 +415,6 @@ tar -xzf sciel-0.18.0-tasks.tar.gz
 git diff --check
 ```
 
-Maintained files have a **500-line limit**, enforced by the repository check. Experiment outputs, model weights and
+Maintained files have a **500-line limit** (I'm old-school and can't read past 500 lines, and vibe-coded walls of code in one file are a pain to read), enforced by the repository check. Experiment outputs, model weights and
 working notes live outside the source tree. See [CONTRIBUTING.md](CONTRIBUTING.md) for implementation and
 verification rules.
