@@ -20,6 +20,8 @@ from .tool_artifacts import _sha
 from .episode_evidence import ResearchEpisodeEvidence
 from .canonical_evidence import cited_ids
 
+_BUILD_HERE = 'build the candidate you describe in this cell'
+
 def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
     if io is None:
         raise ValueError('research tools require durable wave I/O (workers=1 is supported)')
@@ -225,6 +227,12 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
                 if not any(row.get('receipt_id') for row in state['steps']):
                     raise ValueError('this cell has run no experiment yet: run the check you describe with create '
                                      '(or use a visible tool) before finishing; a tool error is a result too')
+                # A cell that ends by describing a candidate is asked once to build it here.
+                if (action['action'] == 'finish' and 'candidate' in (action.get('next_decision') or '').lower()
+                        and not any(row.get('canonical_evaluation_id') for row in state['steps'])
+                        and not any((row.get('error') or '').startswith(_BUILD_HERE) for row in state['steps'])):
+                    raise ValueError(_BUILD_HERE + ': create a tool that computes it and returns '
+                                     'observations.candidate_source, then submit_candidate with its receipt_id')
                 if action['action'] == 'finish' and action['conclusion'] in ('supported','refuted'):
                     if not any(row.get('receipt_id') and row.get('status') == 'success' for row in state['steps']):
                         raise ValueError('a supported/refuted conclusion requires recorded experiment evidence')

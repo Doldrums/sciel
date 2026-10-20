@@ -94,7 +94,8 @@ class CellLifecycle:
                 return None
             if cell is None:
                 question = ('Which reusable check or alternative approach could resolve an uncertainty '
-                            'about the supplied candidate under this task and inform a future search decision? '
+                            'about the supplied candidate under this task and inform a future search decision, '
+                            'or which better candidate can this cell compute and submit? '
                             'Develop or retain evidence-backed options before a slowdown; '
                             'keep untested alternatives distinct from validated findings. '
                             f'Scheduling context: proactive research for island {snapshot.island}.')
@@ -116,7 +117,8 @@ class CellLifecycle:
         elif active and (not maintenance or cell is None):
             anchor = (signals.get('population_stall') or {}).get('last_record_B_evals')
             question = ('Which uncertainty about the supplied candidate\'s behavior under this task '
-                        'would affect the next search decision, and what reusable check can investigate it? '
+                        'would affect the next search decision, and what reusable check can investigate it, '
+                        'or which better candidate can this cell compute and submit? '
                         f'Trigger context: island {snapshot.island}, record evaluation {anchor}; '
                         'this explains scheduling only.')
             if choose_scope is not None and choose_scope() == 'task':

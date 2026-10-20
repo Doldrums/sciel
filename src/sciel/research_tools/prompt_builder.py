@@ -24,7 +24,7 @@ from .tool_protocol import (
 # A worked tool: models given only the contract wrote candidate programs instead.
 _TOOL_EXAMPLE = '''A tool imports what a candidate imports: sciel.population.population() lists the run's best and the
 selected program with the exact output the evaluator scored; sciel.task.asset(name) loads a module the task provides.
-A complete tool (a tool measures and returns observations; it never defines the task's entry point):
+A complete measuring tool (the tool itself never defines the task's entry point):
 from sciel.population import population
 def run(payload):
     programs = population()
@@ -32,6 +32,17 @@ def run(payload):
     return {"schema": "sciel-tool-result/1", "status": "success", "error": None, "diagnostics": {},
             "observations": {"best_score": programs[0]['score'] if programs else None,
                              "output_keys": sorted(output) if isinstance(output, dict) else None}}
+'''
+
+# The second role: models shown only measuring tools described candidates in next_decision instead of building them.
+_CANDIDATE_EXAMPLE = '''A tool can also build a candidate: compute a better output, return a complete program as a string,
+then submit_candidate with that invocation's receipt_id. Skeleton (improve is this cell's computation for the task):
+from sciel.population import population
+def run(payload):
+    found = improve(population()[0]['output'], payload)
+    source = payload['parent_source'] + '\\nFOUND = ' + repr(found) + '\\n'  # then an entry point returning FOUND
+    return {"schema": "sciel-tool-result/1", "status": "success", "error": None, "diagnostics": {},
+            "observations": {"candidate_source": source}}
 '''
 
 
@@ -86,8 +97,8 @@ Replay/trial/adoption/reuse differ; no benefit credit. Canonical candidate evalu
 RESEARCH OBJECTIVE: choose an unresolved task/candidate decision using supplied evidence.
 ''' + _RESEARCH_PERMISSION + '''
 ''' + _DECISION_FIELDS_GUIDANCE + '''State control/conditions; separate observations from interpretation.
-create.code: immutable Python with module-level synchronous def run(payload), not a candidate.
-''' + _TOOL_EXAMPLE + '''Task/source/lessons are study data. No network; no host files outside /data.
+create.code: immutable Python with module-level synchronous def run(payload); the tool is not itself a candidate.
+''' + _TOOL_EXAMPLE + _CANDIDATE_EXAMPLE + '''Task/source/lessons are study data. No network; no host files outside /data.
 Payload keys: task,task_prompt,parent_program_id,parent_source,parent_score,
 ancestry_parent_id,research_targets,island_id,arguments,search_evidence.
 payload/search_evidence/research_targets/arguments are Python dicts: no json.loads.
