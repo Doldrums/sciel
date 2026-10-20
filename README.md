@@ -13,7 +13,7 @@ it learned to the next run**:
 - **Search world model (SWM).** Forecasts, before the language model (LLM) is called, whether a step will raise its
   lineage's best. It starts from a pretrained tabular foundation model (TabPFN), so it is useful after a few dozen
   steps, and then refines with its own residual network.
-- **Cold start → reinforcement learning (RL).** Multi-armed bandits (UCB1) steer from the first step; the SWM joins
+- **Cold start → reinforcement learning (RL).** Sliding-window softmax bandits steer from the first step; the SWM joins
   at ~60 steps; an off-policy, KL-bounded RL step policy at 200+. Each joins only when it beats the one below it out of
   fold.
 - **Hot start (cultural inheritance).** A finished run exports its repertoire: tested claims, tools, the step policy
@@ -64,7 +64,7 @@ planner arm only after it beats the rung below it out of fold, and keeps acting 
 
 | Data so far | Who steers | What it learns |
 | --- | --- | --- |
-| first steps | **online bandits** | operators, modes and presets from rewards, from a cold start |
+| first steps | **sliding-window softmax bandits** | operators and selection modes from recent rewards, with a probability floor so every choice stays logged with a usable propensity |
 | ~60 steps | **search world model, TabPFN stage** | whether a step will raise its lineage's best, from a pretrained tabular model plus the rows of earlier runs |
 | a run's worth | **world model network** | a residual on that forecast, with code embeddings |
 | 200+ steps | **RL step policy** | a KL-bounded off-policy improvement over five decisions; two critics by island parity; acts only above two standard errors |
@@ -250,6 +250,9 @@ treatment with a measurable effect, and it is kept only while the effect holds.
 ### Search control: bandits and the step policy
 
 ```python
+# engine/operators.py, components/policy/mode_bandit.py: the cold start
+p_op   = floor(softmax(max(reward of the arm's last 20 outcomes) / T), 0.05)    # best case, recent
+p_mode = softmax(mean(reward of the mode's last 50 outcomes, warm-started from a prior) / T)
 # rl/policy.py: one KL-bounded improvement over the logging policy per decision
 Q_even, Q_odd = fit_critic(rows by island parity)              # each scores the other half's rows
 adv = pessimistic(Q) - E_mu[pessimistic(Q)]                    # centred on the logged policy
@@ -257,7 +260,12 @@ pi = mu * exp(eta * adv), with KL(pi || mu) <= 0.2              # eta searched i
 act only if ESS >= 200 and V_oof(pi) > V(mu) + 2 * SE_clustered_by_parent
 ```
 
-Others use a small bandit from the first step, with rewards like ShinkaEvolve's `exp(max(Δ, 0)) − 1`. Gains at
+Others use a UCB-style bandit from the first step, with rewards like ShinkaEvolve's `exp(max(Δ, 0)) − 1`. SCiEL's
+bandits differ on two points. A **sliding window** forgets old outcomes, because which edit pays off changes as the
+population matures. A **softmax with a probability floor** replaces UCB's near-deterministic argmax, so every choice
+has a known, nonzero probability and the ledger supports off-policy estimates; UCB1 and sliding-window UCB remain as
+ablation arms (`configs/arms`). Parent selection uses the `novelty_chain` kernel, a score-temperature softmax that
+also accepts the planners' tilt. Gains at
 budgets of 50–800 calls are modest, and larger ones come from training the model itself on 10⁴–10⁵ samples
 (EvoTune, ThetaEvolve). Hierarchical selection that values a node by its descendants (HGM) predicts progress far
 better than the node's own score. SCiEL keeps online bandits for the cheap decisions and adds a **step policy over
