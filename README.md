@@ -10,16 +10,18 @@
 SCiEL evolves programs with a language model, **learns to steer its own evolution while it runs**, and **hands what
 it learned to the next run**:
 
-- **Search world model.** Forecasts whether a step will raise its lineage's best before the model is called. It starts
-  from a pretrained tabular model (TabPFN), so it is useful after a few dozen steps, then refines with its own network.
-- **Cold start to RL.** Online bandits steer from the first step; the world model takes over at ~60 steps; an
-  off-policy RL step policy at 200+. Each joins only when it beats the one below it out of fold.
-- **Hot start.** A finished run exports its repertoire: tested claims, tools, the step policy and the world model's
-  rows. The next run starts from them instead of from zero, and re-tests each one before trusting it.
-- **Research cells.** Persistent questions that write and run their own tools in a sandbox, measure the problem, and
-  pass working methods to other branches.
-- **A theory of its own search.** Every choice is randomized and logged with its probability, so whether a choice
-  helps is tested anytime-validly during the run, not guessed.
+- **Search world model (SWM).** Forecasts, before the language model (LLM) is called, whether a step will raise its
+  lineage's best. It starts from a pretrained tabular foundation model (TabPFN), so it is useful after a few dozen
+  steps, and then refines with its own residual network.
+- **Cold start → reinforcement learning (RL).** Multi-armed bandits (UCB1) steer from the first step; the SWM joins
+  at ~60 steps; an off-policy, KL-bounded RL step policy at 200+. Each joins only when it beats the one below it out of
+  fold.
+- **Hot start (cultural inheritance).** A finished run exports its repertoire: tested claims, tools, the step policy
+  and the SWM's rows. The next run starts from them instead of from zero, and re-tests each one before trusting it.
+- **Research cells.** Persistent questions that write and run their own tools in a Docker sandbox, measure the
+  problem, and pass working methods to other branches after a recipient trial.
+- **Theory of the search.** Every choice is randomized and logged with its probability; whether a choice helps is
+  tested during the run with anytime-valid e-processes and e-BH false-discovery control, not guessed.
 
 <p>
   Made by
@@ -84,17 +86,21 @@ SCiEL is built for **long-horizon search**: tasks where a single edit rarely hel
 evaluations, and what the run learns early (tools, tested findings, which moves pay off) keeps paying later. On a task
 that 150 samples saturate, there is nothing for culture to compound on.
 
-We make this precise. A task is a tuple ⟨X, F, h, h\*, M, B⟩: candidates X the model writes, a feasible set F, the
-objective h the search sees and the true objective h\*, the model's edit operator M, and the evaluation budget B. Its
-landscape is defined by M, so it moves as culture changes the context M sees. The key quantity is the chance that an
-edit at the frontier beats its parent by more than the noise radius ε:
+We make this precise. A task is a tuple $\langle X, F, h, h^{*}, M, B \rangle$: candidates $X$ the model writes, a
+feasible set $F$, the objective $h$ the search sees and the true objective $h^{*}$, the model's edit operator $M$, and
+the evaluation budget $B$. Its landscape is defined by $M$, so it moves as culture changes the context $M$ sees. The
+key quantity is the chance that an edit at the frontier beats its parent by more than the noise radius $\varepsilon$:
 
-π_ε(x) = P_{x′∼M(·∣x)} [ h(x′) > h(x) + ε ], and escaping a plateau takes ≈ 1/π_ε evaluations.
+```math
+\pi_\varepsilon(x) = \Pr_{x' \sim M(\cdot \mid x)}\left[\, h(x') > h(x) + \varepsilon \,\right],
+\qquad \mathbb{E}[\text{evaluations to leave a plateau}] \approx 1/\pi_\varepsilon .
+```
 
-A task is admitted to a run when its check is exact (h = h\*, no exploitable tolerance), the headroom between the
-best reference and a known bound exceeds 4ε at the planned budget, and the upper confidence bound of π_ε at the
-frontier is at least 5/B. The effect of transmission is expected exactly where π_ε at the frontier is **small but
-nonzero**: rare improvements, a long run, and a culture that raises π_ε for the next step. `sciel task` measures
+A task is admitted to a run when its check is exact ($h = h^{*}$, no exploitable tolerance), the headroom between the
+best reference and a known bound exceeds $4\varepsilon$ at the planned budget, and the upper confidence bound of
+$\pi_\varepsilon$ at the frontier is at least $5/B$. The effect of transmission is expected exactly where
+$\pi_\varepsilon$ at the frontier is **small but nonzero**: rare improvements, a long run, and a culture that raises
+$\pi_\varepsilon$ for the next step. `sciel task` measures
 the noise radius and the headroom before a search starts.
 
 ## See it run
