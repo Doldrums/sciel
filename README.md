@@ -139,6 +139,15 @@ above, with a local Qwen3.8-27B.
 
 ## Quick start
 
+> [!TIP]
+> **The easiest start is the skill.** Install [`sciel-task`](skills/sciel-task) in Claude Code or Codex, open your
+> materials and say *"solve this with SCiEL"*. It formulates the task, audits it, runs SCiEL and checks the result.
+>
+> ```sh
+> cp -r skills/sciel-task ~/.claude/skills/    # Claude Code
+> cp -r skills/sciel-task ~/.codex/skills/     # Codex
+> ```
+
 Requires **Python 3.11–3.14** on Linux or macOS.
 
 ```sh
