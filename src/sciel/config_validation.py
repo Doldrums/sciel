@@ -56,6 +56,9 @@ def validate_experiments(cfg, defaults):
     elif isinstance(llm, dict) and llm.get('provider') == 'anthropic':
         from .engine.llm.anthropic_api import validate_config
         cfg['llm'] = llm = validate_config(llm)
+    elif isinstance(llm, dict) and llm.get('provider') == 'claude_code':
+        from .engine.llm.claude_code import validate_config
+        cfg['llm'] = llm = validate_config(llm)
     elif isinstance(llm, dict) and llm.get('provider') not in (None, 'chat_completions'):
         raise ValueError('unsupported llm.provider')
     if isinstance(llm, dict) and 'model_capabilities' in llm:

@@ -47,6 +47,9 @@ def build_llm(cfg: dict):
         from .llm.anthropic_api import AnthropicLLM
         load_env()
         return AnthropicLLM(lcfg)
+    if lcfg.get('provider') == 'claude_code':
+        from .llm.claude_code import ClaudeCodeLLM
+        return ClaudeCodeLLM(lcfg)
     if lcfg.get('provider') == 'codex_responses':
         from .llm.codex import CodexResponsesLLM, validate_config
         lcfg = validate_config(lcfg)

@@ -69,12 +69,12 @@ def _owned_backoff(run_dir, seconds):
 
 
 def ensure_credentials(cfg):
-    """File-based Codex auth is read by its adapter immediately before HTTP."""
+    """File-based Codex auth is read by its adapter immediately before HTTP; the Claude Code CLI holds its own login."""
     llm = cfg.get('llm') or {}
     if llm.get('mock'):
         return
     provider = llm.get('provider')
-    if provider == 'codex_responses' and llm.get('codex_auth_file') is not None:
+    if provider == 'claude_code' or (provider == 'codex_responses' and llm.get('codex_auth_file') is not None):
         return
     key_name, label = {'codex_responses': ('CODEX_TOKEN', 'Codex token'),
                        'anthropic': ('ANTHROPIC_API_KEY', 'Anthropic API key')}.get(

@@ -234,6 +234,8 @@ def _tokens(value):
 COST_PROVENANCE_SCHEMA = 'sciel-llm-cost-provenance/1'
 SUBSCRIPTION_ENDPOINT_SHA256 = hashlib.sha256(
     b'https://chatgpt.com/backend-api/codex/responses').hexdigest()
+CLAUDE_CODE_ENDPOINT_SHA256 = hashlib.sha256(b'claude-code-cli --print').hexdigest()
+SUBSCRIPTION_ENDPOINTS = {'codex_responses': SUBSCRIPTION_ENDPOINT_SHA256, 'claude_code': CLAUDE_CODE_ENDPOINT_SHA256}
 
 
 def response_cost_provenance(response):
@@ -256,16 +258,16 @@ def response_cost_provenance(response):
         if source == 'subscription_unpriced':
             # A completed, usable response from a subscription transport is not
             # an unknown dispatch and is never evidence of a zero dollar charge.
-            endpoint = value.get('endpoint_sha256')
+            endpoint, provider = value.get('endpoint_sha256'), value.get('provider')
             if (set(value) != {*base, 'provider', 'response_status', 'endpoint_sha256'}
                     or getattr(response, 'cost', None) is not None
-                    or value.get('provider') != 'codex_responses'
+                    or provider not in SUBSCRIPTION_ENDPOINTS
                     or value.get('response_status') != 'completed'
                     or getattr(response, 'finish_reason', None) != 'stop'
                     or getattr(response, 'response_error', None) is not None
-                    or type(endpoint) is not str or endpoint != SUBSCRIPTION_ENDPOINT_SHA256):
+                    or type(endpoint) is not str or endpoint != SUBSCRIPTION_ENDPOINTS[provider]):
                 return None
-            return {**base, 'provider': 'codex_responses', 'response_status': 'completed',
+            return {**base, 'provider': provider, 'response_status': 'completed',
                     'endpoint_sha256': endpoint}
         if source == 'unavailable':
             return base if set(value) == set(base) and cost is None else None
