@@ -7,11 +7,19 @@
 [![11 task packages](https://img.shields.io/badge/task_packages-11-6c5ce7)](#tasks)
 [![Runs in Empira](https://img.shields.io/badge/runs_in-Empira-64d2ff)](https://github.com/Doldrums/arena)
 
-SCiEL evolves programs with a language model and studies a specific question: **can a system learn, during a run, to
-improve the methods it uses to make further progress?** Every choice it makes (parent, edit operator, hint, which
-planner decides) is randomized and logged with its probability, and that ledger trains the controllers that make the
-next choices. What a run learns (tools, tested findings, models of its own search) passes to other branches and to the
-next run, but only after a trial shows it helps.
+SCiEL evolves programs with a language model, **learns to steer its own evolution while it runs**, and **hands what
+it learned to the next run**:
+
+- **Search world model.** Forecasts whether a step will raise its lineage's best before the model is called. It starts
+  from a pretrained tabular model (TabPFN), so it is useful after a few dozen steps, then refines with its own network.
+- **Cold start to RL.** Online bandits steer from the first step; the world model takes over at ~60 steps; an
+  off-policy RL step policy at 200+. Each joins only when it beats the one below it out of fold.
+- **Hot start.** A finished run exports its repertoire: tested claims, tools, the step policy and the world model's
+  rows. The next run starts from them instead of from zero, and re-tests each one before trusting it.
+- **Research cells.** Persistent questions that write and run their own tools in a sandbox, measure the problem, and
+  pass working methods to other branches.
+- **A theory of its own search.** Every choice is randomized and logged with its probability, so whether a choice
+  helps is tested anytime-validly during the run, not guessed.
 
 <p>
   Made by
