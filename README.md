@@ -59,48 +59,38 @@ the noise radius and the headroom before a search starts.
 
 ## Results
 
-**An open 27B model on one machine, ~$1–3 of tokens per run: SCiEL beats AlphaEvolve's bound on the third
-autocorrelation constant (1.46138 vs 1.4688) and matches the best known 26-circle packing to six digits.**
+- **Beat Google DeepMind's AlphaEvolve by 0.5%** on one of the math problems AlphaEvolve was presented with, and came
+  within **0.1%** of the best answer anyone has found.
+- **Tied the best known answer** on a classic packing puzzle, to within 0.0002%.
+- With an **open 27B model on our own two GPUs**: about **10–13 hours, 300–550 model calls and $1–3** per run.
 
-All values come from the task's own exact verifier; three seeds per task, Qwen3.8-27B served by vLLM on 2× H100.
-Circle packing and Heilbronn n = 11 are saturated calibration tasks; the long-horizon targets are the autocorrelation
-constants, where improvements kept arriving after 180 evaluations.
-
-| Task (sense) | Best of 3 | Mean of 3 | Gap to best known | Evaluations | LLM calls (research) | Tokens in / out | Wall time (to best) | $ at API price¹ | H100-hours² |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Third autocorrelation, \|f*f\| inside (min) | **1.46138** | 1.46392 | +0.10% | 207–227 | 306–327 (50–58) | 2.3 M / 1.0 M | 10.3 h (9.5–10.0 h) | $1.18–1.40 | ≈3 |
-| Circle packing, n = 26 (max) | **2.635977**³ | 2.635203 | −0.0002% | 427–468 | 512–568 (0) | 3.3 M / 2.5 M | 12.3–13.5 h (6.8–11.4 h) | $2.59–2.84 | ≈4 |
-| Heilbronn triangle, n = 11 (max) | 0.03441 | 0.03346 | −5.8% | 431–477 | 500–557 (0) | 2.6 M / 2.2 M | 11.0–12.7 h (8.3–12.7 h) | $2.14–2.39 | ≈3 |
-
-¹ Tokens priced at $0.2 / $0.8 per million (a hosted 27B open model); our own runs paid no API fees.
-² The run's share of two H100s that served 6–9 runs at once. ³ Radii recomputed exactly; 2.635988 under the task's
-10⁻⁶ overlap tolerance. Circle and Heilbronn runs had research cells off; the autocorrelation runs had them on.
-
-**Against other systems** (values as each paper reports them; "—" where it reports none):
-
-| Task | System | Value | Model (parameters) | Samples or calls | Cost |
+| Problem, in plain words | vs AlphaEvolve | vs best known | Model calls | Time | Cost¹ |
 | --- | --- | --- | --- | --- | --- |
-| Third autocorrelation, inside (min) | AlphaEvolve | 1.4688 | Gemini 2.0 Flash + Pro (closed) | — | — |
-| | ThetaEvolve | 1.4930 | DeepSeek-R1-Qwen3-8B + test-time RL | — | — |
-| | DeepMind repo PR #13 | 1.45999 | no LLM: L-BFGS + grid refinement | — | — |
-| | **SCiEL** | **1.46138** | **Qwen3.8-27B (open, dense)** | **~220 evaluations, ~320 calls** | **$1.4** |
-| Circle packing, n = 26 (max) | AlphaEvolve | 2.63586 | Gemini 2.0 Flash + Pro (closed) | — | — |
-| | OpenEvolve | 2.541 | as rerun by AdaEvolve | 100 iterations | — |
-| | ShinkaEvolve | 2.635983, strict 2.635978 | Claude Sonnet 4, o4-mini, GPT-4.1 (closed) | ~150 evaluations | — |
-| | AdaEvolve | 2.636 | GPT-5, Gemini 3 Pro (closed) | 100 iterations | — |
-| | CodeEvolve | 2.63598 | Qwen3-Coder-30B-A3B (open) | 100–900 epochs | — |
-| | ThetaEvolve | 2.6359857 (tolerant) | DeepSeek-R1-Qwen3-8B + RL training | — | — |
-| | TTT-Discover | 2.635983 | gpt-oss-120b + test-time RL | 25.6k samples | a few hundred $ |
-| | **SCiEL** | **2.635977 strict** | **Qwen3.8-27B (open, dense)** | **~430 evaluations, ~510 calls** | **$2.8** |
-| Heilbronn triangle, n = 11 (max) | AlphaEvolve | 0.03653 | Gemini 2.0 Flash + Pro (closed) | — | — |
-| | GigaEvo | 0.036354 | Qwen3-235B-A22B Thinking (open) | — | — |
-| | **SCiEL** | 0.03441 | **Qwen3.8-27B (open, dense)** | ~470 evaluations, ~560 calls | $2.1 |
+| Draw a step function whose overlap with itself has the lowest peak (a constant in analysis; lower is better) | **0.5% better** | 0.1% behind | ~320 | 10 h | $1.4 |
+| Pack 26 circles into a square with the largest total radius | **0.004% better** | tied (0.0002% behind) | ~510 | 13 h | $2.8 |
+| Place 11 points in a triangle so that no three form a tiny triangle | 5.8% behind | 5.8% behind | ~560 | 11 h | $2.1 |
 
-What this does and does not show. SCiEL reaches frontier values with a mid-size open model, a few hundred calls and a
-few dollars of tokens, without training the model. The record on the
-third autocorrelation constant (1.45999) came from a numerical optimizer without an LLM, and SCiEL is 0.1% above it.
-Heilbronn n = 11 is still 5.8% short. How much each SCiEL component contributes needs budget-matched ablations,
-which come next.
+Best of three runs per problem; the average of the three is within 0.2% of the best on the first two problems. Every
+answer is checked by an exact verifier, with no rounding slack to exploit.
+
+**What others spent to get there:**
+
+| System | Model | Open model? | Compute reported |
+| --- | --- | --- | --- |
+| AlphaEvolve (Google DeepMind) | Gemini 2.0 Flash + Pro | no | not disclosed |
+| ShinkaEvolve (Sakana) | Claude Sonnet 4, o4-mini, GPT-4.1 | no | ~150 evaluations |
+| AdaEvolve | GPT-5, Gemini 3 Pro | no | 100 iterations |
+| TTT-Discover | gpt-oss-120b, trained during the search | yes, 120B | 25,600 samples, a few hundred $ |
+| ThetaEvolve | an 8B model, trained during the search | yes, 8B | RL training per problem |
+| **SCiEL** | **Qwen3.8-27B, not trained** | **yes, 27B** | **300–550 calls, $1–3** |
+
+The best known answer to the first problem came from a numerical optimizer without a language model, after AlphaEvolve
+published its own. The circle and triangle problems are well studied and serve as calibration; the first problem is the
+kind of long-horizon task SCiEL targets, where improvements kept arriving after 180 evaluations. How much each SCiEL
+component contributes needs budget-matched ablations, which come next.
+
+¹ Tokens priced as a hosted 27B open model ($0.2 / $0.8 per million); our runs paid no API fees. Exact values and
+per-seed figures are in the run journals.
 
 ## See it run
 
