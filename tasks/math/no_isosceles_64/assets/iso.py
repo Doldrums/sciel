@@ -34,7 +34,7 @@ def squared(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def conflicts(points) -> np.ndarray:
-    """For each point, the number of isosceles triangles with their apex there (pairs at equal distance)."""
+    """For each point of the sorted distinct set as_array(points), as an int64 array, the number of isosceles triangles with their apex there (pairs at equal distance)."""
     p = as_array(points)
     d = squared(p, p)
     out = np.zeros(len(p), dtype=np.int64)
@@ -49,12 +49,12 @@ def is_valid(points) -> bool:
     return len(p) == len(points) and bool((p >= 0).all() and (p < N).all()) and int(conflicts(p).sum()) == 0
 
 
-def addable(points) -> np.ndarray:
-    """Grid points that keep a valid set valid when added alone: no new apex at the point, and at no old point
-    does its distance repeat an existing one."""
+def addable(points) -> list:
+    """Grid points, as a list of (x, y), that keep a valid set valid when added alone: no new apex at the point,
+    and at no old point does its distance repeat an existing one."""
     p = as_array(points)
     if len(p) == 0:
-        return _GRID.copy()
+        return [tuple(map(int, q)) for q in _GRID]
     taken = np.zeros((N, N), dtype=bool)
     taken[p[:, 0], p[:, 1]] = True
     g = _GRID[~taken[_GRID[:, 0], _GRID[:, 1]]]
@@ -64,7 +64,7 @@ def addable(points) -> np.ndarray:
     dp = squared(p, p)
     for j in range(len(p)):
         ok &= ~np.isin(dg[:, j], dp[j])
-    return g[ok]
+    return [tuple(map(int, q)) for q in g[ok]]
 
 
 def repair(points, rng=None) -> list:
@@ -87,4 +87,4 @@ def grow(points, rng=None) -> list:
         a = addable(p)
         if len(a) == 0:
             return p
-        p.append(tuple(map(int, a[rng.integers(len(a))])))
+        p.append(a[int(rng.integers(len(a)))])

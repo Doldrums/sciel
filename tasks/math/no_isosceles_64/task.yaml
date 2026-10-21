@@ -11,10 +11,11 @@ task_prompt: >-
   invalid (score 0), so return only valid sets. Stdlib, NumPy and SciPy are available. Wall limits: smoke 30 s, full
   300 s, confirm 3 repeats in 960 s keeping the worst; use the stage's seconds from SCIEL_STAGE_SECONDS. The checks
   are importable, so build the search on them: iso = sciel.task.asset('iso') has BEST (the 112-point set),
-  conflicts(points) (isosceles triangles per apex), is_valid(points), addable(points) (grid points that can be added
-  keeping the set valid), repair(points, rng) (drop points until valid) and grow(points, rng) (add addable points
-  until none is left). The seed continues the largest set in its population view, otherwise BEST, and for half its
-  stage time removes a few points and regrows, keeping any set at least as large.
+  conflicts(points) (an array of isosceles triangles per apex), is_valid(points), addable(points) (a list of (x, y)
+  that can be added keeping the set valid), repair(points, rng) and grow(points, rng) (lists of (x, y): drop points
+  until valid; add addable points until none is left). Points may be given as lists of pairs or (n, 2) arrays; test
+  arrays with len() or .size, never with if. The seed continues the largest set in its population view, otherwise
+  BEST, and for half its stage time removes a few points and regrows, keeping any set at least as large.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
