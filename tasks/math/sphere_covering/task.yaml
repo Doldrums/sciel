@@ -1,0 +1,63 @@
+suite: math
+name: sphere_covering
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level coverings() returning a dict {N: N vectors (x, y, z)} for every N in 4..130. For each N
+  the covering radius is the largest angle from any point of the unit sphere to the nearest of its (normalized)
+  vectors; minimize it. It equals the largest angular radius of the circumcircles of the convex hull's faces, and the
+  vectors must cover the sphere (the origin strictly inside their hull). The best known coverings are Hardin, Sloane
+  and Smith's of 1994, unchanged since, in the table Henry Cohn keeps (cohn.mit.edu/sloane); only small N are proven
+  optimal. Each N scores published_radius / radius and combined_score is the mean over N, so a score above 1 means
+  some covering beats its published one; n_improved counts the N beaten by more than 1e-6 degrees, a new record each.
+  Stdlib, NumPy and SciPy are available. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the
+  worst; use the stage's seconds from SCIEL_STAGE_SECONDS. The checks are importable: caps = sciel.task.asset('caps')
+  has SIZES, RADIUS_DEG (published radii), published(N) (published vectors), unit(points), radius(points) (degrees,
+  as scored) and faces(points) (hull simplices, their angular radii and circumcentres). The seed continues the best
+  configurations in its population view, otherwise the published ones, and for half its stage time pulls the
+  vertices of the largest hole towards its centre, keeping moves that shrink the radius.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: mean_published_over_candidate_radius
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - n_improved
+  - best_gain_deg
+  - best_gain_n
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different configurations on repeats; confirm keeps the worst of
+# three, so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Coverings table of Hardin, Sloane and Smith (1994), kept by Henry Cohn; evaluator written for SCiEL"
+paradigms:
+  - "a MINIMAX approach: the epigraph form min t subject to face circumradii <= t with the hull combinatorics fixed, solved by SLSQP or a linear program on the active faces, re-hulling between rounds"
+  - "a SYMMETRIC approach: configurations with a symmetry group (tetrahedral, octahedral, icosahedral, dihedral orbits) optimized in the few orbit parameters"
+  - "a GLOBAL-STOCHASTIC approach: basin hopping or annealing from perturbed published configurations and from other N with points added or removed, keeping the best per N"
