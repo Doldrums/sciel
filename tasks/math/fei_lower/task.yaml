@@ -1,0 +1,66 @@
+suite: math
+name: fei_lower
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level boolean_function() returning (n, bits): 1 <= n <= 20 and 2^n bits (0/1 array, list or
+  bytes), entry x = 1 where f(x) = -1, bit i of x set when x_{i+1} = -1. f must be balanced with total influence
+  Inf = sum_S fhat(S)^2 |S| > 1. Maximize lower_bound = H / (Inf - 1), H = sum_S fhat(S)^2 log2(1/fhat(S)^2), a
+  lower bound on the Fourier entropy-influence constant (Tao's constant 71a) by O'Donnell-Tan composition.
+  combined_score = lower_bound / 6.5218457109, Numaro's balanced monotone record on 18 variables (2026); above 1
+  beats every known function. Scoring is exact: integer Walsh-Hadamard spectrum, Inf as a fraction, H in
+  outward-rounded intervals, the score is the certified lower end. Stdlib, NumPy, SciPy and mpmath are available.
+  Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst. fei =
+  sciel.task.asset('fei') has spectrum(n, bits), stats(n, a) and value(n, a) (H, Inf and the bound in floats),
+  exact_value(n, bits) (as scored), influence and entropy (exact), flip/swap(n, a, bits, ...) (spectrum after a
+  move, O(2^n)), flip_delta, compose(g, h) and rehost(n, bits, i, cells) (a new variable takes over x_{i+1} on
+  some cells) and load(output). known = sciel.task.asset('known') has record() and majority(m). The seed
+  continues the best function in its population view, otherwise the record, and tries balanced swaps for half
+  its stage time, keeping certified gains.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: entropy_per_excess_influence
+  denominator: 6.521845710923047
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - entropy
+  - influence
+  - n
+  - nonzero
+  - validity
+  - b_structure
+  - b_sparsity
+  - b_level1
+  - b_max_influence
+  - b_degree
+  - b_monotone
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different functions on repeats; confirm keeps
+# the worst of three, so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Constant 71a of Tao's optimization problems (Friedgut-Kalai conjecture; O'Donnell-Tan composition, arXiv 1304.1347); record function of Numaro (doi 10.5281/zenodo.21497769); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: a structured function (a perturbed majority core with low-influence auxiliary variables acting on its boundary, compositions, lexicographic and tribes-like functions)"
+  - "a LOCAL-SEARCH approach: balanced swaps or cell moves scored by the O(2^n) spectrum update, annealed and kept when the certified bound rises"
+  - "a STRUCTURAL approach: growing the variable count by rehosting or splitting an auxiliary's cells and re-optimizing the hosting map on the larger cube"
