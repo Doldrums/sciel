@@ -15,7 +15,7 @@ task_prompt: >-
   smooth_bound(h, beta) and subgradient(h) (value and gradient in h), active(h) (lags at the maximum),
   refine(h, k) (each step split in k, same bound), resample(h, n) and clean(h) (valid heights). The seed
   continues the best construction in its population view, otherwise frontier = sciel.task.asset('frontier'),
-  whose heights() are the best earlier construction (2048 steps, bound 1.4607933241), and descends the smooth
+  whose heights() are the best earlier construction (800 steps, bound 1.4578673201), and descends the smooth
   bound for half its stage time.
 research_metric:
   kind: validity_gated_ratio
