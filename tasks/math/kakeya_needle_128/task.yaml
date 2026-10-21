@@ -1,0 +1,63 @@
+suite: math
+name: kakeya_needle_128
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level offsets() returning 128 offsets x_j, decimal strings with at most 25 fractional digits or
+  numbers (rounded to 25 places). Triangle j = conv{(x_j,0), (x_j+1/128,0), (x_j+j/128,1)}; minimize the area of
+  the union of the 128 triangles, the finite Kakeya needle problem (AlphaEvolve 6.9, EinsteinArena
+  kakeya-needle-128). combined_score = 0.10675394011230244 / area, Ghazt's area, best on the board in October 2026;
+  above 1 is a record. The area is exact in rationals, as EinsteinArena scores it: the section at height y is
+  [x_j+jy/128, x_j+1/128+(j-1)y/128] and between crossings of these endpoints the union length is affine in y.
+  Stdlib, NumPy and SciPy are available. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping
+  the worst; use reproducible seeds. The objective is importable, so build the search on it rather than rewrite it:
+  kakeya = sciel.task.asset('kakeya') has area(x) (fast, about 0.1 s), exact_area(x) (as scored, about 1 s),
+  subgradient(x) (area and gradient in x: right minus left exposure), active(x) (per triangle, the heights where
+  its left and right ends bound the union), slide(x, start, stop, delta) (a block of consecutive triangles moved
+  together), values(x) and decimals(x). The seed continues the best construction in its population view, otherwise
+  frontier = sciel.task.asset('frontier'), whose offsets() are Ghazt's as exact strings, and for half its stage
+  time alternates subgradient steps with block slides, returning the result only if its exact area is smaller.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: inverse_area
+  numerator_units: reciprocal_area
+  denominator: 9.367335753116235
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - area
+  - inverse_area
+  - validity
+  - b_dispersion
+  - b_rise
+  - b_jump
+  - b_trend
+  - b_overlap
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different offsets on repeats; confirm keeps
+# the worst of three, so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Problem from Georgiev, Gomez-Serrano, Tao, Wagner (arXiv 2511.02864) and EinsteinArena; evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: an explicit structured family of offsets (Keich-style or Besicovitch-style sprouting, blocks of triangles sharing a common pattern) tuned by a few parameters"
+  - "an OPTIMIZATION approach: local descent on the exact piecewise-linear area, with subgradient steps, block slides and linear programs over the active boundary set"
+  - "a GLOBAL-STOCHASTIC approach: perturbations, restarts and basin hopping over offsets and block structure, keeping the best under the time budget"
