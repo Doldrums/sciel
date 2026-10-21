@@ -3,25 +3,20 @@ name: tess_transits
 origin: heavy
 primary_metric: combined_score
 task_prompt: >-
-  Implement module-level detect(time, flux, flux_err) that searches one real TESS light curve for a transiting
-  planet and returns up to 3 (period_days, epoch_days, duration_days, score) tuples, strongest first. Curves are
-  TESS-SPOC 200-s full-frame photometry of sector 61 binned to 10 minutes (about 3,000 points over 27 days with a
-  gap), flux normalized to 1, from quiet stars with no known planet, candidate or eclipsing binary. The evaluator
-  injects planets (box-like transits, signal-to-noise 8 to 20, periods 0.7 to 13 days, at least two transits) into 40% of
-  the curves and eclipsing binaries (V-shaped eclipses, a secondary eclipse at phase 0.5, or unequal odd and even
-  eclipses) into 20%, and leaves 40% clean. The threshold is the score exceeded by 2% of the clean curves; a planet
-  is recovered when a returned signal above it matches its period (or half or twice it) within 0.5% and its epoch
-  within half a duration. h = recall * (1 - 0.5 * share of binaries above the threshold) and combined_score = 0.01
-  + h, so the score rewards finding faint planets and ranking binaries and noise below them; the confirm stage also
-  ranks real confirmed planets against real false positives and binaries (real_auc) on curves the search never
-  sees. Each curve is searched by a freshly loaded module, so nothing carries over between curves. Only numpy,
-  scipy, math and small stdlib modules may be imported, plus lc = sciel.task.asset('lc'); files, os and dunder
-  attributes are not allowed. lc has detrend(time, flux, window) (running median), bls(time, flux, periods,
-  durations) (box search: power, depth, duration and epoch per period), period_grid(time), peaks(result, k)
-  (strongest non-alias periods), fold, odd_even and secondary (binary tests in sigma). Wall limits: smoke 60 s on 24
-  curves, full 600 s on 480 curves, confirm 1200 s on 480 held-out curves plus 164 real ones, so keep detect near
-  0.5 s per curve. The seed detrends with a one-day median, runs bls and returns the three strongest periods with
-  their box signal-to-noise as score.
+  Implement detect(time, flux, flux_err) for one real TESS light curve (sector 61, 10-minute bins, ~3,000 points
+  over 27 days, flux normalized to 1, quiet stars with no known planet or binary); return up to 3 (period_days,
+  epoch_days, duration_days, score), strongest first, a higher score meaning more likely a planet. The evaluator
+  injects planets (SNR 8-20, periods 0.7-13 d, two or more transits) into 40% of curves and eclipsing binaries
+  (V-shaped, secondary eclipse, or unequal odd/even depths) into 20%. The threshold is the score 2% of clean
+  curves exceed; a planet is recovered when a signal above it matches its period (or half or twice) within 0.5%
+  and its epoch within half a duration. combined_score = 0.01 + recall * (1 - 0.5 * share of binaries above the
+  threshold); confirm also ranks real confirmed planets against real false positives (real_auc) on unseen curves.
+  Each curve gets a freshly loaded module. Only numpy, scipy, math and small stdlib modules may be imported, plus
+  lc = sciel.task.asset('lc'); no files, os or dunder attributes. lc has detrend(time, flux, window), bls(time,
+  flux, periods, durations), period_grid(time), peaks(result, k), fold, odd_even and secondary (binary tests in
+  sigma). Wall limits: smoke 60 s for 24 curves, full 600 s for 480, confirm 1200 s; keep detect near 0.5 s per
+  curve. The seed detrends with a one-day median, runs bls and returns the three strongest periods with their box
+  SNR as score.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
