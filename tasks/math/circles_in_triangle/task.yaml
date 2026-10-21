@@ -1,0 +1,65 @@
+suite: math
+name: circles_in_triangle
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level packings() returning a dict {N: N centres (x, y)} for every N in 150..299. The
+  container is the triangle with vertices (0,0), (1,0), (0,1); the radius of N centres is min over them of x, y,
+  (1-x-y)/sqrt(2) and half the smallest pair distance, computed exactly on the binary64 centres. Maximize it.
+  The bar is Packomania's table (E. Specht, 2011) with 125 of its packings improved by up to 1.8e-4 relative
+  by local search (maximize, then shaking and re-maximizing for two minutes per N).
+  Each N scores radius / best radius and combined_score is the mean; n_improved counts the N beaten by more
+  than 1e-12 relative, a new record each. Stdlib, NumPy and SciPy are available. Wall limits: smoke 30 s, full
+  300 s, confirm 3 repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. crt = sciel.task.asset('crt')
+  has SIZES, RADIUS (published), BEST (the bar), published(N), best(N), radius(points) (as scored), radius2
+  (exact square), radius_fast, slacks(points) (side and pair distances), contacts(points), rattlers(points),
+  maximize(points, rounds, step, deadline) (sequential LP on the active contacts), hex_lattice(N, angle,
+  shift) and decode(text) (packings in population outputs are base64 binary64). The seed continues the best
+  packings in its population view, otherwise best(N), and for half its stage time shakes one N slightly and
+  re-maximizes it, keeping rises.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: mean_candidate_over_best_radius
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - n_improved
+  - best_gain_rel
+  - best_gain_n
+  - n_beats_published
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different packings on repeats; confirm keeps the worst of three,
+# so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Packings table of E. Specht, packomania.com (crt, 2011); polished packings and evaluator written for SCiEL"
+paradigms:
+  - "a STRUCTURED approach: hexagonal lattice blocks cut by the sides at several angles and shifts, with dislocation lines or row defects placed to absorb the misfit, then maximized"
+  - "a NEIGHBOUR-N approach: build N from the best packings of N-1 or N+1 by inserting a circle into the largest hole or removing a rattler or a loaded circle, then re-maximizing"
+  - "a GLOBAL-STOCHASTIC approach: basin hopping on the active contacts: move rattlers and small groups into holes, swap defect positions, re-maximize and keep the best per N"
