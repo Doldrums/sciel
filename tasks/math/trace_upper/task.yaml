@@ -1,0 +1,69 @@
+suite: math
+name: trace_upper
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level certificate() returning (A, b, d): at most 40 integer polynomials Q as coefficient lists
+  (constant term first, total degree <= 120), weights b_Q >= 0, and the 6N densities d_i >= 0 (N <= 800) of the
+  cells [i/N, (i+1)/N) of a measure mu on [0, 6], as ints, Fractions, 'p/q' strings or exact floats. Minimize
+  upper_bound = int x dmu / mu(R), an upper bound on Tao's constant 86a (Schur-Siegel-Smyth trace) by Smith's
+  theorem when: each Q is irreducible with all roots real in [0, 6]; sum b_Q deg Q < mu(R); int log|Q| dmu > 0; the
+  support hull lies in (0, 6] with length > 4; and f = U - sum b_Q log|Q| >= 0 on the support, U(x) = int log|x - y|
+  dmu(y). All is proved exactly or by intervals (bisection for f), else invalid. combined_score = 1.8117250952 /
+  upper_bound, Pinho's certificate (11 polynomials, N = 200, October 2026); above 1 is a record; the best lower
+  bound is 1.80203. Wall limits: smoke 60 s, full 600 s, confirm 3 repeats in 1800 s keeping the worst; scoring
+  takes about 1 s at N = 200. trace = sciel.task.asset('trace') has check(cert) (as scored), bound(cert),
+  potential(cert, x) and energies(cert, polys) (floats), refine(cert, k) (same measure on kN cells), load(output)
+  and lp(A, N, window) (the linear program for mu and b given A and N, cutting planes until check passes, ~4 min at
+  N = 200). polys = asset('polys') has totally_positive(degree) and candidates(cert) (new Q, nearly active first).
+  The seed continues the best certificate in its population view, otherwise asset('pinho').certificate(), and
+  re-solves lp() within half its stage time.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: inverse_bound
+  numerator_units: reciprocal_upper_bound
+  denominator: 0.5519601194877822
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - upper_bound
+  - inverse_bound
+  - N
+  - polynomials
+  - e4_margin
+  - e5_margin
+  - b_deg_ratio
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# The linear program stops at its deadline, so a slower machine can return a different certificate; confirm keeps
+# the worst of three, so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 600.0
+confirm_timeout: 1800.0
+license: "Constant 86a of Tao's optimization problems; method of Orloski and Talebizadeh Sardari (arXiv 2304.10021) on Smith (Ann. Math. 2024); certificate of R. Pinho (rpinho/c86-trace-certificate, MIT); evaluator written for SCiEL"
+paradigms:
+  - "a COLUMN-GENERATION approach: add totally positive polynomials whose constraint int log|Q| dmu >= 0 is nearly active (polys.candidates) to A and re-solve the linear program"
+  - "a MULTIRESOLUTION approach: refine the grid on the support (N -> 2N), re-solving on a narrowed window or warm-starting the finer grid from the coarser optimum"
+  - "a LOCAL-OPTIMIZATION approach: reshape the density and weights by small linear programs or gradient steps on the active constraints, keeping only margins the bisection still proves"
