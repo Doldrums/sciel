@@ -1,0 +1,60 @@
+suite: math
+name: no_isosceles_64
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level points() returning a list of (x, y) integer pairs in {0..63}^2, as many as possible, such
+  that no three of them form a possibly flat isosceles triangle: from every chosen point the squared distances to
+  all the other chosen points must be distinct (a point at the midpoint of two others is excluded too).
+  combined_score = len(points) / 112, where 112 is AlphaEvolve's best known set (arXiv 2511.02864, section 6.39);
+  113 or more is a new lower bound on C(64). The check is exact in integers and any isosceles triple makes the set
+  invalid (score 0), so return only valid sets. Stdlib, NumPy and SciPy are available. Wall limits: smoke 30 s, full
+  300 s, confirm 3 repeats in 960 s keeping the worst; use the stage's seconds from SCIEL_STAGE_SECONDS. The checks
+  are importable, so build the search on them: iso = sciel.task.asset('iso') has BEST (the 112-point set),
+  conflicts(points) (isosceles triangles per apex), is_valid(points), addable(points) (grid points that can be added
+  keeping the set valid), repair(points, rng) (drop points until valid) and grow(points, rng) (add addable points
+  until none is left). The seed continues the largest set in its population view, otherwise BEST, and for half its
+  stage time removes a few points and regrows, keeping any set at least as large.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: size
+  numerator_units: points
+  denominator: 112.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - size
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different sets on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Problem 59 of Georgiev, Gomez-Serrano, Tao, Wagner (arXiv 2511.02864); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: an algebraic or symmetric construction (half-turn or dihedral symmetry, modular patterns, lifting a good set of a smaller grid)"
+  - "a LOCAL-SEARCH approach: remove and regrow, tabu or simulated annealing on the number of isosceles triangles, keeping the best valid set"
+  - "an EXACT approach: an integer program or SAT encoding on a region of the grid around the current best set"
