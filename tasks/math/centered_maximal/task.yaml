@@ -1,0 +1,68 @@
+suite: math
+name: centered_maximal
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement periodic_measure() returning (period, atoms): a period box (P_x, P_y), sides in
+  [1/64, 1024], and 1 to 12 atoms (x, y, mass) in [0, P_x) x [0, P_y), masses positive within a factor 2**40,
+  numbers as ints, floats, Fractions or 'p/q' strings. The measure repeats with the
+  periods. z has M mu(z) >= 1 (centred squares) when atoms of mass m fit in the square of side sqrt(m) centred
+  at z. lower_bound = area of the union of these witness regions, from atoms in boxes of the 3 x 3 block of
+  periods, inside the period box, over the box's mass: a lower bound on c_2, the weak-type (1,1) constant of
+  the centred Hardy-Littlewood maximal operator over squares (Tao's constant 47a). Scoring is exact in
+  integers, rounding each region inward. combined_score = lower_bound / 1.68550999336, Lin's Lean-checked
+  lattice (2026); above 1 is a record. The upper bound is 3.879. Stdlib, NumPy, SciPy. Wall
+  limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst; scoring takes milliseconds
+  for a few atoms. cover = sciel.task.asset('cover') has bound(period, atoms) (as scored), value,
+  witnesses (rectangles and their atom boxes), gaps (uncovered rectangles), area_union(rects), clean, perturb
+  and load(output) (a population output). known = sciel.task.asset('known') has lin(), Lin's lattice: masses 1
+  and (17 + 4 sqrt 22)/9 on alternating columns, period 2h x (h + 1), h = (5 + sqrt 22)/6, uncovered only on
+  four slots. The seed continues the best construction in its population view, otherwise lin(), and for half
+  its stage time moves one number at a time, keeping certified rises.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: level_set_area_over_mass
+  denominator: 1.6855099933555252
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - atoms
+  - witnesses
+  - gaps
+  - gap_area
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# The seed's moves draw unseeded randomness, so repeats return different measures; confirm keeps the worst
+# of three, so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Constant 47a of Tao's optimization problems; construction and limiting argument of Yongxi Lin (github.com/CoolRmal/centered-maximal-constant, commit 8e1ee3d); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: weighted lattices and periodic motifs (unequal masses on columns or rows, staggered or sheared rows) whose witness squares tile the cell"
+  - "an OPTIMIZATION approach: equalizing the witness squares that bound the uncovered gaps (mass equal to side squared) and shrinking the gaps by moving masses, positions and the period"
+  - "a GLOBAL-STOCHASTIC approach: restarts over motifs with more atoms per period, keeping the best certified bound"
