@@ -1,0 +1,71 @@
+suite: data
+name: tess_transits
+origin: heavy
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level detect(time, flux, flux_err) that searches one real TESS light curve for a transiting
+  planet and returns up to 3 (period_days, epoch_days, duration_days, score) tuples, strongest first. Curves are
+  TESS-SPOC 200-s full-frame photometry of sector 61 binned to 10 minutes (about 3,000 points over 27 days with a
+  gap), flux normalized to 1, from quiet stars with no known planet, candidate or eclipsing binary. The evaluator
+  injects planets (box-like transits, signal-to-noise 8 to 20, periods 0.7 to 13 days, at least two transits) into 40% of
+  the curves and eclipsing binaries (V-shaped eclipses, a secondary eclipse at phase 0.5, or unequal odd and even
+  eclipses) into 20%, and leaves 40% clean. The threshold is the score exceeded by 2% of the clean curves; a planet
+  is recovered when a returned signal above it matches its period (or half or twice it) within 0.5% and its epoch
+  within half a duration. h = recall * (1 - 0.5 * share of binaries above the threshold) and combined_score = 0.01
+  + h, so the score rewards finding faint planets and ranking binaries and noise below them; the confirm stage also
+  ranks real confirmed planets against real false positives and binaries (real_auc) on curves the search never
+  sees. Each curve is searched by a freshly loaded module, so nothing carries over between curves. Only numpy,
+  scipy, math and small stdlib modules may be imported, plus lc = sciel.task.asset('lc'); files, os and dunder
+  attributes are not allowed. lc has detrend(time, flux, window) (running median), bls(time, flux, periods,
+  durations) (box search: power, depth, duration and epoch per period), period_grid(time), peaks(result, k)
+  (strongest non-alias periods), fold, odd_even and secondary (binary tests in sigma). Wall limits: smoke 60 s on 24
+  curves, full 600 s on 480 curves, confirm 1200 s on 480 held-out curves plus 164 real ones, so keep detect near
+  0.5 s per curve. The seed detrends with a one-day median, runs bls and returns the three strongest periods with
+  their box signal-to-noise as score.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: injection_recovery_h_plus_floor
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - recall
+  - eb_rate
+  - threshold
+  - real_auc
+  - seconds_per_curve
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# The injections come from fixed seeds and the detector sees only arrays, so a deterministic detector scores the
+# same on repeats; confirm runs once on the held-out curves.
+stochastic: false
+confirm_n: 1
+smoke_timeout: 60.0
+full_timeout: 600.0
+confirm_timeout: 1200.0
+license: "TESS data from MAST (TESS-SPOC HLSP, sector 61); injection-recovery evaluator written for SCiEL"
+paradigms:
+  - "a SIGNAL-PROCESSING approach: better detrending (biweight, splines with gap handling, outlier clipping) and a matched filter with limb-darkened transit shapes instead of boxes"
+  - "a STATISTICAL approach: calibrated scores that combine transit signal-to-noise with odd-even, secondary-eclipse, shape (U versus V) and single-event-dominance tests"
+  - "a SEARCH approach: finer period and duration grids where they pay off, alias resolution between P, P/2 and 2P, and a second search after masking the first signal"
