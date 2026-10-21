@@ -1,0 +1,66 @@
+suite: math
+name: korenblum
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level korenblum_pair() returning (c, f, g): 0 < c < 1 and real polynomials f, g of degree <= 400
+  as coefficient lists, constant first (ints, binary64, Fractions or 'p/q'). Minimize c, an upper bound on
+  Korenblum's constant (Tao's constant 68): need ||f||^2 > ||g||^2 in A^2, ||p||^2 = sum p_n^2/(n+1), and |f| <= |g|
+  on c < |z| < 1. It suffices that |f| <= |g| on |z| = c and |z| = 1 and g has no zeros on c <= |z| <= 1: f/g is
+  then analytic on the closed annulus and bounded by 1 by the maximum principle. All is certified: norms exactly,
+  |g|^2 - |f|^2 on each circle identically zero (exact) or positive (bisection in theta, rounding bounded), zeros of
+  g by winding numbers; leave ~1e-10 margin in c, rounded up to binary64. combined_score = 0.6778994 / c, Wang's
+  bound (2008); above 1 is a record. Wang: f = (a + z^10) psi, g = z(1 + a z^10) psi give |f| = |g| on |z| = 1 and
+  c(a) the root of a + r^10 = r(1 + a r^10); some psi has ||f|| > ||g|| iff a > 2/3, so c -> 0.6778994230. NumPy,
+  SciPy are available. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst;
+  certifying takes <1 s. bergman = sciel.task.asset('bergman') has norm2, gap (exact), modulus_bounds (rigorous),
+  slack, smallest_c(f, g), check(c, f, g) (as scored), load(output). wang = sciel.task.asset('wang') has pair(a, n,
+  b, K), default(), factors(pairs) (ratio prod (a_i + z^n_i) / z prod (1 + a_i z^n_i)), best_weight (optimal psi).
+  The seed continues the best pair in its population view, otherwise default(), and tries Wang's ratio times a
+  second factor for half its stage time.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: inverse_bound
+  numerator_units: reciprocal_upper_bound
+  denominator: 1.475145132153827
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - upper_bound
+  - inverse_bound
+  - degree
+  - norm_gap
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different pairs on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Constant 68 of Tao's optimization problems (Korenblum's maximum principle); constructions of C. Wang (IEOT 61, 2008) and C.-Y. Shen (arXiv 0706.1099); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: ratios f/g that are inner-like on |z| = 1 (products of (a + z^n)/(1 + a z^n) over z), with the weight psi solved as a generalized eigenproblem on Bergman Gram matrices"
+  - "an OPTIMIZATION approach: optimize all coefficients of f and g at once, lowering the inner radius where |f| = |g| while keeping ||f|| > ||g|| and |f| <= |g| on |z| = 1"
+  - "a VARIATIONAL approach: treat c as a function of the ratio's parameters at the domination threshold and descend it, re-solving the extremal weight at each step"
