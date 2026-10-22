@@ -77,13 +77,14 @@ def candidate_retry_prompt(prompt, response, validation=None, *, reason=None, me
             '. It was not admitted as a new mutation. This does not prove program '
             'equivalence or future behavior. Produce a distinct executable search change; changing only '
             'comments, wording or a parameter that leaves this output unchanged is insufficient. '
-            'A strictly improved measured score remains eligible under the near-output policy, '
-            'however small the improvement; shrinking or perturbing a known output without improvement is insufficient. '
-            'Do not claim efficacy from reproducing this known output. A program that continues a construction '
-            'from its population view and returns it when its search finds nothing better reproduces that '
-            'construction. Do not fall back to it: return the construction your own search reached, even if it '
-            'scores below the parent. A distinct output with a lower score is admitted to the population; '
-            'only an exact repeat is refused.\n'
+            + ('A strictly improved measured score remains eligible under the near-output policy, '
+               'however small the improvement; shrinking or perturbing a known output without improvement is '
+               'insufficient. ' if near else
+               'A program that continues a construction from its population view and returns it when its search '
+               'finds nothing better reproduces that construction. Do not fall back to it: return the construction '
+               'your own search reached, even if it scores below the parent. A distinct output with a lower score is '
+               'admitted to the population; only an exact repeat is refused. ')
+            + 'Do not claim efficacy from reproducing this known output.\n'
             'MEASURED_REPEAT_JSON:\n' + json.dumps(measured_repeat, ensure_ascii=True, allow_nan=False) + '\n'
             'PREVIOUS_RESPONSE_JSON (end of the previous generator response):\n'
             + json.dumps(tail(response), ensure_ascii=True) + '\n')
