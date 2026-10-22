@@ -19,14 +19,22 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode('utf-8', errors='surrogatepass')).hexdigest()
 
 
-def freeze(engine, island: int, parent_id: str) -> list:
-    """References, best first; values are read only when the candidate is evaluated."""
+def freeze(engine, island: int, parent_id: str, below: float | None = None) -> list:
+    """References, best first; values are read only when the candidate is evaluated. With below, only programs
+    scoring under it, the island's first and then the run's, so a child cannot start from the level it keeps
+    returning to."""
     from .research_artifacts import evaluation_id_for_program
     db = engine.db
-    programs = list(db.islands[island].top_k(SIZE))
-    for pid in (parent_id, db.pop_best_id):
-        if pid is not None and pid in db._all and all(p.id != pid for p in programs):
-            programs.append(db._all[pid])
+    if below is None:
+        programs = list(db.islands[island].top_k(SIZE))
+        for pid in (parent_id, db.pop_best_id):
+            if pid is not None and pid in db._all and all(p.id != pid for p in programs):
+                programs.append(db._all[pid])
+    else:
+        programs = [p for p in db.islands[island].top_k(len(db._all)) if p.score < below][:SIZE]
+        held = {p.id for p in programs}
+        rest = sorted((p for p in db._all.values() if p.score < below and p.id not in held), key=lambda p: -p.score)
+        programs += rest[:SIZE - len(programs)]
     out = []
     for p in sorted(programs, key=lambda p: -p.score):
         try:

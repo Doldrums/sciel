@@ -313,16 +313,23 @@ class EngineStepPlan:
             task_prompt=self.task_prompt, bet_enabled=True,
             required_entrypoints=self.required_entrypoints,
             operator_decision=operator_decision)
+        streak = getattr(self, 'island_repeats', {}).get(island)
+        repeated = self.db._all.get(streak['program_id']) if streak and streak['program_id'] else None
+        # From the second repeat in a row the view withholds the repeated level, so the next child starts elsewhere.
+        below = repeated.score if repeated is not None and streak['count'] >= 2 else None
         if self.cfg["population_access"] and origin != "fresh":
             from .population_view import describe, freeze
-            snap.population = freeze(self, island, parent.id)
+            snap.population = freeze(self, island, parent.id, below=below)
             snap.directive += describe(self, snap.population)
-        streak = getattr(self, 'island_repeats', {}).get(island)
         if streak and streak['count'] and origin != "fresh":
             snap.directive += (f"\nRepeats on this island: the last {streak['count']} children returned exactly the output "
                                f"of {streak['program_id'] or 'an earlier program'}, so their searches ended where they began. "
                                "Jump instead: perturb or rebuild the construction and return what your search reaches, even "
                                "if it scores lower; a distinct output is admitted, a repeat adds nothing.\n")
+            if below is not None:
+                snap.directive += (f"The population view now holds only programs scoring below {below:.12g}: start from one "
+                                   "of them and search. Loading the withheld construction from an asset returns the repeat "
+                                   "again.\n")
         if self.research_tools is not None and origin != "fresh" and block is None:
             from .research_tool_signals import snapshot_signals
             from .research_targets import freeze_targets
