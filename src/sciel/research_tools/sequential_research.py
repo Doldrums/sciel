@@ -21,6 +21,14 @@ from .episode_evidence import ResearchEpisodeEvidence
 from .canonical_evidence import cited_ids
 
 _BUILD_HERE = 'build the candidate you describe in this cell'
+_NO_EXPERIMENT = 'this cell has run no experiment yet'
+# Cells told only to run a check kept finishing until their repairs ran out; the refusal now carries a check to send.
+_READY_CHECK = ('send action create with arguments_json "{}" and this code, then build on its receipt:\n'
+                'from sciel.population import population\n'
+                'def run(payload):\n'
+                '    best = population()[0]\n'
+                '    return {"schema": "sciel-tool-result/1", "status": "success", "error": None, "diagnostics": {},\n'
+                '            "observations": {"score": best["score"], "cases": best["cases"]}}')
 
 def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
     if io is None:
@@ -56,6 +64,7 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
                     'complete saved method needs '+str(deferred['pipeline_stages'])+
                     ' stages, exceeding this opportunity scientific-step limit; no partial transfer is claimed'})
     known_cost, scientific, repairs, attempt = 0.0, 0, 0, 0
+    no_experiment_refusals = 0
     provider_abandonment = None
     terminal_decision = None
     evidence = ResearchEpisodeEvidence(
@@ -225,8 +234,9 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
             if action['action'] in ('finish','skip'):
                 # A cell that closes before any trial only restates its plan; a failed trial is still a result.
                 if not any(row.get('receipt_id') for row in state['steps']):
-                    raise ValueError('this cell has run no experiment yet: run the check you describe with create '
-                                     '(or use a visible tool) before finishing; a tool error is a result too')
+                    raise ValueError(_NO_EXPERIMENT + ': run the check you describe with create (or use a visible '
+                                     'tool) before finishing; a tool error is a result too. If you have none, '
+                                     + _READY_CHECK)
                 # A cell that ends by describing a candidate is asked once to build it here.
                 if (action['action'] == 'finish' and 'candidate' in (action.get('next_decision') or '').lower()
                         and not any(row.get('canonical_evaluation_id') for row in state['steps'])
@@ -309,7 +319,10 @@ def _execute_sequential(tools, plan, snapshot, llm, *, io, candidate_evaluator):
             evidence.append_step({**action,'action':'invalid'},'proposal_invalid',proposal_id=proposal_id,cost=cost,
                         error=failure['reason'])
             tools._event(plan,'rejected',attempt=this_attempt,status='proposal_invalid',error=failure['reason'])
-            repairs += 1
+            # The first refusal to close without a trial hands over a ready check instead of spending a repair.
+            first_no_experiment = str(error).startswith(_NO_EXPERIMENT) and no_experiment_refusals == 0
+            no_experiment_refusals += str(error).startswith(_NO_EXPERIMENT)
+            repairs += 0 if first_no_experiment else 1
             continue
         invocation, observation = tools._run_tool(plan,snapshot,bundle,inputs,this_attempt,io,
             question=action['question'],limits=action.get('limits'),
