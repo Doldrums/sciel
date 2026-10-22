@@ -144,6 +144,7 @@ class EngineInitialization:
         self.n_evaluation_results = 0
         self.n_output_repeats = 0
         self.output_novelty = None
+        self.island_repeats = {}
         if cfg.get('candidate_novelty', {}).get('output_repeats'):
             from .output_novelty import OutputNoveltyRegistry
             from .output_measurements import validate_task_resolution

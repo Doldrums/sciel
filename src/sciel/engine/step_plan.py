@@ -317,6 +317,12 @@ class EngineStepPlan:
             from .population_view import describe, freeze
             snap.population = freeze(self, island, parent.id)
             snap.directive += describe(self, snap.population)
+        streak = getattr(self, 'island_repeats', {}).get(island)
+        if streak and streak['count'] and origin != "fresh":
+            snap.directive += (f"\nRepeats on this island: the last {streak['count']} children returned exactly the output "
+                               f"of {streak['program_id'] or 'an earlier program'}, so their searches ended where they began. "
+                               "Jump instead: perturb or rebuild the construction and return what your search reaches, even "
+                               "if it scores lower; a distinct output is admitted, a repeat adds nothing.\n")
         if self.research_tools is not None and origin != "fresh" and block is None:
             from .research_tool_signals import snapshot_signals
             from .research_targets import freeze_targets

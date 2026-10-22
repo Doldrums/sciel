@@ -153,10 +153,17 @@ class EngineEvaluation:
                 measurement = adapt_near_output(task, source_sha256, outcome, binding,
                     identity=identity, policy=self.cfg['candidate_novelty'].get('output_resolution'))
                 verdict = outputs.observe(evaluation_id, identity, binding, measurement=measurement)
-                outcome.output_novelty = verdict
                 from .output_novelty import is_repeat
                 repeated = is_repeat(verdict)
                 self.n_output_repeats += int(repeated)
+                # "observe" admits a repeat and only tells the island's next step about it; true refuses it.
+                if self.cfg['candidate_novelty']['output_repeats'] is True:
+                    outcome.output_novelty = verdict
+                elif island_id is not None:
+                    streak = self.island_repeats.get(island_id, {'count': 0, 'program_id': None})
+                    match = verdict.get('match') or {}
+                    self.island_repeats[island_id] = ({'count': streak['count'] + 1, 'program_id': match.get('program_id')}
+                                                      if repeated else {'count': 0, 'program_id': None})
                 self.log.decision(policy='output_novelty',
                     action='recorded_repeat' if verdict['status'] == 'exact_recorded_repeat' else verdict['status'],
                     source_sha256=source_sha256,

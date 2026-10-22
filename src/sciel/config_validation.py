@@ -78,12 +78,13 @@ def validate_experiments(cfg, defaults):
                 raise ValueError('research_tools requires llm.max_retries=1')
     novelty = cfg.get('candidate_novelty')
     if (type(novelty) is not dict or set(novelty) != {'enabled', 'max_resamples', 'neighbors', 'output_repeats', 'output_resolution'}
-            or type(novelty['enabled']) is not bool or type(novelty['output_repeats']) is not bool):
-        raise ValueError('candidate_novelty requires enabled, max_resamples, neighbors and output_repeats')
+            or type(novelty['enabled']) is not bool or novelty['output_repeats'] not in (True, False, 'observe')):
+        raise ValueError('candidate_novelty requires enabled, max_resamples, neighbors and output_repeats '
+                         '(true, false or "observe")')
     from .eval.near_output import validate_policy
     novelty['output_resolution'] = validate_policy(novelty['output_resolution'])
-    if novelty['output_resolution'] is not None and not novelty['output_repeats']:
-        raise ValueError('output_resolution requires output_repeats')
+    if novelty['output_resolution'] is not None and novelty['output_repeats'] is not True:
+        raise ValueError('output_resolution requires output_repeats: true')
     if novelty['output_repeats']:
         if not novelty['enabled']:
             raise ValueError('output_repeats requires candidate_novelty enabled')
