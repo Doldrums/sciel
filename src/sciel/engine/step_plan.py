@@ -315,8 +315,9 @@ class EngineStepPlan:
             operator_decision=operator_decision)
         streak = getattr(self, 'island_repeats', {}).get(island)
         repeated = self.db._all.get(streak['program_id']) if streak and streak['program_id'] else None
-        # From the second repeat in a row the view withholds the repeated level, so the next child starts elsewhere.
-        below = repeated.score if repeated is not None and streak['count'] >= 2 else None
+        # From the second repeat in a row the view withholds the repeated level and every level a child started from
+        # and still returned the repeat, so the next child starts outside that basin.
+        below = (streak.get('below') or repeated.score) if repeated is not None and streak['count'] >= 2 else None
         if self.cfg["population_access"] and origin != "fresh":
             from .population_view import describe, freeze
             snap.population = freeze(self, island, parent.id, below=below)

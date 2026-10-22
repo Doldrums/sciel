@@ -160,10 +160,17 @@ class EngineEvaluation:
                 if self.cfg['candidate_novelty']['output_repeats'] is True:
                     outcome.output_novelty = verdict
                 elif island_id is not None:
-                    streak = self.island_repeats.get(island_id, {'count': 0, 'program_id': None})
+                    streak = self.island_repeats.get(island_id, {'count': 0, 'program_id': None, 'below': None})
                     match = verdict.get('match') or {}
-                    self.island_repeats[island_id] = ({'count': streak['count'] + 1, 'program_id': match.get('program_id')}
-                                                      if repeated else {'count': 0, 'program_id': None})
+                    repeat_of = self.db._all.get(match.get('program_id'))
+                    start = max((ref['score'] for ref in population or ()), default=None)
+                    # A child whose view held only lower programs and still returned the repeat started inside its
+                    # basin, so the next view also withholds the level it started from.
+                    below = (start if start is not None and repeat_of is not None and start < repeat_of.score
+                             else streak.get('below'))
+                    self.island_repeats[island_id] = ({'count': streak['count'] + 1, 'program_id': match.get('program_id'),
+                                                       'below': below}
+                                                      if repeated else {'count': 0, 'program_id': None, 'below': None})
                 self.log.decision(policy='output_novelty',
                     action='recorded_repeat' if verdict['status'] == 'exact_recorded_repeat' else verdict['status'],
                     source_sha256=source_sha256,
