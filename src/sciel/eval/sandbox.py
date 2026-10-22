@@ -266,6 +266,12 @@ def run_stage(
                                          "stderr": tail})
         if tail:
             result.stderr = "\n".join(part for part in (result.stderr, tail) if part).encode('utf-8')[-MAX_STDERR_BYTES:].decode('utf-8','ignore')
+        # Asset and candidate modules carry their encoded path as a name; errors read better with the file instead.
+        from ..candidate_modules import readable
+        result.stderr = readable(result.stderr)
+        for key in ("error", "traceback"):
+            if key in result.artifacts:
+                result.artifacts[key] = readable(result.artifacts[key])
         return result
     except EvaluationSetupError as exc:
         if exc.diagnostic["requested_limits"] != {"cpu_seconds": cpu_seconds, "mem_bytes": mem_bytes}:

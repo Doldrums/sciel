@@ -22,6 +22,20 @@ _PREFIX = __name__ + "."
 _IDENTITY = re.compile(r"_p((?:[0-9a-f]{2})+)_s([0-9a-f]{64})_n([0-9a-f]{32})", re.ASCII)
 
 
+_NAMED = re.compile(re.escape(_PREFIX) + r"_p((?:[0-9a-f]{2})+)_s[0-9a-f]{64}_n[0-9a-f]{32}", re.ASCII)
+
+
+def readable(text):
+    """Text with each candidate module name replaced by the last two parts of its file path, as an error reads it."""
+    def name(match):
+        try:
+            parts = Path(os.fsdecode(bytes.fromhex(match.group(1)))).parts
+        except ValueError:
+            return match.group(0)
+        return "/".join(parts[-2:])
+    return _NAMED.sub(name, text) if isinstance(text, str) else text
+
+
 def _identity(fullname):
     """Decode only this namespace's canonical, single-level module identities."""
     if not fullname.startswith(_PREFIX):
