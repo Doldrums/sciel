@@ -79,7 +79,9 @@ def candidate_retry_prompt(prompt, response, validation=None, *, reason=None, me
             'comments, wording or a parameter that leaves this output unchanged is insufficient. '
             'A strictly improved measured score remains eligible under the near-output policy, '
             'however small the improvement; shrinking or perturbing a known output without improvement is insufficient. '
-            'Do not claim efficacy from reproducing this known output.\n'
+            'Do not claim efficacy from reproducing this known output. A program that continues a construction '
+            'from its population view and returns it when its search finds nothing better reproduces that '
+            'construction: change the construction itself, or search where it can reach a different output.\n'
             'MEASURED_REPEAT_JSON:\n' + json.dumps(measured_repeat, ensure_ascii=True, allow_nan=False) + '\n'
             'PREVIOUS_RESPONSE_JSON (end of the previous generator response):\n'
             + json.dumps(tail(response), ensure_ascii=True) + '\n')
