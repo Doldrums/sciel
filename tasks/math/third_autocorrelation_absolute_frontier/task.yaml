@@ -13,10 +13,11 @@ task_prompt: >-
   keeping the worst; use reproducible seeds. The objective is importable, so build the search on it rather
   than rewrite it: steps = sciel.task.asset('steps') has bound(h) (fast), exact_bound(h) (as scored),
   smooth_bound(h, beta) and subgradient(h) (value and gradient in h), active(h) (lags at the maximum),
-  refine(h, k) (each step split in k, same bound), resample(h, n) and clean(h) (valid heights). The seed
-  continues the best construction in its population view, otherwise frontier = sciel.task.asset('frontier'),
-  whose heights() are the best earlier construction (1600 steps, bound 1.4578220311), and descends the smooth
-  bound for half its stage time.
+  refine(h, k) (each step split in k, same bound), resample(h, n) and clean(h) (valid heights);
+  frontier = sciel.task.asset('frontier') has heights(), the best earlier construction (1600 steps, bound
+  1.4578220311). The seed returns it on the first evaluation; afterwards it perturbs the construction in its
+  population view, re-optimizes for half its stage time and returns the result even below the start, since a
+  distinct lower-scoring output is admitted and an exact repeat of a known output is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

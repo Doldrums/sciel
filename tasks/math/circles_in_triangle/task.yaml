@@ -14,9 +14,10 @@ task_prompt: >-
   has SIZES, RADIUS (published), BEST (the bar), published(N), best(N), radius(points) (as scored), radius2
   (exact square), radius_fast, slacks(points) (side and pair distances), contacts(points), rattlers(points),
   maximize(points, rounds, step, deadline) (sequential LP on the active contacts), hex_lattice(N, angle,
-  shift) and decode(text) (packings in population outputs are base64 binary64). The seed continues the best
-  packings in its population view, otherwise best(N), and for half its stage time shakes one N slightly and
-  re-maximizes it, keeping rises.
+  shift) and decode(text) (packings in population outputs are base64 binary64). The seed returns best(N) on the
+  first evaluation; afterwards it moves a group of centres in a few N of its population view's packings,
+  re-maximizes them for half its stage time and returns them even below the start, keeping every other N: a
+  distinct lower output is admitted, a repeat is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

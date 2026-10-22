@@ -3,22 +3,21 @@ name: centered_maximal
 origin: math
 primary_metric: combined_score
 task_prompt: >-
-  Implement periodic_measure() returning (period, atoms): a period box (P_x, P_y), sides in
-  [1/64, 1024], and 1 to 12 atoms (x, y, mass) in [0, P_x) x [0, P_y), masses positive within a factor 2**40,
-  numbers as ints, floats, Fractions or 'p/q' strings. The measure repeats with the
-  periods. z has M mu(z) >= 1 (centred squares) when atoms of mass m fit in the square of side sqrt(m) centred
-  at z. lower_bound = area of the union of these witness regions, from atoms in boxes of the 3 x 3 block of
-  periods, inside the period box, over the box's mass: a lower bound on c_2, the weak-type (1,1) constant of
-  the centred Hardy-Littlewood maximal operator over squares (Tao's constant 47a). Scoring is exact in
-  integers, rounding each region inward. combined_score = lower_bound / 1.68550999336, Lin's Lean-checked
-  lattice (2026); above 1 is a record. The upper bound is 3.879. Stdlib, NumPy, SciPy. Wall
-  limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst; scoring takes milliseconds
-  for a few atoms. cover = sciel.task.asset('cover') has bound(period, atoms) (as scored), value,
-  witnesses (rectangles and their atom boxes), gaps (uncovered rectangles), area_union(rects), clean, perturb
-  and load(output) (a population output). known = sciel.task.asset('known') has lin(), Lin's lattice: masses 1
-  and (17 + 4 sqrt 22)/9 on alternating columns, period 2h x (h + 1), h = (5 + sqrt 22)/6, uncovered only on
-  four slots. The seed continues the best construction in its population view, otherwise lin(), and for half
-  its stage time moves one number at a time, keeping certified rises.
+  Implement periodic_measure() returning (period, atoms): a period box (P_x, P_y), sides in [1/64, 1024], and 1 to
+  12 atoms (x, y, mass) in [0, P_x) x [0, P_y), masses positive within a factor 2**40, numbers as ints, floats,
+  Fractions or 'p/q' strings. The measure repeats with the periods. z has M mu(z) >= 1 (centred squares) when atoms
+  of mass m fit in the square of side sqrt(m) centred at z. lower_bound = area of the union of these witness
+  regions, from atoms in boxes of the 3 x 3 block of periods, inside the period box, over the box's mass: a lower
+  bound on c_2, the weak-type (1,1) constant of the centred Hardy-Littlewood maximal operator over squares (Tao's
+  constant 47a). Scoring is exact in integers, rounding each region inward. combined_score = lower_bound /
+  1.68550999336, Lin's Lean-checked lattice (2026); above 1 is a record. Stdlib, NumPy, SciPy. Wall limits: smoke 30
+  s, full 300 s, confirm 3 repeats in 960 s keeping the worst. cover = sciel.task.asset('cover') has bound(period,
+  atoms) (as scored), value, witnesses (rectangles and their atom boxes), gaps (uncovered rectangles),
+  area_union(rects), clean, perturb and load(output) (a population output). known = sciel.task.asset('known') has
+  lin(), Lin's lattice: masses 1 and (17 + 4 sqrt 22)/9 on alternating columns, period 2h x (h + 1), h = (5 + sqrt
+  22)/6, uncovered only on four slots. The seed returns lin() first; then it perturbs its population view's measure,
+  re-optimizes for half its stage time and returns the result even below the start: a distinct lower output is
+  admitted, a repeat is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

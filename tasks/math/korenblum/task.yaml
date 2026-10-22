@@ -7,17 +7,16 @@ task_prompt: >-
   as coefficient lists, constant first (ints, binary64, Fractions or 'p/q'). Minimize c, an upper bound on
   Korenblum's constant (Tao's constant 68): need ||f||^2 > ||g||^2 in A^2, ||p||^2 = sum p_n^2/(n+1), and |f| <= |g|
   on c < |z| < 1. It suffices that |f| <= |g| on |z| = c and |z| = 1 and g has no zeros on c <= |z| <= 1: f/g is
-  then analytic on the closed annulus and bounded by 1 by the maximum principle. All is certified: norms exactly,
+  then bounded by 1 by the maximum principle. All is certified: norms exactly,
   |g|^2 - |f|^2 on each circle identically zero (exact) or positive (bisection in theta, rounding bounded), zeros of
   g by winding numbers; leave ~1e-10 margin in c, rounded up to binary64. combined_score = 0.6778994 / c, Wang's
   bound (2008); above 1 is a record. Wang: f = (a + z^10) psi, g = z(1 + a z^10) psi give |f| = |g| on |z| = 1 and
   c(a) the root of a + r^10 = r(1 + a r^10); some psi has ||f|| > ||g|| iff a > 2/3, so c -> 0.6778994230. NumPy,
-  SciPy are available. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst;
-  certifying takes <1 s. bergman = sciel.task.asset('bergman') has norm2, gap (exact), modulus_bounds (rigorous),
-  slack, smallest_c(f, g), check(c, f, g) (as scored), load(output). wang = sciel.task.asset('wang') has pair(a, n,
+  SciPy. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst. bergman =
+  sciel.task.asset('bergman') has norm2, gap (exact), modulus_bounds (rigorous), slack, smallest_c(f, g), check(c, f, g) (as scored), load(output). wang = sciel.task.asset('wang') has pair(a, n,
   b, K), default(), factors(pairs) (ratio prod (a_i + z^n_i) / z prod (1 + a_i z^n_i)), best_weight (optimal psi).
-  The seed continues the best pair in its population view, otherwise default(), and tries Wang's ratio times a
-  second factor for half its stage time.
+  The seed returns default() first, then the best certified pair of Wang's ratio times random second factors
+  found in half its stage time, even above the start's c: a distinct output is admitted, a repeat is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

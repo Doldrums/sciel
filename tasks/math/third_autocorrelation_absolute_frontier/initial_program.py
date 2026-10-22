@@ -18,13 +18,20 @@ def step_heights() -> np.ndarray:
         heights: 1-D np.ndarray of at most 65536 step heights.
     """
     deadline = time.time() + 0.5 * float(os.environ.get("SCIEL_STAGE_SECONDS", "30"))
-    # Continue the best construction found so far; the search only has to improve on it. Before the population has
-    # one, start from the best construction of earlier runs.
-    h = asset("frontier").heights()
-    for program in population():
-        if program["output"] is not None:
-            h = np.array(program["output"]["heights"], dtype=float)
-            break
+    # The first evaluation returns the best earlier construction unchanged, so the record enters the population.
+    views = [program for program in population() if program["output"] is not None]
+    if not views:
+        return asset("frontier").heights()
+    # Afterwards jump out of the basin of the parent's construction (or the view's best): noise of a few percent of
+    # the typical height on a random block of steps, sometimes on a refined grid, then descend from there.
+    h = np.array(next((p for p in views if p["parent"]), views[0])["output"]["heights"], dtype=float)
+    rng = np.random.default_rng(int(time.time() * 1e6) % 2**32)
+    if rng.random() < 0.3 and 2 * h.size <= steps.MAX_STEPS:
+        h = steps.refine(h, 2)
+    lo = int(rng.integers(h.size))
+    width = int(rng.integers(h.size // 8, h.size // 2 + 1))
+    block = (lo + np.arange(width)) % h.size
+    h[block] += rng.uniform(0.01, 0.05) * np.abs(h).mean() * rng.standard_normal(width)
     h = steps.clean(h)
     value = steps.bound(h)
     # Descent along the soft maximum's gradient, kept when the exact bound falls; the step grows on success and
@@ -40,6 +47,7 @@ def step_heights() -> np.ndarray:
             rate *= 0.5
             if rate < 1e-6:
                 beta, rate = min(beta * 2, 1e6), 1e-2
+    # The descended jump is returned even when its bound is above the start's: a distinct output is admitted.
     return h
 
 

@@ -14,9 +14,10 @@ task_prompt: >-
   kakeya = sciel.task.asset('kakeya') has area(x) (fast, about 0.1 s), exact_area(x) (as scored, about 1 s),
   subgradient(x) (area and gradient in x: right minus left exposure), active(x) (per triangle, the heights where
   its left and right ends bound the union), slide(x, start, stop, delta) (a block of consecutive triangles moved
-  together), values(x) and decimals(x). The seed continues the best construction in its population view, otherwise
-  frontier = sciel.task.asset('frontier'), whose offsets() are Ghazt's as exact strings, and for half its stage
-  time alternates subgradient steps with block slides, returning the result only if its exact area is smaller.
+  together), values(x) and decimals(x); frontier = sciel.task.asset('frontier') has offsets(), Ghazt's as exact
+  strings. The seed returns them on the first evaluation; afterwards it perturbs the construction in its population
+  view, re-optimizes for half its stage time and returns the result even below the start: a distinct lower output
+  is admitted, a repeat is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

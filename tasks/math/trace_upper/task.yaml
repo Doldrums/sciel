@@ -10,14 +10,14 @@ task_prompt: >-
   theorem when: each Q is irreducible with all roots real in [0, 6]; sum b_Q deg Q < mu(R); int log|Q| dmu > 0; the
   support hull lies in (0, 6] with length > 4; and f = U - sum b_Q log|Q| >= 0 on the support, U(x) = int log|x - y|
   dmu(y). All is proved exactly or by intervals (bisection for f), else invalid. combined_score = 1.8117250952 /
-  upper_bound, Pinho's certificate (11 polynomials, N = 200, October 2026); above 1 is a record; the best lower
-  bound is 1.80203. Wall limits: smoke 60 s, full 600 s, confirm 3 repeats in 1800 s keeping the worst; scoring
-  takes about 1 s at N = 200. trace = sciel.task.asset('trace') has check(cert) (as scored), bound(cert),
-  potential(cert, x) and energies(cert, polys) (floats), refine(cert, k) (same measure on kN cells), load(output)
-  and lp(A, N, window) (the linear program for mu and b given A and N, cutting planes until check passes, ~4 min at
-  N = 200). polys = asset('polys') has totally_positive(degree) and candidates(cert) (new Q, nearly active first).
-  The seed continues the best certificate in its population view, otherwise asset('pinho').certificate(), and
-  re-solves lp() within half its stage time.
+  upper_bound, Pinho's certificate (11 polynomials, N = 200, October 2026); above 1 is a record. Wall limits: smoke
+  60 s, full 600 s, confirm 3 repeats in 1800 s keeping the worst. trace = sciel.task.asset('trace') has check(cert)
+  (as scored), bound(cert), potential(cert, x) and energies(cert, polys) (floats), refine(cert, k) (same measure on
+  kN cells), load(output) and lp(A, N, window) (the linear program for mu and b given A and N, 6 s at N = 50, 4 min
+  at N = 200). polys = asset('polys') has totally_positive(degree) and candidates(cert) (new Q, nearly active
+  first). The seed returns asset('pinho').certificate() first; then it adds or removes a polynomial of its
+  population view's certificate, re-solves lp() on a grid fitting half its stage time and returns it even above the
+  start's bound.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

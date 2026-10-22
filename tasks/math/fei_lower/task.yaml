@@ -15,8 +15,9 @@ task_prompt: >-
   exact_value(n, bits) (as scored), influence and entropy (exact), flip/swap(n, a, bits, ...) (spectrum after a
   move, O(2^n)), flip_delta, compose(g, h) and rehost(n, bits, i, cells) (a new variable takes over x_{i+1} on
   some cells) and load(output). known = sciel.task.asset('known') has record() and majority(m). The seed
-  continues the best function in its population view, otherwise the record, and tries balanced swaps for half
-  its stage time, keeping certified gains.
+  returns the record on the first evaluation; afterwards it swaps a chunk of entries of the function in its
+  population view, climbs by balanced swaps for half its stage time and returns the result even below the start,
+  since a distinct lower-scoring output is admitted and an exact repeat of a known output is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

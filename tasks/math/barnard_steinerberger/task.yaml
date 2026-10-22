@@ -9,15 +9,15 @@ task_prompt: >-
   constant (Tao's constant 1c); the autocorrelation of f is linear between multiples of 1/K, so its minimum over
   shifts in [0,1] is at some k/K. combined_score = lower_bound / 0.4103779774, the Lean-checked
   atom-plus-density limit of hashiqiqixian (2026); above 1 beats every known value. Tao's table lists rozetyp's
-  K = 6144 step function, exactly 0.4103287175 (its text misprints 0.41030287); the upper bound is 0.4107675.
-  Scoring is exact in integers, no tolerance; a nonzero weight below 2**-60 of the largest is invalid. Stdlib,
-  NumPy and SciPy are available. Wall limits: smoke 60 s, full 300 s, confirm 3 repeats in 960 s keeping the
+  K = 6144 step function (0.4103287175). Scoring is exact in integers, no tolerance; a nonzero weight below
+  2**-60 of the largest is invalid. Stdlib, NumPy, SciPy. Wall limits: smoke 60 s, full 300 s, confirm 3 repeats in 960 s keeping the
   worst; scoring 65536 cells takes 6 s. corr = sciel.task.asset('corr') has value(K, w) (fast), exact_value(K,
   w) (as scored), smooth_value(K, w, beta) and supergradient(K, w) (value and gradient in w), active(K, w) (lags
   at the minimum), refine(K, w, m) (cells split in m, same bound), clean(K, w) (valid weights) and load(output)
   ((K, w) of a population output). known = sciel.task.asset('known') has rozetyp() and hashiqiqixian(K), that
-  measure on K cells (0.4103651781 at K = 65536). The seed continues the best construction in its population
-  view, otherwise hashiqiqixian(65536), and climbs the soft minimum for half its stage time.
+  measure on K cells (0.4103651781 at K = 65536). The seed returns hashiqiqixian(65536) first; then it perturbs
+  its population view's construction, re-optimizes for half its stage time and returns the result even below the
+  start: a distinct lower output is admitted, a repeat is not useful.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless

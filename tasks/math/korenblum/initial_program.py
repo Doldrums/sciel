@@ -33,20 +33,21 @@ def korenblum_pair() -> tuple:
         (c, f, g): c a float, f and g coefficient lists (constant term first) of ints, floats or Fractions.
     """
     deadline = time.time() + 0.5 * float(os.environ.get("SCIEL_STAGE_SECONDS", "30"))
-    # Continue the best pair found so far; before the population has one, start from Wang's.
-    best = wang.default()
-    for program in population():
-        if program["output"] is not None:
-            best = bergman.load(program["output"])
-            break
+    # The first evaluation returns Wang's pair unchanged, so the record enters the population.
+    views = [program for program in population() if program["output"] is not None]
+    if not views:
+        return wang.default()
     rng = np.random.default_rng(int(time.time() * 1e6) % 2**32)
-    # Wang's ratio times a random second factor (a2 + z^n2) / (1 + a2 z^n2), close to the identity when |a2| is near
-    # 1; for each shape, bisect the leading a to the domination threshold, where the best weight just gives
-    # ||f|| > ||g||, and keep the pair when its certified c is lower.
-    while time.time() < deadline:
+    # Afterwards jump from the parent's shape to other shapes: Wang's ratio times a random second factor
+    # (a2 + z^n2) / (1 + a2 z^n2), close to the identity when |a2| is near 1; for each shape, bisect the leading a to
+    # the domination threshold, where the best weight just gives ||f|| > ||g||, and keep the shape with the lowest
+    # certified c, searching past the deadline until one certifies. It is returned even when its c is above the
+    # start's: a distinct output is admitted.
+    best = None
+    while best is None or time.time() < deadline:
         n1 = int(rng.choice([9, 10, 11]))
         a2 = float(rng.choice([-1.0, 1.0]) * (1 - min(abs(rng.normal(scale=0.05)), 0.999)))
-        extra = [(a2, int(rng.integers(1, 40)))] if rng.random() < 0.8 else []
+        extra = [(a2, int(rng.integers(1, 40)))]
         degree = n1 + sum(n for _, n in extra) + 1
         step = math.gcd(n1, *[n for _, n in extra])
         K = min(int(rng.integers(10, 40)), (bergman.MAX_DEGREE - degree) // step)
@@ -62,7 +63,7 @@ def korenblum_pair() -> tuple:
         if found is None:
             continue
         c = bergman.smallest_c(*found)
-        if c is None or c >= best[0]:
+        if c is None or (best is not None and c >= best[0]):
             continue
         try:
             bergman.check(c, *found)
