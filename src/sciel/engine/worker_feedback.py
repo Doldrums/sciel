@@ -81,7 +81,9 @@ def candidate_retry_prompt(prompt, response, validation=None, *, reason=None, me
             'however small the improvement; shrinking or perturbing a known output without improvement is insufficient. '
             'Do not claim efficacy from reproducing this known output. A program that continues a construction '
             'from its population view and returns it when its search finds nothing better reproduces that '
-            'construction: change the construction itself, or search where it can reach a different output.\n'
+            'construction. Do not fall back to it: return the construction your own search reached, even if it '
+            'scores below the parent. A distinct output with a lower score is admitted to the population; '
+            'only an exact repeat is refused.\n'
             'MEASURED_REPEAT_JSON:\n' + json.dumps(measured_repeat, ensure_ascii=True, allow_nan=False) + '\n'
             'PREVIOUS_RESPONSE_JSON (end of the previous generator response):\n'
             + json.dumps(tail(response), ensure_ascii=True) + '\n')
