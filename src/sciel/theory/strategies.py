@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 from . import schools
+from .findings import whole_sentences
 
 PREAMBLE = "You are the theorist of an automated program search."
 PROPOSE_INTERVAL = 25
 SHOWN = 4
 NONE_SHARE = 0.5
-MAX_CHARS = 400
+MAX_CHARS = 1200  # the theorist answers in at most three sentences; 400 cut the pursued strategy mid-sentence
 
 
 @dataclass
@@ -66,7 +67,7 @@ class Strategies:
                 "in at most three sentences.")
 
     def adopt(self, text: str | None, iteration: int) -> Strategy | None:
-        text = " ".join((text or "").split())[:MAX_CHARS]
+        text = whole_sentences(text or "", MAX_CHARS)
         if not text or any(s.text == text for s in self.pool):
             return None
         strategy = Strategy(id=f"s{len(self.pool) + 1}", text=text, born=iteration)

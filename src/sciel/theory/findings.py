@@ -28,6 +28,19 @@ def _similar(a: str, b: str) -> bool:
     return bool(x and y) and len(x & y) / len(x | y) >= SIMILAR
 
 
+def whole_sentences(text: str, limit: int) -> str:
+    """The leading whole sentences within `limit` characters; a longer first sentence is kept whole, never cut."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    kept = ""
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        if kept and len(kept) + 1 + len(sentence) > limit:
+            break
+        kept = f"{kept} {sentence}" if kept else sentence
+    return kept
+
+
 def _round(text: str) -> str:
     return _NUMBER.sub(lambda m: f"{float(m.group()):.4g}", text)
 
@@ -43,7 +56,7 @@ def lesson(mechanism: str, before: float, after: float) -> str:
 
 def fresh(items: list) -> str:
     """Conclusions the current episode just reached, for the generation step that follows it."""
-    lines = [f"- {_round(' '.join(item['text'].split()))}"[:MAX_CHARS] for item in items if item.get("receipt_id")]
+    lines = [f"- {whole_sentences(_round(item['text']), MAX_CHARS)}" for item in items if item.get("receipt_id")]
     return ("\nFindings this research cell just reached (measured by tools, not by the task evaluator):\n"
             + "\n".join(lines) + "\n") if lines else ""
 
@@ -65,9 +78,9 @@ class Finding:
 
     def card(self) -> str:
         if self.kind == "lesson":
-            return f"- {self.text} (strategy of a program that improved island {self.island})"[:MAX_CHARS]
+            return f"- {whole_sentences(self.text, MAX_CHARS)} (strategy of a program that improved island {self.island})"
         source = f" [receipt {self.receipt_id[:12]}]" if self.receipt_id else ""
-        return f"- {self.text} (research cell on island {self.island}{source})"[:MAX_CHARS]
+        return f"- {whole_sentences(self.text, MAX_CHARS)} (research cell on island {self.island}{source})"
 
 
 class Findings:
