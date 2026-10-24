@@ -15,7 +15,7 @@ task_prompt: >-
   smooth_bound(h, beta) and subgradient(h) (value and gradient in h), active(h) (lags at the maximum),
   refine(h, k) (each step split in k, same bound), resample(h, n) and clean(h) (valid heights);
   frontier = sciel.task.asset('frontier') has heights(), the best earlier construction (1600 steps, bound
-  1.4576335221). The seed returns it on the first evaluation; afterwards it perturbs the construction in its
+  1.4576293380). The seed returns it on the first evaluation; afterwards it perturbs the construction in its
   population view, re-optimizes for half its stage time and returns the result even below the start, since a
   distinct lower-scoring output is admitted and an exact repeat of a known output is not useful.
 research_metric:
