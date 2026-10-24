@@ -13,7 +13,10 @@ undecidable pair is rejected, and L measured at 60 digits. A missing or rejected
 does a packing whose L is within 1e-6 of the bar's: closing the gaps of a public packing gains up to a few 1e-9, which
 is polish, not a new packing, and worth under 1e-6 on the total.
 combined_score = (bar's excess sum) / (counted excess sum) over the slice, above 1 when some n beats the public best;
-kaggle_total is the public total with the slice's counted excesses in place of the bar's.
+kaggle_total is the public total with the slice's counted excesses in place of the bar's. Smoke is a correctness check:
+sis.targets() names two small n and only those are certified (the rest count at the bar), so a long search is never cut
+at smoke; full and confirm certify all 40. Each result gives, per n, the signed L - bar L and the extent (x or y) that
+sets L, in the witness output (delta, binds) and as a one-line feedback artifact on the n that moved.
 
 The metric and the packings are located through SCIEL_SQUARES and checked against pinned digests.
 """
@@ -54,8 +57,10 @@ FORBIDDEN_ATTRIBUTES = {"modules", "system", "popen", "fork", "kill", "_getframe
                         "gi_frame", "tb_frame", "tofile", "save", "savez", "savetxt", "memmap"}
 FORBIDDEN_MODULES = {"ctypes", "gc", "inspect", "importlib", "builtins", "subprocess", "multiprocessing", "shutil",
                      "pathlib", "socket", "pickle", "marshal", "signal", "threading", "concurrent", "io", "tempfile"}
-CASES = ("combined_score", "excess_sum", "kaggle_total", "n_improved", "n_invalid", "best_gain", "best_gain_n",
-         "validity")
+# Smoke checks the program on two small n of different families; full and confirm score all 40.
+SMOKE_N = (124, 175)
+CASES = ("combined_score", "excess_sum", "kaggle_total", "n_improved", "n_worse", "n_invalid", "best_gain",
+         "best_gain_n", "validity", "progress")
 _BEHAVIOR_ZERO = {"b_dispersion": 0.0, "b_boundary_frac": 0.0, "b_contact": 0.0,
                   "b_offset": 0.0, "b_concentration": 0.0, "b_structure": 0.0}
 # The certifier runs in a fresh isolated interpreter, so nothing a candidate did in this process reaches it.
@@ -160,6 +165,18 @@ def _behavior(gains, counted, invalid, edited):
         return dict(_BEHAVIOR_ZERO)
 
 
+def _feedback(targets, improved, worse, invalid, delta, binds, slack):
+    """L - bar L for the n that moved, largest moves first, with the extent that sets L and how much shorter the
+    other one is: which n changed and what binds them, in one line."""
+    def items(ns):
+        return ", ".join(f"{n} {delta[n]:+.2e} (binds {binds[n]}, other {slack[n]:.1e} shorter)" for n in ns[:6])
+    better = sorted(improved, key=lambda n: delta[n])
+    worse = sorted(worse, key=lambda n: -delta[n])
+    same = len(targets) - len(better) - len(worse) - len(invalid)
+    return (f"L - bar L: better {items(better) or 'none'}; worse {items(worse) or 'none'}; {same} n at the bar; "
+            f"{len(invalid)} rejected")
+
+
 def _canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
 
@@ -178,6 +195,8 @@ def _evaluate(program_path, stage):
     program = _load(program_path, "program_" + stage)
     if not hasattr(program, "packings"):
         raise AttributeError("missing packings")
+    targets = SMOKE_N if stage == "smoke" else SLICE
+    os.environ[SIS.TARGETS] = ",".join(map(str, targets))
     start_time = time.time()
     value = program.packings()
     eval_time = time.time() - start_time
@@ -190,7 +209,7 @@ def _evaluate(program_path, stage):
         elif type(key) is str and key.isdigit() and type(keys.get(int(key))) is not int:
             keys[int(key)] = key
     candidate, invalid = {}, {}
-    for n in SLICE:
+    for n in targets:
         if n not in keys:
             invalid[n] = "missing"
             continue
@@ -200,7 +219,7 @@ def _evaluate(program_path, stage):
         else:
             candidate[n] = p
     checked = _certify(candidate)
-    counted, sides, gains, edited, improved = {}, {}, {}, [], []
+    counted, sides, gains, edited, improved, worse = {}, {}, {}, [], [], []
     for n in SLICE:
         if n in candidate and checked[n][2] != "ok":
             invalid[n] = checked[n][2][:120]
@@ -215,13 +234,23 @@ def _evaluate(program_path, stage):
         gains[n] = SEED_EXCESS[n] - excess
         if gains[n] > 0:
             improved.append(n)
+        elif gains[n] < 0:
+            worse.append(n)
+    delta = {n: sides[n] - SEED_L[n] for n in SLICE}
+    extent = {n: np.ptp(SIS.corners(counted[n]).reshape(-1, 2), axis=0) for n in SLICE}
+    slack = {n: float(abs(e[0] - e[1])) for n, e in extent.items()}
+    binds = {n: "xy" if slack[n] <= 1e-9 else "x" if e[0] > e[1] else "y" for n, e in extent.items()}
     bar = sum(SEED_EXCESS.values())
     total = bar - sum(gains.values())
     best = max(SLICE, key=lambda n: gains[n])
     combined = bar / total
     cases = {"combined_score": combined, "excess_sum": total, "kaggle_total": SIS.MERGED_TOTAL - (bar - total),
-             "n_improved": float(len(improved)), "n_invalid": float(len(invalid)), "best_gain": gains[best],
-             "best_gain_n": float(best), "validity": 1.0}
+             "n_improved": float(len(improved)), "n_worse": float(len(worse)), "n_invalid": float(len(invalid)),
+             "best_gain": gains[best], "best_gain_n": float(best), "validity": 1.0}
+    # A shaped learning signal, never a record: the best relative side gain over the bar, 1 at the 1e-6 counting
+    # threshold and exactly 0 below 1e-9, so closing the public packings' 1e-12 gaps (about 2e-10) earns nothing.
+    rel = max((SEED_L[n] - sides[n]) / SEED_L[n] for n in SLICE)
+    cases["progress"] = 0.0 if rel < 1e-9 else min(rel / 1e-6, 1.0)
     cases.update(_behavior(gains, counted, invalid, edited))
     cases.update({f"gain_{n}": gains[n] for n in SLICE})
     witness = {
@@ -233,9 +262,12 @@ def _evaluate(program_path, stage):
         # n, keeps the witness exact and under the 1 MiB artifact limit.
         "output": {"packings": {str(n): SIS.encode(counted[n]) for n in SLICE},
                    "side": {str(n): sides[n] for n in SLICE}, "improved": improved,
-                   "rejected": {str(n): why for n, why in invalid.items()}},
+                   "rejected": {str(n): why for n, why in invalid.items()},
+                   # Signed L - bar L and the extent that sets L, so the next program knows which n moved and what binds.
+                   "delta": {str(n): delta[n] for n in SLICE}, "binds": {str(n): binds[n] for n in SLICE}},
     }
-    artifacts = {"eval_time": f"{eval_time:.4f}", "full_output": _canonical(witness)}
+    artifacts = {"eval_time": f"{eval_time:.4f}", "feedback": _feedback(targets, improved, worse, invalid, delta, binds, slack),
+                 "full_output": _canonical(witness)}
     if invalid:
         artifacts["rejected"] = "; ".join(f"{n}: {why}" for n, why in sorted(invalid.items()))[:2000]
     if source_sha != _source_hash(program_path) or evaluator_sha != _source_hash(__file__):

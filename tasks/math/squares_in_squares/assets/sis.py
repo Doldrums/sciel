@@ -4,7 +4,8 @@ A packing is an (n, 3) array of unit squares (centre x, centre y, rotation angle
 L = max(max_x - min_x, max_y - min_y) over all corners and its excess is L / sqrt(n) - 1. The scored packing is the
 decimal repr of each binary64 value, checked by the competition's own metric (float separating-axis test, then
 interval arithmetic for pairs closer than 1e-8); an exactly touching pair of rotated squares is undecidable and
-rejected, so rotated contacts need a small gap (1e-12 is plenty).
+rejected, so rotated contacts need a small gap (1e-12 is plenty). construct builds packings from the families the
+public packings use (a tilted band along the diagonal between two staircase grids, tilted blocks in two corners).
 """
 
 import os
@@ -25,6 +26,8 @@ from scipy.spatial import cKDTree
 from sciel.candidate_modules import load_candidate
 
 ENV = "SCIEL_SQUARES"
+# The n the evaluator scores in the stage now running, set before packings() is called.
+TARGETS = "SCIEL_SQUARES_TARGETS"
 DIGESTS = {
     "metric.py": "7be1497ce904fb3ea6e63880343a66dcf2b07a09fd8d03ade526643d98777b59",
     "slice.json": "22df0ac688c727fe360dc50f7eb622f73479d26073b6f0c63cb8b9f06bc0b8f6",
@@ -70,6 +73,12 @@ def _path(name):
             raise ValueError(f"{name} does not match its pinned digest")
         _cache[name] = path
     return path
+
+
+def targets() -> tuple:
+    """The n scored in the stage now running: two small n in smoke, all of SLICE in full and confirm."""
+    text = os.environ.get(TARGETS)
+    return tuple(int(n) for n in text.split(",")) if text else SLICE
 
 
 def metric():
@@ -244,3 +253,108 @@ def grow(p, gap: float = 1e-11) -> np.ndarray:
     col = [(right + 0.5, 0.5 + k * (1 + gap), 0.0) for k in range(int(math.floor(s + 1)))]
     row = [(0.5 + k * (1 + gap), s + gap + 0.5, 0.0) for k in range(int(math.floor(s)))]
     return np.vstack([p, np.array(col + row)])
+
+
+# --- constructions ------------------------------------------------------------------
+
+def _lattice(theta, anchor, side_length, step):
+    """Centres of a square lattice turned by theta through anchor that covers the box [0, side_length]^2."""
+    e1 = step * np.array([math.cos(theta), math.sin(theta)])
+    e2 = step * np.array([-math.sin(theta), math.cos(theta)])
+    reach = int(math.ceil(1.5 * side_length / step)) + 2
+    i, j = np.meshgrid(np.arange(-reach, reach + 1), np.arange(-reach, reach + 1))
+    c = np.asarray(anchor, dtype=np.float64) + i.reshape(-1, 1) * e1 + j.reshape(-1, 1) * e2
+    p = np.column_stack([c, np.full(len(c), theta)])
+    q = corners(p)
+    inside = (q.reshape(len(p), -1).min(1) >= 0) & (q.reshape(len(p), -1).max(1) <= side_length)
+    return p[inside]
+
+
+def _layout(family, side_length, angle, width, offset, span, phase, gap):
+    """Every candidate square of a family at side side_length, in the order conflicts are resolved; lattices are
+    spaced 1 + 2 gap so neighbours stay gap apart in float."""
+    s, step, h = side_length, 1.0 + 2 * gap, half_width(angle)
+    e = step * np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
+    diagonal = s * math.sqrt(2)
+
+    def uv(p):
+        q = corners(p)
+        return (q[:, :, 0] + q[:, :, 1]) / math.sqrt(2), (q[:, :, 1] - q[:, :, 0]) / math.sqrt(2)
+
+    def grid(x, y, keep):
+        q = _lattice(0.0, (x, y), s, step)
+        return q[keep(q[:, 0], q[:, 1])]
+
+    if family == "band":
+        # A band of tilted squares along the diagonal (0, 0)-(s, s): |v - offset| <= width / 2, v = (y - x) / sqrt 2,
+        # over the share span of the diagonal. The axis-parallel grids against the corners (s, 0) and (0, s), each on
+        # its side of the band, come first except where they cross the band; then the band; then any grid square
+        # against a box corner that still fits.
+        centre = np.array([s / 2, s / 2]) + offset * np.array([-1.0, 1.0]) / math.sqrt(2)
+        p = _lattice(angle, centre + phase[0] * e[0] + phase[1] * e[1], s, step)
+        u, v = uv(p)
+        reach = (u >= span[0] * diagonal - 1e-9).all(1) & (u <= span[1] * diagonal + 1e-9).all(1)
+        tilted = p[(np.abs(v - offset) <= width / 2 + 1e-9).all(1) & reach]
+        line = offset * math.sqrt(2)
+        sides = np.vstack([grid(s - 0.5, 0.5, lambda x, y: y - x < line), grid(0.5, s - 0.5, lambda x, y: y - x >= line)])
+        u, v = uv(sides)
+        crossing = ((np.abs(v - offset) < width / 2).any(1) | (np.sign(v - offset).min(1) != np.sign(v - offset).max(1)))
+        crossing &= (u.max(1) > span[0] * diagonal) & (u.min(1) < span[1] * diagonal)
+        rest = [grid(x, y, lambda x, y: x == x) for x in (0.5, s - 0.5) for y in (0.5, s - 0.5)]
+        return np.vstack([sides[~crossing], tilted, *rest])
+    elif family == "corners":
+        # Tilted blocks in the corners (0, s) and (s, 0) beyond |v - offset| = width / 2, each lattice holding one
+        # square against both walls of its corner; between them axis-parallel grids against (0, 0) and (s, s).
+        blocks = []
+        for corner, sign in (((h, s - h), 1.0), ((s - h, h), -1.0)):
+            q = _lattice(angle, np.array(corner) + phase[0] * e[0] + phase[1] * e[1], s, step)
+            blocks.append(q[(sign * (uv(q)[1] - offset) >= width / 2 - 1e-9).all(1)])
+        sides = [grid(0.5, 0.5, lambda x, y: x + y < s), grid(s - 0.5, s - 0.5, lambda x, y: x + y >= s)]
+        return np.vstack([*blocks, *sides])
+    raise ValueError(f"unknown family {family}")
+
+
+def _independent(p, gap):
+    """The squares kept when each, in order, is dropped if it comes within gap of an earlier kept one."""
+    i, j, g = gaps(p)
+    clash = g < gap
+    later = {}
+    for a, b in zip(np.minimum(i[clash], j[clash]), np.maximum(i[clash], j[clash])):
+        later.setdefault(int(b), []).append(int(a))
+    keep = np.ones(len(p), bool)
+    for b in sorted(later):
+        if keep[later[b]].any():
+            keep[b] = False
+    return p[keep]
+
+
+def construct(n: int, family: str = "band", angle: float = math.pi / 4, width: float = 1.0, offset: float = 0.0,
+              span=(0.0, 1.0), phase=(0.0, 0.0), gap: float = 1e-9, side_length: float | None = None,
+              tol: float = 1e-4) -> tuple:
+    """(packing, L): n unit squares from a construction family, or (None, None) when it holds fewer than n.
+
+    family "band": a band of squares turned by angle along the diagonal (0, 0)-(L, L), |v - offset| <= width / 2
+    with v = (y - x) / sqrt 2, over the share span = (start, end) of the diagonal; either side an axis-parallel grid
+    against the corner (L, 0) or (0, L), and grid squares against any corner wherever they still fit. The band lattice
+    passes through the box centre moved by offset across the diagonal and by phase (fractions of a side along its
+    two axes). family "corners": tilted blocks in the corners (0, L) and (L, 0) beyond |v - offset| = width / 2, each
+    with one square against both walls of its corner, and axis-parallel grids against (0, 0) and (L, L) between.
+    A square within gap of an earlier one is dropped, in the order: grids away from the band, the band, the rest. With
+    side_length None, L is bisected to tol for the smallest side that holds n; surplus squares are removed. Pairs
+    stay at least gap apart: squeeze the result to close them."""
+    def fit(s):
+        return _independent(_layout(family, float(s), angle, width, offset, span, phase, gap), gap)
+
+    if side_length is None:
+        lo, hi = math.sqrt(n), math.isqrt(n) + 1.0 + 4 * gap * n
+        if len(fit(hi)) < n:
+            return None, None
+        while hi - lo > tol:
+            mid = 0.5 * (lo + hi)
+            lo, hi = (lo, mid) if len(fit(mid)) >= n else (mid, hi)
+        side_length = hi
+    p = fit(side_length)
+    if len(p) < n:
+        return None, None
+    p = remove(p, len(p) - n)
+    return p, side(p)

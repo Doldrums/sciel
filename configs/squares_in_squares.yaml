@@ -4,6 +4,8 @@ task: math/squares_in_squares
 num_islands: 3
 budget: 100
 milestone_fracs: [0.5, 0.75]
+# Children with no real gain still teach the bandit, mode controller and SWM through the evaluator's progress case.
+learning_reward: {enabled: true, case: progress, scale: 1.0, weight: 0.1}
 # Use the audited task definitions versioned alongside this engine.
 sciel_tasks_repo: null
 sciel_tasks_revision: null

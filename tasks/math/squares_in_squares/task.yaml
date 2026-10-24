@@ -3,22 +3,21 @@ name: squares_in_squares
 origin: math
 primary_metric: combined_score
 task_prompt: >-
-  Implement module-level packings() returning a dict {n: n [x, y, angle]} for each n in sis.SLICE (40 n,
-  103..963): unit squares, centre (x, y), angle in radians, interiors disjoint. Minimize the side L =
-  max(max_x-min_x, max_y-min_y) over all corners; Kaggle's per-n score is excess = L/sqrt(n) - 1. Values:
-  finite numbers (no strings), |x|,|y| <= 1e4, |angle| <= 100. Kaggle's metric checks each n on the repr of
-  each value with interval arithmetic: touching rotated squares are rejected, leave 1e-12 gaps. A missing or
-  rejected n, or one within 1e-6 of the bar's L, counts at the bar's excess. The bar is the per-n best of
-  12 public submissions (total 22.3084 over n = 1..1000; leaderboard best 22.2248). combined_score = bar
-  excess sum / counted excess sum (above 1 beats the bar); kaggle_total is the new total. Stdlib, NumPy,
-  SciPy; no open, exec, getattr or dunder attributes. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats
-  in 960 s keeping the worst; read SCIEL_STAGE_SECONDS, leave 10 s for the check. sis =
-  sciel.task.asset('sis'): SLICE, SEED_L, seed(n), best(m) (any m <= 1000), certify(p) (as scored), side,
-  gaps, contacts, remove(p, k) (drop k squares), grow(p) (add an L-strip: side L + 1, n + 2floor(L) + 1
-  squares), decode (population outputs: base64 binary64); squeeze = sciel.task.asset('squeeze'): squeeze(p,
-  rounds, step, gap, deadline, free) (LP: repairs overlaps, then shrinks L), group, jiggle. The seed returns
-  the bar first, then perturbs and squeezes one or two n of its population view for half its stage time and
-  returns them even if worse (repeats are useless).
+  packings() returns {n: n rows [x, y, angle]} for each n in sis.targets() (all 40 sis.SLICE n in full, 2 in
+  smoke): unit squares, centre, angle in radians, disjoint interiors. Minimize L = max(max_x-min_x, max_y-min_y)
+  over all corners. Finite, |x|,|y| <= 1e4, |angle| <= 100. The Kaggle metric checks reprs exactly: touching
+  tilted squares are rejected, leave 1e-12 gaps. A missing or rejected n, or one within 1e-6 of the bar's L,
+  counts at the bar (sis.SEED_L: per-n best of 12 public entries); combined_score = bar excess sum / counted
+  excess sum, excess = L/sqrt(n)-1, above 1 beats the bar. Each n = k^2+j, j <= k: a k x k grid holds k^2 and the
+  j extra squares force L > k; the bars fit them by tilting part of the packing: a band of 45-degree squares along
+  the diagonal between two staircase grids (201, 963), a band or corner blocks at 24-30 degrees (260, 175, 299),
+  mixed angles when j is near k (110, 462). Squeezing the bars gains little; new constructions win. Stdlib, NumPy,
+  SciPy; no open/exec/getattr/dunders. Walls: smoke 75 s, full 300 s, confirm 3 x 320 s keeping the worst; read
+  SCIEL_STAGE_SECONDS, stop 15 s early. sis = sciel.task.asset('sis'): construct(n, family, angle, width, offset,
+  span, phase) (band or corners; valid packing, L), seed(n), best(m), certify(p), side, min_gap, gaps, contacts,
+  rattlers, normalize, remove, grow, decode. squeeze = sciel.task.asset('squeeze'): squeeze(p, rounds, step, gap,
+  deadline, free) (LP: repair, shrink L), boundary, group, jiggle. Outputs in population() carry delta[n] = L -
+  bar L and binds[n], the extent (x/y) setting L.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
@@ -40,10 +39,12 @@ case_metrics:
   - excess_sum
   - kaggle_total
   - n_improved
+  - n_worse
   - n_invalid
   - best_gain
   - best_gain_n
   - validity
+  - progress
   - b_dispersion
   - b_boundary_frac
   - b_contact
@@ -59,11 +60,11 @@ resources: cpu
 # so a record must survive its own repetition.
 stochastic: true
 confirm_n: 3
-smoke_timeout: 30.0
+smoke_timeout: 75.0
 full_timeout: 300.0
 confirm_timeout: 960.0
 license: "Kaggle Squares in Squares (Google, 2026): metric unchanged, public submissions as external data; slice and evaluator written for SCiEL"
 paradigms:
-  - "a STRUCTURED approach: explicit families for n = k^2 + j, such as an axis-parallel grid with one or more bands of squares tilted at 45 degrees or at a solved angle, or Göbel-style staircases, with the free parameters then squeezed"
+  - "a STRUCTURED approach: explicit families for n = k^2 + j built with sis.construct or new ones: a band of squares tilted at 45 degrees or at a solved angle along the diagonal between two staircase grids, tilted blocks in two corners, several bands; search the family's parameters (angle, width, offset, span, phase), then squeeze the best"
   - "a NEIGHBOUR-N approach: build n from the public packings of larger m by dropping squares and squeezing, from smaller n by strip growth and insertion into the largest holes, or by transplanting the corner structure of one n into another"
   - "a GLOBAL-STOCHASTIC approach: basin hopping on the boundary and the tilted squares: rotate or swap groups, remove and reinsert squares, re-squeeze and keep the best per n"
