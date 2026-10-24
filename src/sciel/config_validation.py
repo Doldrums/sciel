@@ -94,6 +94,13 @@ def validate_experiments(cfg, defaults):
         raise ValueError('candidate_novelty max_resamples must be an integer from 0 to 2')
     if type(novelty['neighbors']) is not int or not 1 <= novelty['neighbors'] <= 10:
         raise ValueError('candidate_novelty neighbors must be an integer from 1 to 10')
+    shaping = cfg.get('learning_reward')
+    if (type(shaping) is not dict or set(shaping) != set(defaults['learning_reward'])
+            or type(shaping['enabled']) is not bool or type(shaping['case']) is not str or not shaping['case']
+            or any(isinstance(shaping[k], bool) or not isinstance(shaping[k], (int, float))
+                   or not math.isfinite(shaping[k]) or shaping[k] <= 0 for k in ('scale', 'weight'))
+            or shaping['weight'] >= 1):
+        raise ValueError('learning_reward requires enabled, a case name, a positive scale and a weight in (0, 1)')
     cap = cfg.get('max_eval_cpu_seconds')
     if cap is not None and (type(cap) is not int or cap < 1):
         raise ValueError('max_eval_cpu_seconds must be a positive integer or null')

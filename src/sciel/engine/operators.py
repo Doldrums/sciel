@@ -91,7 +91,7 @@ class OpBandit:
 
     def observe(self, op_used: str, ev) -> None:
         if op_used in self.events:
-            self.events[op_used].append(ev.r_norm if ev.is_island_event else 0.0)
+            self.events[op_used].append(ev.r_norm if ev.is_island_event or getattr(ev, "shaped", False) else 0.0)
 
     def state(self) -> dict:
         return {"temperature": self.temperature, "floor": self.floor,

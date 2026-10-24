@@ -154,3 +154,28 @@ class RewardBus:
         jumps = _calibration(d["jumps"])
         # Atomic restore: a rejected state cannot partly replace live policy.
         self.w_pop, self.w_isl, self._jumps = w_pop, w_isl, jumps
+
+
+@dataclass
+class ShapedEvent:
+    """The reward the operator bandit, the mode controller and the world model's targets learn from when
+    learning_reward is on; admission, records, novelty and confirmation keep the ImprovementEvent."""
+    r_norm: float
+    is_island_event: bool = False
+    shaped: bool = True
+
+
+def learning_event(ev: ImprovementEvent, cases, cfg: dict):
+    """With shaping on, an improvement earns at least `weight` and a child that improved nothing earns
+    weight / 2 * clip(case / scale, 0, 1).
+
+    The floor matters: at the cold-start unit scale a record of 1e-5 normalizes to 1e-5, below any near miss. A worse
+    child and a failed evaluation both stay at zero, so shaping never makes failing pay."""
+    if not cfg["enabled"]:
+        return ev
+    if ev.r_norm > 0.0:
+        return ev if ev.r_norm >= cfg["weight"] else ShapedEvent(r_norm=cfg["weight"], is_island_event=ev.is_island_event)
+    value = (cases or {}).get(cfg["case"])
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0.0:
+        return ev
+    return ShapedEvent(r_norm=cfg["weight"] / 2 * min(value / cfg["scale"], 1.0))

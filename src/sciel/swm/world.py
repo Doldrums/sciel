@@ -241,7 +241,7 @@ class SearchWorldModel:
         data = self._batch([r.state for r in rows], [r.context for r in rows],
                            [r.population or self._population(r.state) for r in rows],
                            [index[f"{r.decision}:{r.choice}"] for r in rows], children)
-        y = np.array([r.gain > 0 for r in rows], dtype=np.float32)
+        y = np.array([r.gain > 0 or r.shaped > 0 for r in rows], dtype=np.float32)
         shares = self._shares(rows)
         data.update(
             y=y,

@@ -25,6 +25,7 @@ class Row:
     population: list = field(default_factory=list)
     gain: float = 0.0
     standing: dict = field(default_factory=dict)
+    shaped: float = 0.0  # learning_reward of a step that gained nothing: a world-model target, never an outcome
 
 
 def context_of(decision_context: dict) -> str:
@@ -64,7 +65,7 @@ class Ledger:
         return self.path_best.get(parent, score)
 
     def add(self, *, iteration: int, island: int, decision_context: dict, child: str | None,
-            parent: str | None, event: bool, gain: float = 0.0) -> None:
+            parent: str | None, event: bool, gain: float = 0.0, shaped: float = 0.0) -> None:
         self.now = max(self.now, iteration)
         context = context_of(decision_context)
         decided = int(decision_context.get("iteration_no", iteration))
@@ -75,7 +76,7 @@ class Ledger:
                                  child=child, outcome=None if child is not None else 0.0,
                                  state=decision_context.get("parent_id"), reward=float(event),
                                  population=list(decision_context.get("population", [])), gain=gain,
-                                 standing=dict(record.get("standing", {}))))
+                                 standing=dict(record.get("standing", {})), shaped=shaped))
         if child is not None and parent is not None:
             self.parent[child] = parent
         if event and child is not None:

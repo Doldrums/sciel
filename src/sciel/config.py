@@ -28,7 +28,7 @@ KNOWN_KEYS = {
     "three_head", "three_head_path", "three_head_beta",
     "container", "max_iterations", "preset_selection", "preset_adaptive",
     "schedule_horizon", "checkpoint_interval", "warm_start", "candidate_novelty", "parallel_search",
-    "evaluation", "research_tools", "repeat_promotion", "swm", "max_eval_cpu_seconds",
+    "evaluation", "research_tools", "repeat_promotion", "swm", "max_eval_cpu_seconds", "learning_reward",
 }
 
 # Accepted in old checkpoints, but no longer used.
@@ -44,6 +44,11 @@ DEFAULTS = {
     "max_eval_cpu_seconds": None,
     "swm": {"embedding_api_base": "http://127.0.0.1:8001/v1", "embedding_model": "Qwen/Qwen3-Embedding-0.6B"},
     "random_seed": 0,
+    # Off, the learners see only improvement rewards, all zero on a hard task. On, a child that improved nothing
+    # passes its task-reported `case` (clipped to [0, scale]) to the operator bandit, the mode controller and the
+    # world model's targets, below the reward of any improvement; records, admission and causal evidence never see
+    # it (sciel/reward.py).
+    "learning_reward": {"enabled": False, "case": "progress", "scale": 1.0, "weight": 0.1},
     "dup_cap": 4,
     "candidate_novelty": {"enabled": False, "max_resamples": 2, "neighbors": 3,
                           "output_repeats": False, "output_resolution": None},

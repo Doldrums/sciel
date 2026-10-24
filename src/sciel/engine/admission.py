@@ -172,14 +172,16 @@ class EngineAdmission:
         pre = self.db.pre_snapshot(res.island)
         ev = self.reward.improvement_event(score, pre, origin="gen",
                                             iter_ref=self.iteration_no)
+        from ..reward import learning_event
+        learn = learning_event(ev, res.cases, self.cfg.get("learning_reward") or {"enabled": False})
         if not res.meta["escalated"] and res.meta.get('op_on_policy', True):
-            self.op_bandit.observe(res.meta["op_used"], ev)
+            self.op_bandit.observe(res.meta["op_used"], learn)
         if not res.meta.get('research_candidate'):
             self.selection.observe(res.parent_id, ev)
         # An iteration that ran under the plateau mix was not drawn from the bandit's
         # own distribution, so it is not evidence about the bandit's arms.
         self.controller.observe(
-            obs_phase, eff_mode, ev,
+            obs_phase, eff_mode, learn,
             on_policy=mode_on_policy)
         self.B_evals += 1
         if hasattr(self.db, "progress"):
@@ -248,7 +250,8 @@ class EngineAdmission:
                             pre=pre, phase_pre=obs_phase, effective_mode=eff_mode,
                             decision_context=decision_context)
         self._record_decisions(res.island, decision_context, child_prog.id, res.parent_id,
-                               ev.is_island_event, research=bool(res.meta.get('research_candidate')), score=score)
+                               ev.is_island_event, research=bool(res.meta.get('research_candidate')), score=score,
+                               shaped=0.0 if ev.r_norm > 0.0 else learn.r_norm)
         return child_prog.id
 
     def _log_forecast(self, res, event, brier, decision_context):
@@ -270,7 +273,7 @@ class EngineAdmission:
                           event=event, brier=brier, delta=delta,
                           interval=[bet.delta_low, bet.delta_high], covered=covered, swm_value=world)
 
-    def _record_decisions(self, island, decision_context, child, parent, event, research=False, score=None):
+    def _record_decisions(self, island, decision_context, child, parent, event, research=False, score=None, shaped=0.0):
         if not decision_context:
             return
         if decision_context.get("origin") == "fresh":
@@ -286,7 +289,7 @@ class EngineAdmission:
             decision_context = {**decision_context,
                                 "decisions": [r for r in decision_context["decisions"] if r["decision"] in DECISIONS]}
         self.ledger.add(iteration=self.iteration_no, island=island, decision_context=decision_context,
-                        child=child, parent=parent, event=event, gain=gain)
+                        child=child, parent=parent, event=event, gain=gain, shaped=shaped)
         if self.swm.due(self.iteration_no):
             fitted = self.swm.fit(self.ledger, self.iteration_no, self.rng.derive_seed("swm"))
             if self.swm.gate is not None:
