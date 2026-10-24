@@ -268,13 +268,6 @@ class EngineStepPlan:
         # detector can independently request a structural change.
         controller_plateau = (self.controller.enabled
                               and self.controller.in_plateau(island, iteration_no))
-        directive = compose_directive(
-            self._per_run_budget(),
-            self.eval_times.get(selected.parent_id),
-            plateau=(controller_plateau or stalled) and not refine,
-            parent_noop=selected.parent_id in self.noop_parents,
-            refine=refine, population_stalled=stalled,
-            parent_timing_scope='evaluation_stage_mean')
         failure = dict(self.lineage_fail.get(selected.parent_id, {}))
         failed_code = failure.pop("_failed_code", "")
         failure_ref = failure.pop("_failure_provenance", None)
@@ -283,6 +276,21 @@ class EngineStepPlan:
         origin = self.decisions.sample("origin", self._steered("origin", planner, parent.id, context,
             {"parent": 1 - FRESH_SHARE, "fresh": FRESH_SHARE} if op in ("diff", "full_rewrite", "cross")
             else {"parent": 1.0}))
+        # One scope per step: a fresh design or a strategy under trial asks for a new design, so the refine flag's
+        # "keep this design" yields to it instead of contradicting it in the same prompt.
+        new_design = origin == "fresh" or strategy != "none" or (
+            block is not None and any(item[0] == "strategy" for item in block["items"]))
+        keep_design = refine and not new_design
+        if refine and not keep_design:
+            self.log.decision(policy="refine", action="yield", island=island, iteration_no=iteration_no,
+                              parent_id=selected.parent_id, reason="fresh_design" if origin == "fresh" else "strategy")
+        directive = compose_directive(
+            self._per_run_budget(),
+            self.eval_times.get(selected.parent_id),
+            plateau=(controller_plateau or stalled) and not refine,
+            parent_noop=selected.parent_id in self.noop_parents,
+            refine=keep_design, population_stalled=stalled,
+            parent_timing_scope='evaluation_stage_mean')
         if origin == "fresh":
             from .loop_contracts import _read
             op, op_prop, inspirations = "full_rewrite", None, []

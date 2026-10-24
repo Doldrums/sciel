@@ -29,6 +29,8 @@ CONTROL_BRIEF = ("\nRESEARCH PROGRAMME: design a new program for this task from 
                  "current programs use, from scratch; do not reuse the current designs.\n")
 REFINE_BRIEF = ("\nRESEARCH PROGRAMME: keep this program's approach and improve it within that approach; do not "
                 "switch to a different design.\n")
+STRATEGY_REFINE_BRIEF = ("\nRESEARCH PROGRAMME: keep this program's approach, built on the strategy below, and improve it "
+                         "within that approach; do not switch to a different design:\n{text}\n")
 
 
 @dataclass
@@ -45,6 +47,7 @@ class Programme:
     best: float | None = None
     status: str = "open"
     opened: int = 0
+    text: str = ""
 
 
 class Incubator:
@@ -84,7 +87,8 @@ class Incubator:
             island = engine._setup_island(register=False)
             anchor, _, _ = engine._copy_baseline(island)
             programme = Programme(id=len(self.programmes), pair=pair, kind=kind, strategy=strategy.id, brief=brief,
-                                  island=island, anchor=anchor.id, opened=engine.iteration_no)
+                                  island=island, anchor=anchor.id, opened=engine.iteration_no,
+                                  text=strategy.text if kind == "strategy" else "")
             self.programmes.append(programme)
             opened.append(programme)
         return opened
@@ -117,7 +121,9 @@ class Incubator:
         anchor = engine.db.get(programme.anchor)
         if lineage:
             parent = max(lineage, key=lambda p: p.score)
-            op, directive, code, score = "diff", REFINE_BRIEF + programme.brief, parent.code, parent.score
+            # Later steps refine the lineage; repeating the from-scratch brief beside it contradicted the refinement.
+            brief = STRATEGY_REFINE_BRIEF.format(text=programme.text) if programme.text else REFINE_BRIEF
+            op, directive, code, score = "diff", brief, parent.code, parent.score
         else:
             parent, op, directive, code, score = anchor, "full_rewrite", programme.brief, anchor.code, anchor.score
         model = engine.llm.choose_model(engine.rng.stream("prompt"))

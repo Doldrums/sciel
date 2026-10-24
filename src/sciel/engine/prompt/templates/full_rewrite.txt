@@ -17,8 +17,8 @@ DIRECTIVE:
 LESSONS:
 {lessons}
 
-Rewrite the program from scratch with a stronger algorithm. Keep the program's entry-point
-function name(s) and their return interface EXACTLY as in the current program above; do not
-rename functions or change what they return. Output the COMPLETE program in a single
+Rewrite the complete program with a stronger algorithm, from scratch unless the DIRECTIVE asks
+to keep the design. Keep the program's entry-point function name(s) and their return interface
+EXACTLY as in the current program above; do not rename functions or change what they return. Output the COMPLETE program in a single
 ```python code block.
 {bet_block}
