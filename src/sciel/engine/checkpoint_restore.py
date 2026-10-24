@@ -205,6 +205,7 @@ def _load(engine, path: str, allow_identity_mismatch: bool, rollback: ExitStack)
     engine.eval_times = {ident: row['mean_evaluation_stage_wall_seconds_per_reported_trial']
                          for ident, row in evaluation_timings.items()}
     engine.noop_parents = set(state.get("noop_parents", []))
+    engine.island_repeats = {int(i): dict(streak) for i, streak in state.get("island_repeats", {}).items()}
     if restored_observed is not None:
         observed.__dict__.update(restored_observed.__dict__)
     for name in _COMPONENTS:

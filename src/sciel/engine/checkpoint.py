@@ -33,6 +33,9 @@ def save(engine, milestone, *, path=None) -> str:
         # build a different prompt than the continuous one: the no-op warning is
         # keyed on this and silently vanished at every resume.
         "noop_parents": sorted(engine.noop_parents),
+        # The repeat streak writes the next step's directive and population view; a resume without it froze
+        # different job intents than the stopped wave and could not replay it.
+        "island_repeats": {str(i): streak for i, streak in getattr(engine, 'island_repeats', {}).items()},
         "identity": _identity(engine),
         "config": engine.cfg,
     }

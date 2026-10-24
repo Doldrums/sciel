@@ -34,6 +34,12 @@ def _sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _jobs(directory):
+    """A provider stop during spawn precedes the frozen job intents; None binds that earlier stop."""
+    path = directory / 'jobs.json'
+    return None if not path.exists() and not path.is_symlink() else _sha(path)
+
+
 def _hex(value):
     return type(value) is str and len(value) == 64 and all(c in '0123456789abcdef' for c in value)
 
@@ -177,7 +183,7 @@ def seal_stop(transaction, errors):
     directory = transaction.directory
     manifest = transaction.manifest
     body = {'schema': STOP_SCHEMA, 'wave_id': transaction.wave_id,
-            'manifest': deepcopy(manifest), 'jobs_sha256': _sha(directory / 'jobs.json'),
+            'manifest': deepcopy(manifest), 'jobs_sha256': _jobs(directory),
             'errors': [_classify(error) for error in errors], 'calls': _calls(directory)}
     ident = digest(body)
     target = directory / 'provider_stops' / (ident + '.json')
@@ -222,7 +228,7 @@ def inspect_parallel_stop(checkpoint_path):
         stop = _read(directory / 'provider_stops' / (stop_id + '.json'))
         _require(digest(stop) == stop_id and stop.get('schema') == STOP_SCHEMA
                  and stop.get('manifest') == manifest and stop.get('wave_id') == manifest['wave_id']
-                 and stop.get('jobs_sha256') == _sha(directory / 'jobs.json'),
+                 and stop.get('jobs_sha256') == _jobs(directory),
                  'provider stop does not bind the current frozen wave')
         errors = stop.get('errors')
         _require(type(errors) is list and errors
@@ -289,6 +295,16 @@ def _authorize_locked(checkpoint_path, receipt):
             durable_json(marker, {'schema': SCHEMA, 'recovery_id': receipt['recovery_id']})
 
 
+def has_sealed_stop(checkpoint_path):
+    """Whether the active wave recorded its stop; one that failed to seal is replayed from its receipts first."""
+    root = Path(checkpoint_path).resolve().parent
+    try:
+        wave = _read(root / '.parallel/current.json').get('wave_id')
+    except (ProviderRecoveryError, OSError, ValueError, AttributeError):
+        return True  # No readable wave: let inspection refuse with its own reason.
+    return type(wave) is not str or (root / '.parallel' / ('wave-' + wave) / 'provider-stop.json').exists()
+
+
 def has_unabandoned_provider_failure(checkpoint_path):
     """Do not turn an old stopped invocation into a newly authorized failure."""
     root = Path(checkpoint_path).resolve().parent
@@ -324,7 +340,7 @@ def load_abandonment(call_directory, request_hash, receipt_hash):
              and receipt.get('schema') == SCHEMA and receipt.get('unknown_cost') is True
              and receipt.get('retry') is False and receipt.get('auto_recoverable') is True
              and receipt.get('wave_id') == wave.name.removeprefix('wave-')
-             and receipt.get('jobs_sha256') == _sha(wave / 'jobs.json'),
+             and receipt.get('jobs_sha256') in (None, _jobs(wave)),
              'abandonment authorization differs')
     stop_id = receipt.get('stop_id')
     _require(_hex(stop_id), 'invalid abandonment stop reference')

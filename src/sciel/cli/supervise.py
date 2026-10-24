@@ -18,7 +18,7 @@ from ..campaign.budget import CampaignStopped
 from ..config import load_config, validate
 from ..engine import checkpoint
 from ..engine.parallel_recovery import (inspect_parallel_stop, authorize_parallel_recovery,
-                                        has_unabandoned_provider_failure)
+                                        has_sealed_stop, has_unabandoned_provider_failure)
 from ..engine.recovery import ProviderRecoveryError
 from ..engine.runtime import RuntimeStatus
 from ..engine.run_lock import RunDirectoryBusy, RunDirectoryLock
@@ -115,7 +115,7 @@ def _explain(run_dir, cfg) -> str | None:
                 f'check that the model {cfg.get("llm", {}).get("models")} exists for this provider')
     kinds = sorted({e.get('cause_type', 'unknown') + (f" {e['http_status']}" if e.get('http_status') else '')
                     for e in errors if e})
-    return 'a model call failed in a way that cannot be retried: ' + ', '.join(kinds) if kinds else None
+    return 'the stopped wave cannot be recovered automatically; its model calls failed with ' + ', '.join(kinds) if kinds else None
 
 
 def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print, tasks_root_override=False):
@@ -137,22 +137,25 @@ def supervise(run_dir, cfg, *, tasks_root, fresh, recover=False, log=print, task
                 raise SuperviseError('the checkpoint ends on an unresolved provider failure; '
                                      'resume with --abandon-provider-failure to give up that request')
             before = getattr(engine, "iteration_no", 0)
-            if recover:
+            if recover and has_sealed_stop(str(ckpt)):
                 authorize_parallel_recovery(engine, str(ckpt), inspect_parallel_stop(str(ckpt)))
+            # A wave that stopped before it could seal (a spawn call before the job intents) replays its saved receipts
+            # without new requests, seals the same stop and recovers below.
             fresh = False
             return cli._run_engine(engine)
-        except CampaignStopped:
+        except CampaignStopped as stopped:
             if engine._stop_requested or not parallel:
                 # A graceful pause returns normally. A simultaneous stop request
                 # cannot certify this failure or erase an unknown paid outcome.
                 raise
             try:
                 receipt = inspect_parallel_stop(str(ckpt))
-            except ProviderRecoveryError:
+            except ProviderRecoveryError as refused:
                 reason = _explain(run_dir, cfg)
                 if reason is None:
                     raise
-                raise SuperviseError(reason) from None
+                # The provider errors alone hid the stop that recovery refused, e.g. a replay whose job intents differ.
+                raise SuperviseError(f'{reason}; recovery refused: {refused}; the wave stopped on: {stopped}') from None
             if not receipt.get('auto_recoverable'):
                 raise
             authorize_parallel_recovery(engine, str(ckpt), receipt)
