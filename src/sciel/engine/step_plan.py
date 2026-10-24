@@ -330,6 +330,11 @@ class EngineStepPlan:
             from .population_view import describe, freeze
             snap.population = freeze(self, island, parent.id, below=below)
             snap.directive += describe(self, snap.population)
+        if origin != "fresh":
+            from .population_view import feedback
+            note = feedback(self, parent)
+            if note:
+                snap.directive += f"\nEvaluator feedback on the current program: {note}\n"
         if streak and streak['count'] and origin != "fresh":
             snap.directive += (f"\nRepeats on this island: the last {streak['count']} children returned exactly the output "
                                f"of {streak['program_id'] or 'an earlier program'}, so their searches ended where they began. "

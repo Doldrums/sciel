@@ -93,3 +93,16 @@ def materialize(engine, refs: list, path: str) -> str:
     with open(path, 'wb') as f:
         f.write(data)
     return hashlib.sha256(data).hexdigest()
+
+
+def feedback(engine, program) -> str:
+    """The evaluator's "feedback" artifact for a program, a task's own short summary of what its output did."""
+    from .research_artifacts import evaluation_id_for_program, saved_evaluation_by_hash
+    try:
+        saved = saved_evaluation_by_hash(engine, _sha(program.code), evaluation_id_for_program(engine, program))
+    except ValueError:
+        return ""
+    if saved['status'] != 'available':
+        return ""
+    text = (saved['record']['result'].get('artifacts') or {}).get('feedback')
+    return text[:1500] if isinstance(text, str) else ""
