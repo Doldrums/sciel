@@ -128,7 +128,7 @@ observations.candidate_source holds a complete program materialized from compute
 submit_candidate(candidate_receipt_id): canonical evaluation/novelty; one measured
 candidate/opportunity, two extra submissions only after pre-evaluation refusal.
 Other-branch method trials rebuild data there. Execution/replay/publication prove no benefit.
-finish: supported/refuted/inconclusive.
+finish: supported/refuted/inconclusive, only after this cell ran a create/use; earlier cells' receipts do not count.
 At trial cap finish/submit, no tool. Repairs separately bounded; CPU/wall/calls recorded.
 Missing artifacts are unknown; timing/conditions are separate.
 ''' + _ACTION_GUIDANCE

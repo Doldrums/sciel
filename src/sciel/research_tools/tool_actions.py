@@ -76,7 +76,8 @@ def response_format(background=False, *, visible_tool_ids=None, sequential=False
         properties['action']['description'] = (
             'Choose the action to execute now. finish closes the question; a worthwhile feasible '
             'unperformed check calls for create/use, or continue for an eligible saved job. '
-            'Static/no-need decisions and limited negative/inconclusive findings can close without a new tool.')
+            'finish and skip need at least one create/use run in this cell first (a tool error counts); '
+            'receipts of earlier cells do not count, so a question they already answer is checked with a small tool.')
         properties['reason']['description'] += (
             ' For finish, explain the evidence, what remains unknown and why further trials are '
             'not warranted or are blocked now; do not merely propose an unperformed experiment.')
