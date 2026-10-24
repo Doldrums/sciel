@@ -1,0 +1,69 @@
+suite: math
+name: squares_in_squares
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level packings() returning a dict {n: n [x, y, angle]} for each n in sis.SLICE (40 n,
+  103..963): unit squares, centre (x, y), angle in radians, interiors disjoint. Minimize the side L =
+  max(max_x-min_x, max_y-min_y) over all corners; Kaggle's per-n score is excess = L/sqrt(n) - 1. Values:
+  finite numbers (no strings), |x|,|y| <= 1e4, |angle| <= 100. Kaggle's metric checks each n on the repr of
+  each value with interval arithmetic: touching rotated squares are rejected, leave 1e-12 gaps. A missing or
+  rejected n, or one within 1e-6 of the bar's L, counts at the bar's excess. The bar is the per-n best of
+  12 public submissions (total 22.3084 over n = 1..1000; leaderboard best 22.2248). combined_score = bar
+  excess sum / counted excess sum (above 1 beats the bar); kaggle_total is the new total. Stdlib, NumPy,
+  SciPy; no open, exec, getattr or dunder attributes. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats
+  in 960 s keeping the worst; read SCIEL_STAGE_SECONDS, leave 10 s for the check. sis =
+  sciel.task.asset('sis'): SLICE, SEED_L, seed(n), best(m) (any m <= 1000), certify(p) (as scored), side,
+  gaps, contacts, remove(p, k) (drop k squares), grow(p) (add an L-strip: side L + 1, n + 2floor(L) + 1
+  squares), decode (population outputs: base64 binary64); squeeze = sciel.task.asset('squeeze'): squeeze(p,
+  rounds, step, gap, deadline, free) (LP: repairs overlaps, then shrinks L), group, jiggle. The seed returns
+  the bar first, then perturbs and squeezes one or two n of its population view for half its stage time and
+  returns them even if worse (repeats are useless).
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: bar_excess_sum_over_counted_excess_sum
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - excess_sum
+  - kaggle_total
+  - n_improved
+  - n_invalid
+  - best_gain
+  - best_gain_n
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different packings on repeats; confirm keeps the worst of three,
+# so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Kaggle Squares in Squares (Google, 2026): metric unchanged, public submissions as external data; slice and evaluator written for SCiEL"
+paradigms:
+  - "a STRUCTURED approach: explicit families for n = k^2 + j, such as an axis-parallel grid with one or more bands of squares tilted at 45 degrees or at a solved angle, or Göbel-style staircases, with the free parameters then squeezed"
+  - "a NEIGHBOUR-N approach: build n from the public packings of larger m by dropping squares and squeezing, from smaller n by strip growth and insertion into the largest holes, or by transplanting the corner structure of one n into another"
+  - "a GLOBAL-STOCHASTIC approach: basin hopping on the boundary and the tilted squares: rotate or swap groups, remove and reinsert squares, re-squeeze and keep the best per n"
