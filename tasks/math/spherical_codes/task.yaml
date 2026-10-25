@@ -7,7 +7,7 @@ task_prompt: >-
   d 8..14, n 68..230). Only directions count; the largest pair cosine c is computed exactly on the binary64 points
   (<x,y>/(|x||y|) as a rational). Minimize it; zero points, repeated directions, wrong shapes, non-finite values
   are invalid. The instances are entries of Henry Cohn's table (spherical-codes.org) marked "needs more
-  optimization"; the bar is the table's code after local search (40 of 49 below the table, by up to 2.6e-4). Each instance scores (1-c)/(1-c_bar),
+  optimization"; the bar is the table's code after local search (42 of 49 below the table, by up to 4.8e-4). Each instance scores (1-c)/(1-c_bar),
   combined_score is the mean; n_improved counts c <= c_bar - 1e-6 (polish
   alone creeps below 1e-6), a record each; n_beats_published counts c <= the table's displayed cosine - 1e-12. NumPy and SciPy. Walls: smoke 60 s, full 300 s, confirm 3
   repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. sph = sciel.task.asset('sph'): INSTANCES, DIM, SIZE,
