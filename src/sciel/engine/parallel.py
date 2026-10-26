@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from ..campaign.budget import CampaignStopped
 from . import checkpoint, portfolio_allocation, research_queue
 from .capacity import HostCapacity
+from .llm.client import LLMError
 from .llm.trace import TracedLLM
 from .parallel_calls import CallLedger, CooperativeIO, ParallelPause, ParallelAborted, durable_json, digest
 from .prompt.build import compose_directive
@@ -166,7 +167,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
     kind = 'canonical_seed' if seed_only else 'portfolio' if bootstrap else 'evolution'
     allocation_before = portfolio_allocation.metadata(engine, kind)
     started = monotonic()
-    records = []
+    records, absorbed = [], []
     _status(engine, wave=wave, phase='bootstrap' if seed_only or bootstrap else 'generation',
         workers=config['workers'], jobs=1 if seed_only else 0,
         pending_calls=0, pending_llm_calls=0, pending_evaluations=0,
@@ -181,6 +182,13 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
             'elapsed_seconds': payload['elapsed_seconds'], 'started_at': payload['started_at'],
             'completed_at': payload['completed_at']}
         records.append(record)
+        if (operation['kind'] == 'llm' and payload['status'] == 'error'
+                and payload.get('abandonment') is None):
+            # A job may tolerate a failed optional call (assay, theorist) and
+            # finish; the wave still aborts and must name the failure it absorbed.
+            failure = LLMError()
+            failure._metadata = payload['error']
+            absorbed.append(failure)
         engine.log.decision(policy='parallel_search', action='io_receipt', wave=wave, **record)
         if payload.get('abandonment') is not None:
             engine.log.decision(policy='parallel_provider_recovery', action='abandon_unknown_request',
@@ -217,7 +225,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
             _, failed = io.run([('research_jobs', lambda: tools.collect_background(io))])
             _raise_errors(list(failed.values()))
             if io.aborted:
-                raise CampaignStopped('Background tool collection aborted')
+                raise CampaignStopped('Background tool collection aborted') from next(iter(absorbed), None)
             if io.paused or engine._pause_requested():
                 raise ParallelWavePaused('Background tool collection paused with durable receipts')
             _status(engine, phase='bootstrap' if bootstrap else 'generation')
@@ -343,7 +351,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
                 engine._portfolio_bootstrap['next_island'] += len(plans)
             _raise_errors(errors)
             if io.aborted:
-                raise CampaignStopped('Parallel I/O aborted after a terminal failure')
+                raise CampaignStopped('Parallel I/O aborted after a terminal failure') from next(iter(absorbed), None)
             if io.paused or engine._pause_requested():
                 raise ParallelWavePaused('Parallel work paused with durable receipts')
             if not bootstrap and not errors and not pending_initial:
@@ -352,7 +360,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
         # the baseline remains authoritative until a complete transaction.
         _raise_errors(errors)
         if io.aborted:
-            raise CampaignStopped('Parallel I/O aborted after a terminal failure')
+            raise CampaignStopped('Parallel I/O aborted after a terminal failure') from next(iter(absorbed), None)
         if io.paused:
             raise ParallelWavePaused('Parallel work paused with durable receipts')
         engine._parallel_wave = wave + 1
@@ -375,7 +383,7 @@ def _wave(engine, capacity, provider, *, bootstrap=False, seed_only=False, limit
             # transient receipt among unrelated coordinator or accounting errors.
             try:
                 from .parallel_recovery import seal_stop
-                stop_errors = list(errors)
+                stop_errors = list(errors) + absorbed
                 if not any(item is error for item in stop_errors):
                     stop_errors.append(error)
                 seal_stop(transaction, stop_errors)
