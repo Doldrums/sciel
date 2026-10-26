@@ -25,6 +25,7 @@ from .client import (COST_PROVENANCE_SCHEMA, CLAUDE_CODE_ENDPOINT_SHA256, LLMErr
 SYSTEM = 'Follow the user task and requested output format exactly.'
 EFFORTS = (None, 'low', 'medium', 'high', 'xhigh', 'max')
 LIMIT_WAIT = 900.0
+MONTHS = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
 API_ENV = ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL')
 FINISH = {'end_turn': 'stop', 'stop_sequence': 'stop', 'max_tokens': 'length', 'refusal': 'stop'}
 
@@ -54,22 +55,28 @@ APIStatusError = type('APIStatusError', (_Status,), {})
 
 
 def _reset_seconds(text: str) -> float:
-    """Seconds until the usage window resets, from 'resets 7:40am (UTC)' or 'limit reached|<epoch>', else a fixed wait."""
+    """Seconds until the usage window resets, from 'resets 7:40am (UTC)', the weekly 'resets Oct 27, 4pm (UTC)'
+    or 'limit reached|<epoch>', else a fixed wait."""
     match = re.search(r'\|(\d{9,11})\b', text or '')
     if match:
         return max(60.0, float(match.group(1)) - time.time())
-    match = re.search(r'resets (\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([^)]+)\)', text or '', re.I)
+    match = re.search(r'resets (?:([a-z]{3})[a-z]* (\d{1,2}),? (?:at )?)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([^)]+)\)',
+                      text or '', re.I)
     if match is None:
         return LIMIT_WAIT
     try:
-        zone = ZoneInfo(match.group(4).strip())
+        zone = ZoneInfo(match.group(6).strip())
+        hour = int(match.group(3)) % 12 + (12 if match.group(5).lower() == 'pm' else 0)
+        now = datetime.now(zone)
+        reset = now.replace(hour=hour, minute=int(match.group(4) or 0), second=0, microsecond=0)
+        if match.group(1):
+            reset = reset.replace(month=MONTHS.index(match.group(1).lower()) + 1, day=int(match.group(2)))
+            if reset <= now:
+                reset = reset.replace(year=reset.year + 1)
+        elif reset <= now:
+            reset += timedelta(days=1)
     except (ZoneInfoNotFoundError, ValueError):
         return LIMIT_WAIT
-    hour = int(match.group(1)) % 12 + (12 if match.group(3).lower() == 'pm' else 0)
-    now = datetime.now(zone)
-    reset = now.replace(hour=hour, minute=int(match.group(2) or 0), second=0, microsecond=0)
-    if reset <= now:
-        reset += timedelta(days=1)
     return max(60.0, (reset - now).total_seconds() + 60.0)
 
 
