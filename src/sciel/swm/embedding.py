@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import re
 import urllib.error
@@ -18,6 +19,7 @@ import numpy as np
 DIM = 1024
 MAX_CHARS = 16000
 BATCH = 32
+_log = logging.getLogger("sciel.swm")
 _TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|[^\sA-Za-z0-9_]")
 
 
@@ -43,7 +45,7 @@ class CodeEmbedder:
         if self.mock or self.api_base is None:
             return
         try:
-            self("def probe():\n    return 0\n")
+            self._remote(["def probe():\n    return 0\n"])
         except (urllib.error.URLError, OSError) as exc:
             raise RuntimeError(f"the code-embedding server at {self.api_base} is not reachable ({exc}); start it, "
                                "or set swm.embedding_api_base: null to use local hashed embeddings") from None
@@ -52,7 +54,7 @@ class CodeEmbedder:
         body = json.dumps({"input": [c[:MAX_CHARS] for c in codes], "model": self.model}).encode()
         request = urllib.request.Request(self.api_base.rstrip("/") + "/embeddings", data=body,
                                          headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(request, timeout=600) as response:
+        with urllib.request.urlopen(request, timeout=120) as response:
             rows = sorted(json.loads(response.read())["data"], key=lambda row: row["index"])
         vectors = [np.asarray(row["embedding"], dtype=np.float32) for row in rows]
         if len(vectors) != len(codes) or any(v.shape != (DIM,) for v in vectors):
@@ -74,7 +76,13 @@ class CodeEmbedder:
             elif self.api_base is None:
                 vectors = [hashed(c) for c in chunk]
             else:
-                vectors = self._remote(chunk)
+                try:
+                    vectors = self._remote(chunk)
+                except (urllib.error.URLError, OSError) as exc:
+                    # The world model imputes missing embeddings until the next prefetch retries them.
+                    _log.warning("Code embeddings unavailable (%s); %d sources stay unembedded for now.",
+                                 type(exc).__name__, len(missing) - start)
+                    return
             for code, vector in zip(chunk, vectors):
                 self._cache[self._key(code)] = vector / (np.linalg.norm(vector) + 1e-8)
 
