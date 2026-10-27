@@ -93,7 +93,12 @@ class SearchWorldModel:
             if program is None:
                 return None
             if self.embedder is not None and self.embedder.get(program.code) is None:
-                return None
+                # Local embeddings on demand keep a forecast independent of when the last batched prefetch ran, so a
+                # resumed run plans its replayed wave from the same features as the run that stopped.
+                if self.embedder.api_base is None:
+                    self.embedder.prefetch([program.code])
+                if self.embedder.get(program.code) is None:
+                    return None
             self._cache[pid] = self.features(program.code, program.cases)
         return self._cache[pid]
 
@@ -489,3 +494,7 @@ class SearchWorldModel:
             net = model.Network(len(self.mean), len(self.vocab))
             net.load_state_dict(torch.load(io.BytesIO(base64.b64decode(data["weights"]))))
             self.net = net.eval()
+        if self.basis is not None:
+            # Program features need the code embeddings; without them a resumed run forecasts nothing and plans the
+            # replayed wave with a different operator distribution than the stopped one.
+            self.prefetch()
