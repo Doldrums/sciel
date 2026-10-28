@@ -1,0 +1,65 @@
+suite: math
+name: max_volume
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level polyhedra() returning a dict {"n": n points in R^3} for every key of mv.INSTANCES (n
+  4..130). Maximize the volume V of the convex hull of the points' directions, computed exactly: each direction is
+  rounded inward to binary64 of length <= 1 and the hull volume is a rational. Zero points, repeated directions, flat
+  hulls, wrong shapes, non-finite values are invalid. The instances are the table of Hardin, Sloane and Smith
+  (1994); the bar is the table's configuration after local search (STATS). Each instance scores V/V_bar,
+  combined_score is the mean; n_improved counts V >= V_bar (1 + 1e-9) (polish alone creeps CREEP), a record
+  each; n_beats_published counts V >= the table's volume + 1e-12. NumPy and SciPy. Walls: smoke 60 s, full 300 s,
+  confirm 3 repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. mv = sciel.task.asset('mv'): INSTANCES,
+  SIZE, PUBLISHED, BEST (bar volume), published(k), best(k), decode(text) (population outputs are base64 binary64
+  rows), volume (exact, as scored), volume_fast, volume_grad (gradient on the sphere), faces, degrees,
+  maximize(points, deadline) (L-BFGS), shake, improve(points, deadline, rng) (basin hopping), random_config,
+  spiral, rotation_group, orbit, icosahedron, remove, hole, insert. The seed returns best(k) first, afterwards it
+  moves a group of points in a few instances of its population view's polytopes, basin-hops them for half its
+  stage time and returns them even if worse, keeping the other instances.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: mean_candidate_over_bar_volume
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - n_improved
+  - best_gain_volume
+  - best_gain_n
+  - n_beats_published
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different polytopes on repeats; confirm keeps the worst of three, so
+# a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Coordinates from the maximal volume table of R. H. Hardin, N. J. A. Sloane and W. D. Smith (neilsloane.com/maxvolumes, 1994; kept by Henry Cohn, hdl.handle.net/1721.1/147004); polished polytopes and evaluator written for SCiEL"
+paradigms:
+  - "a POLISH approach: start from the bar's polytope, find where it is loose (vertices of unusual degree, short edges, faces far from the sphere), move groups of points between nearby basins with shakes, swaps and edge flips, re-maximize, keeping the best per instance"
+  - "a STRUCTURED approach: build polytopes from symmetric orbits (tetrahedral, octahedral, icosahedral rotation groups and their subgroups, geodesic and Goldberg-Coxeter point sets, spirals, polar caps of rings), fit them to n points, then maximize"
+  - "a NEIGHBOUR-N approach: build n points from the best polytopes of n - 1 or n + 1 by inserting a point at the deepest cap or removing the vertex whose removal loses least volume, then re-optimizing"
