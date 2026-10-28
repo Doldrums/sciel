@@ -7,8 +7,9 @@ task_prompt: >-
   4..130). Maximize the volume V of the convex hull of the points' directions, computed exactly: each direction is
   rounded inward to binary64 of length <= 1 and the hull volume is a rational. Zero points, repeated directions, flat
   hulls, wrong shapes, non-finite values are invalid. The instances are the table of Hardin, Sloane and Smith
-  (1994); the bar is the table's configuration after local search (STATS). Each instance scores V/V_bar,
-  combined_score is the mean; n_improved counts V >= V_bar (1 + 1e-9) (polish alone creeps CREEP), a record
+  (1994); the bar is the table's configuration after local search (already at local maxima: no basin above any of
+  the 127 in four minutes each). Each instance scores V/V_bar,
+  combined_score is the mean; n_improved counts V >= V_bar (1 + 1e-11) (polish alone creeps < 2e-16), a record
   each; n_beats_published counts V >= the table's volume + 1e-12. NumPy and SciPy. Walls: smoke 60 s, full 300 s,
   confirm 3 repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. mv = sciel.task.asset('mv'): INSTANCES,
   SIZE, PUBLISHED, BEST (bar volume), published(k), best(k), decode(text) (population outputs are base64 binary64

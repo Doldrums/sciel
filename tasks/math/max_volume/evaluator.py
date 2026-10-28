@@ -9,8 +9,11 @@ vectors over a power of two, Qhull's triangles are checked to bound every point 
 Shewchuk's error bound, the uncertain ones as integers; otherwise the hull is rebuilt by exact beneath-beyond), and the
 volume is the rational sum of a . (b x c) / 6 over them. An instance scores V / V_bar and combined_score is the mean,
 so a score above 1 means some polytope beats the bar. The bar is the table's configuration after local search
-(assets/mv_best.py). n_improved counts V >= V_bar (1 + MARGIN), a margin above what a further polish of the bar
-reaches; n_beats_published counts V >= the table's displayed volume + 1e-12, a gain the 12-decimal table would show.
+(assets/mv_best.py): L-BFGS on the volume and basin hopping, about four minutes per instance, which found no basin
+above any published configuration, so the bar is the table up to binary64 rounding. A further minute of basin hopping
+gains at most 1.8e-16 of the volume, so n_improved counts V >= V_bar (1 + 1e-11), far above that creep and the
+floating error; n_beats_published counts V >= the table's displayed volume + 1e-12, a gain the 12-decimal table
+would show.
 """
 
 import os
@@ -37,7 +40,7 @@ DATA = load_candidate(str(ASSETS / "mv_data.py"), "mv_data_evaluator")
 BEST = load_candidate(str(ASSETS / "mv_best.py"), "mv_best_evaluator")
 INSTANCES = tuple(DATA.INSTANCES)
 SIZE = {k: int(k) for k in INSTANCES}
-MARGIN = Fraction(1, 10 ** 9)
+MARGIN = Fraction(1, 10 ** 11)
 SITE_MARGIN = Fraction(1, 10 ** 12)
 BAR = {k: Fraction(BEST.VOLUME[k]) for k in INSTANCES}
 PUBLISHED = {k: Fraction(DATA.VOLUME[k]) for k in INSTANCES}
