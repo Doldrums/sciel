@@ -1,0 +1,65 @@
+suite: math
+name: circles_in_semicircle
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level packings() returning a dict {N: N centres (x, y)} for every N in 100..250. The container
+  is the semicircle y >= 0, x^2 + y^2 <= 1; the radius of N centres is min over them of y, 1 - sqrt(x^2 + y^2) and
+  half the smallest pair distance, computed exactly on the binary64 centres. Maximize it. The bar is Packomania's
+  table (Paterson, Cantrell, Specht et al., 2011; ten N by S. Hogan, 2026), its published centres unpolished. Each N
+  scores radius / best radius and combined_score is the mean; n_improved counts the N beaten by more than 1e-12
+  relative, a new record each. Stdlib, NumPy and SciPy only. Wall limits: smoke 30 s, full 300 s, confirm 3
+  repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. csc = sciel.task.asset('csc') has SIZES, RADIUS
+  (published), BEST (the bar), published(N), best(N), radius(points) (as scored), radius_exact (exact, as a + b
+  sqrt(c)), radius_fast, slacks(points) (diameter, arc, pair distances), contacts(points), rattlers(points),
+  clip(points) (into the semicircle), maximize(points, rounds, step, deadline) (sequential LP on the contacts),
+  hex_lattice(N, angle, shift) and decode(text) (packings in population outputs are base64 binary64). The seed
+  returns best(N) on the first evaluation; afterwards it moves a group of centres in a few N of its population
+  view's packings, re-maximizes them for half its stage time and returns them even below the start, keeping every
+  other N: a distinct lower output is admitted, a repeat is not useful.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: mean_candidate_over_best_radius
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - n_improved
+  - best_gain_rel
+  - best_gain_n
+  - n_beats_published
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different packings on repeats; confirm keeps the worst of three,
+# so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 30.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Packings table of D. A. Paterson, D. W. Cantrell, E. Specht, C. O. Lopez Soto and S. Hogan, packomania.com (csc, 2009-2026); evaluator written for SCiEL"
+paradigms:
+  - "a STRUCTURED approach: hexagonal rows parallel to the diameter (hex_lattice at several angles and shifts) with one or two curved rows following the arc x^2 + y^2 = (1 - r)^2, with defects, dislocation lines or a squeezed row where the straight and curved rows meet, mirror-symmetric about x = 0 or not, then maximized"
+  - "a NEIGHBOUR-N approach: build N from the best packings of N-1 or N+1 by inserting a circle into the largest hole or removing a rattler or a loaded circle, then re-maximizing"
+  - "a GLOBAL-STOCHASTIC approach: basin hopping on the active contacts: move rattlers and small groups into holes, swap defect positions, re-maximize and keep the best per N"
