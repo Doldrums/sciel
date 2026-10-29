@@ -7,7 +7,7 @@ task_prompt: >-
   is the quadrant x >= 0, y >= 0, x^2 + y^2 <= 1; the radius of N centres is min over them of x, y, 1 - sqrt(x^2 +
   y^2) and half the smallest pair distance, computed exactly on the binary64 centres. Maximize it. The bar is
   Packomania's table (Paterson, Specht et al., 2011) with 106 of its packings improved by up to 6.3e-05
-  relative by local search (maximize, shake, re-maximize, 90 s per N), 103, 97, 81, 85 N raised by SCiEL. Each N scores radius / best
+  relative by local search (maximize, shake, re-maximize, 90 s per N), 103, 97, 81, 85, 76 N raised by SCiEL. Each N scores radius / best
   radius and combined_score is the mean; n_improved counts the N beaten by more than 1e-12 relative, a new record
   each. Stdlib, NumPy and SciPy only. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s
   keeping the worst; use SCIEL_STAGE_SECONDS. ccq = sciel.task.asset('ccq') has SIZES, RADIUS (published), BEST (the
