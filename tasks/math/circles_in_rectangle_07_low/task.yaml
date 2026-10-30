@@ -8,7 +8,7 @@ task_prompt: >-
   is min over them of 1/2 - |x|, 0.35 - |y| and half the smallest pair distance, computed exactly on the binary64
   centres. Maximize it. The bar is Packomania's table (E. Specht et al., 2010) with 35 of its
   packings improved by up to 4.1e-05 relative by local search (maximize, then shaking and re-maximizing for
-  90 s per N), 31 N raised by SCiEL. Each N scores radius / best radius and combined_score is the mean; n_improved counts the N beaten
+  90 s per N), 31, 20 N raised by SCiEL. Each N scores radius / best radius and combined_score is the mean; n_improved counts the N beaten
   by more than 1e-12 relative, a new record each. Stdlib, NumPy and SciPy are available. Wall limits: smoke 30 s,
   full 300 s, confirm 3 repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. crc = sciel.task.asset('crc')
   has SIZES, H, LOWER, UPPER (corners), RADIUS (published), BEST (the bar), published(N), best(N), radius(points)
