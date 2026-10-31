@@ -6,7 +6,7 @@ task_prompt: >-
   Implement module-level packings() returning a dict {N: N centres (x, y)} for every N in 100..250. The container
   is the semicircle y >= 0, x^2 + y^2 <= 1; the radius of N centres is min over them of y, 1 - sqrt(x^2 + y^2) and
   half the smallest pair distance, computed exactly on the binary64 centres. Maximize it. The bar is Packomania's
-  table (Paterson, Cantrell, Specht et al., 2011; ten N by S. Hogan, 2026), its published centres unpolished, 122 N raised by SCiEL. Each N
+  table (Paterson, Cantrell, Specht et al., 2011; ten N by S. Hogan, 2026), its published centres unpolished, 122, 95 N raised by SCiEL. Each N
   scores radius / best radius and combined_score is the mean; n_improved counts the N beaten by more than 1e-12
   relative, a new record each. Stdlib, NumPy and SciPy only. Wall limits: smoke 30 s, full 300 s, confirm 3
   repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. csc = sciel.task.asset('csc') has SIZES, RADIUS
@@ -16,7 +16,7 @@ task_prompt: >-
   hex_lattice(N, angle, shift) and decode(text) (packings in population outputs are base64 binary64). The seed
   returns best(N) on the first evaluation; afterwards it moves a group of centres in a few N of its population
   view's packings, re-maximizes them for half its stage time and returns them even below the start, keeping every
-  other N: a distinct lower output is admitted, a repeat is not useful.
+  other N (a repeat is not useful).
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
