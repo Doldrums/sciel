@@ -1,0 +1,66 @@
+suite: math
+name: spherical_codes_b57
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level codes() returning a dict {"d_n": n points in R^d} for every key of sph.INSTANCES (25 pairs,
+  d 26..27, n 57..224). Only directions count; the largest pair cosine c is computed exactly on the binary64 points
+  (<x,y>/(|x||y|) as a rational). Minimize it; zero points, repeated directions, wrong shapes, non-finite values
+  are invalid. The instances are entries of Henry Cohn's table (spherical-codes.org) marked "needs more
+  optimization"; the bar is the table's code after local search (21 of 25 below the table, by up to 2.3e-4). Each instance scores (1-c)/(1-c_bar),
+  combined_score is the mean; n_improved counts c <= c_bar - 1e-6 (polish
+  alone creeps below 1e-6), a record each; n_beats_published counts c <= the table's displayed cosine - 1e-12. NumPy and SciPy. Walls: smoke 60 s, full 300 s, confirm 3
+  repeats in 960 s keeping the worst; use SCIEL_STAGE_SECONDS. sph = sciel.task.asset('sph'): INSTANCES, DIM, SIZE,
+  PUBLISHED, BEST (bar cosine), published(k), best(k), decode(text, d) (population outputs are base64 binary64
+  rows), cos2 (exact, as scored), max_cos_fast, cosines, contacts, degrees, soft_max_cos (smooth max + gradient),
+  descend(points, betas), maximize(points, rounds, step, deadline) (LP on near-active pairs), shake,
+  improve(points, deadline, rng) (basin hopping), random_code, e8_roots, dn_roots, antipodal, remove, hole, insert.
+  The seed returns best(k) first, afterwards it moves a group of points in a few instances of its population view's
+  codes, re-optimizes them for half its stage time and returns them even if worse, keeping the other instances.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: combined_score
+  numerator_units: mean_candidate_over_bar_squared_chord
+  denominator: 1.0
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - n_improved
+  - best_gain_cos
+  - best_gain_dim
+  - best_gain_n
+  - n_beats_published
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different codes on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 960.0
+license: "Coordinates from Henry Cohn's table of spherical codes (spherical-codes.org, data set hdl.handle.net/1721.1/153543); polished codes and evaluator written for SCiEL"
+paradigms:
+  - "a POLISH approach: start from the bar's code, find where it is loose (points of low contact degree, near-active pairs that the LP cannot move together), move groups of points between nearby basins with shakes and swaps, descend at rising sharpness and re-maximize, keeping the best per instance"
+  - "a STRUCTURED approach: build codes from lattice shells and codes (E8 and D_n roots, their sections and antipodal unions, laminated or cross-polytope layers, orbits of a symmetry group), prune or complete them to n points, then descend and maximize"
+  - "a NEIGHBOUR-N approach: build n points from the best codes of n - 1 or n + 1 (in the same or a neighbouring instance) by inserting a point into the deepest hole or removing the most loaded point, then re-optimizing"
