@@ -7,7 +7,7 @@ task_prompt: >-
   is the regular pentagon with circumradius 1, centre (0, 0) and a flat bottom edge: sides with unit normals
   n_k at angles -pi/2 + 2 pi k/5 at distance h = cos(pi/5) from the origin. The radius of N centres is min over
   them of h - n_k . c and half the smallest pair distance, exact on the binary64 centres. Maximize it.
-  The bar is Packomania's table (Specht, Amore, 2023), its published 12-digit centres unpolished, 101, 47 N raised by SCiEL. Each N scores
+  The bar is Packomania's table (Specht, Amore, 2023), its published 12-digit centres unpolished, 101, 47, 22 N raised by SCiEL. Each N scores
   radius / best radius and combined_score is the mean; n_improved counts the N beaten by more than 1e-10 relative,
   a new record each. Stdlib, NumPy and SciPy only. Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960
   s keeping the worst; use SCIEL_STAGE_SECONDS. cpt = sciel.task.asset('cpt') has SIZES, RADIUS (published), BEST
