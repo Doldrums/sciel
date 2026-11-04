@@ -337,6 +337,7 @@ class EngineInitialization:
                 "evaluator scored for that program. Continue the best constructions instead of rebuilding them; "
                 "it returns an empty list when no view is given.")
         self.task_prompt += (
-            "\n\nTIME BUDGET: os.environ['SCIEL_STAGE_SECONDS'] holds the wall seconds of the stage now running "
-            "your program, overhead included (smoke is short; full and each confirm repeat are longer). Search "
-            "until shortly before it and return the best result found.")
+            "\n\nTIME BUDGET: os.environ['SCIEL_STAGE_SECONDS'] holds the wall seconds your program has in the "
+            "stage now running it, with the time the evaluator needs to score the result already taken off (smoke "
+            "is short; full and each confirm repeat are longer). Search until shortly before it and return the "
+            "best result found.")

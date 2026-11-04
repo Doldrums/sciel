@@ -206,6 +206,8 @@ def main(argv):
         setup_complete = True
         mod = _load(evaluator_path)
         fn = _resolve_stage(mod, stage)
+        from sciel.candidate_modules import time_program
+        time_program(program_path)
         # `n` goes only to a function the evaluator actually named `confirm`. Resolving
         # "confirm" can alias to `evaluate(program_path, timeout=60)`, and _wants_n
         # only counts parameters, so confirm_n used to be handed to whatever that
@@ -243,6 +245,10 @@ def main(argv):
                        "stderr": str(e)}
     if "schema" not in payload:
         payload["timing"] = time.time() - started
+        if setup_complete:
+            from sciel.candidate_modules import program_seconds
+            if program_seconds() is not None:
+                payload["program_seconds"] = program_seconds()
     with open(out_path, "w") as f:
         json.dump(payload, f)
 

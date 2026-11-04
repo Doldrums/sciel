@@ -15,6 +15,8 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
+import types
 import uuid
 
 
@@ -104,6 +106,36 @@ def _install():
         sys.meta_path.insert(0, _CandidateFinder())
 
 
+# The evaluation runner names the program it scores; time spent importing it and in its
+# module-level functions is that program's own, the rest of the stage is scoring overhead.
+_TIMED = {"path": None, "seconds": 0.0, "called": False, "depth": 0}
+
+
+def time_program(program_path):
+    _TIMED.update(path=str(Path(program_path).resolve(strict=True)), seconds=0.0, called=False, depth=0)
+
+
+def program_seconds():
+    """Seconds spent in the timed program, or None when none of its functions ran in this process."""
+    return _TIMED["seconds"] if _TIMED["called"] else None
+
+
+def _timed(fn):
+    def call(*args, **kwargs):
+        _TIMED["depth"] += 1
+        _TIMED["called"] = True
+        started = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _TIMED["depth"] -= 1
+            if not _TIMED["depth"]:
+                _TIMED["seconds"] += time.monotonic() - started
+    for key in ("__module__", "__name__", "__qualname__", "__doc__", "__wrapped__"):
+        setattr(call, key, fn if key == "__wrapped__" else getattr(fn, key))
+    return call
+
+
 def load_candidate(program_path, module_name="program"):
     """Execute exact source in a fresh module importable by spawn/forkserver.
 
@@ -121,8 +153,18 @@ def load_candidate(program_path, module_name="program"):
     identity = ("_p" + os.fsencode(original).hex()
                 + "_s" + hashlib.sha256(source).hexdigest()
                 + "_n" + uuid.uuid4().hex)
-    # import_module also removes a partly initialized module if execution raises.
-    return importlib.import_module(_PREFIX + identity)
+    if original != _TIMED["path"]:
+        # import_module also removes a partly initialized module if execution raises.
+        return importlib.import_module(_PREFIX + identity)
+    started = time.monotonic()
+    try:
+        module = importlib.import_module(_PREFIX + identity)
+    finally:
+        _TIMED["seconds"] += time.monotonic() - started
+    for name, value in list(vars(module).items()):
+        if isinstance(value, types.FunctionType) and value.__module__ == module.__name__:
+            setattr(module, name, _timed(value))
+    return module
 
 
 _install()

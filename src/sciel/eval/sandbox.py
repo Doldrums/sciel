@@ -16,6 +16,7 @@ import signal
 import stat
 import subprocess
 import sys
+import time
 import tempfile
 import threading
 
@@ -186,6 +187,31 @@ def validate_stage_limits(timeout, n=None, cpu_seconds=None, mem_bytes=None):
                 raise ValueError(name + " exceeds the portable finite resource range")
 
 
+# Scoring overhead per (evaluator, stage, call): stage wall time the program did not use. Recent maxima are taken
+# off the time a program is told it has, so a program that searches until near its budget leaves room to be scored.
+_OVERHEAD: dict[tuple[str, str], list[float]] = {}
+_OVERHEAD_LOCK = threading.Lock()
+_OVERHEAD_KEEP = 8
+
+
+def _program_budget(evaluator_path, stage, per_call):
+    with _OVERHEAD_LOCK:
+        seen = list(_OVERHEAD.get((evaluator_path, stage), ()))
+    if not seen:
+        return per_call
+    return max(0.25 * per_call, per_call - 1.25 * max(seen) - 1.0)
+
+
+def _note_overhead(evaluator_path, stage, wall, n, result):
+    if not result.ok or result.program_seconds is None:
+        return
+    overhead = max(0.0, wall - result.program_seconds) / (n or 1)
+    with _OVERHEAD_LOCK:
+        seen = _OVERHEAD.setdefault((evaluator_path, stage), [])
+        seen.append(overhead)
+        del seen[:-_OVERHEAD_KEEP]
+
+
 def run_stage(
     evaluator_path: str,
     stage: str,
@@ -219,9 +245,10 @@ def run_stage(
     if population is not None:
         env["SCIEL_POPULATION"] = population
     # A program can spend its stage: smoke checks it quickly, full and each confirm repeat may search.
-    env["SCIEL_STAGE_SECONDS"] = repr(timeout / (n or 1))
+    env["SCIEL_STAGE_SECONDS"] = repr(_program_budget(evaluator_path, stage, timeout / (n or 1)))
     env["SCIEL_TASK_ROOT"] = os.path.dirname(os.path.abspath(evaluator_path))
     proc = stderr = None
+    started = time.monotonic()
     try:
         proc = subprocess.Popen(
             argv,
@@ -264,6 +291,7 @@ def run_stage(
                               artifacts={"error_type": "ResultTooLarge" if isinstance(e,ResultTooLarge) else "ResultCorrupt",
                                          "error": f"The evaluator terminal result violates its bounded JSON contract: {str(e)[:1000]}",
                                          "stderr": tail})
+        _note_overhead(evaluator_path, stage, time.monotonic() - started, n, result)
         if tail:
             result.stderr = "\n".join(part for part in (result.stderr, tail) if part).encode('utf-8')[-MAX_STDERR_BYTES:].decode('utf-8','ignore')
         # Asset and candidate modules carry their encoded path as a name; errors read better with the file instead.

@@ -104,6 +104,8 @@ class EvalResult:
     cost: float = 0.0
     artifacts: dict[str, str] = field(default_factory=dict)
     confirmed_sampled: bool = False
+    # Wall seconds the scored program itself ran; only the sandbox reads it, journals keep the fields above.
+    program_seconds: float | None = None
 
     def to_json(self) -> dict:
         return {
@@ -119,7 +121,7 @@ class EvalResult:
 
     @classmethod
     def from_json(cls, d: dict) -> "EvalResult":
-        fields={'ok','score','cases','stderr','timing','cost','artifacts','confirmed_sampled'}
+        fields={'ok','score','cases','stderr','timing','cost','artifacts','confirmed_sampled','program_seconds'}
         if type(d) is not dict or set(d)-fields or not {'ok','score'}<=set(d):
             raise ValueError('invalid evaluator result object/fields')
         if type(d['ok']) is not bool or type(d.get('confirmed_sampled',False)) is not bool:
@@ -140,6 +142,8 @@ class EvalResult:
             timing=_number(d.get('timing',0.),'timing',nonnegative=True),
             cost=_number(d.get('cost',0.),'cost',nonnegative=True),
             artifacts=validated_artifacts, confirmed_sampled=d.get('confirmed_sampled',False),
+            program_seconds=None if d.get('program_seconds') is None
+                            else _number(d['program_seconds'],'program_seconds',nonnegative=True),
         )
 
 
