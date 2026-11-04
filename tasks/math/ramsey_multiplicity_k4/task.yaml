@@ -1,0 +1,63 @@
+suite: math
+name: ramsey_multiplicity_k4
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level kernel() returning q, one red probability per class of pairs of a step graphon on 3840
+  equal parts, as (numerators, denominator <= 2**30) with 88352 integers in [0, denominator]. Classes are the orbits
+  of a fixed symmetry group joined with their transposes; W[i, j] = q[classes[i, j]]. W bounds the Ramsey
+  multiplicity constant c4 (Tao's 89a) by the monochromatic K4 density upper_bound = t(K4,W) + t(K4,1-W). Minimize
+  it. combined_score = 0.03013885846528673 / upper_bound, the best known value (November 2026); above 1 is a record.
+  Scoring is exact in integers, no tolerance. NumPy, SciPy. Wall limits: smoke 300 s, full 900 s, confirm 3 repeats
+  in 2700 s keeping the worst; scoring takes about 2 minutes. graphon = sciel.task.asset('graphon') has structure()
+  (classes as a 3840 x 3840 array, one representative pair per class, class sizes), build(q) (W),
+  value_and_gradient(q) (float, 14 s), exact_value(kernel), snap(q, bits) (valid kernel), as_float(kernel) and
+  load(output) (kernel of a population output); frontier = sciel.task.asset('frontier').kernel() is the record, a
+  refinement of the twelve-Clebsch construction with 10500 fractional classes. The seed returns it first;
+  afterwards it flips a few classes of its population view's kernel, re-optimizes for 0.6 of its stage time and
+  returns the result even if worse: a distinct output is admitted, a repeat is not useful.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: inverse_bound
+  numerator_units: reciprocal_upper_bound
+  denominator: 33.179756995500604
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - upper_bound
+  - inverse_bound
+  - fractional_classes
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different kernels on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 300.0
+full_timeout: 900.0
+confirm_timeout: 2700.0
+license: "Problem from Tao's optimization constants (constant 89a, teorth/optimizationproblems PR 270); construction of vidigoat (github.com/vidigoat/optimization-records, tao/certificates/c89, round 2) refining J. SK and L. Van Seters and M. Jothimani; evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: changes of the twelve-Clebsch structure, whole families of classes moved together between red and blue"
+  - "an OPTIMIZATION approach: the record refined by projected gradient or L-BFGS-B on the float density, with discrete flips of classes between 0 and 1"
+  - "a GLOBAL-STOCHASTIC approach: multi-restart search over flip sets and fractional patterns, keeping the best under the time budget"
