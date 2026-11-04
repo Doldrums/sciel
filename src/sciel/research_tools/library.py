@@ -72,7 +72,9 @@ def _entrypoint_error(reason, functions=()):
         + found + '. Candidate helpers do not replace the tool entrypoint. '
         'Define run(payload) to perform the research check and return a sciel-tool-result/1 '
         'object with exactly schema, status, observations, diagnostics, error. '
-        'Use status=tool_error with a nonempty error if the check cannot be performed.')
+        'Use status=tool_error with a nonempty error if the check cannot be performed. '
+        'To propose a candidate program, do not send it as the tool: have run(payload) return its complete '
+        'source as observations.candidate_source, then call submit_candidate with that receipt_id.')
 
 
 def validate_tool_entrypoint(code):
