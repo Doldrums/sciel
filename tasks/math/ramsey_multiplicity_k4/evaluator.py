@@ -1,7 +1,7 @@
 """Evaluator for the Ramsey multiplicity constant of K4; smoke/full/confirm on the sciel contract.
 
 The step graphon has m = 3840 equal parts and a fixed group G of permutations of the parts (seven generators in
-assets/frontier.npz, automorphisms of the Van Seters-Jothimani construction and its refinements). The candidate
+assets/frontier.py, automorphisms of the Van Seters-Jothimani construction and its refinements). The candidate
 gives one red probability per class of part pairs, a class being a G-orbit of ordered pairs joined with its
 transpose, so W is symmetric and G-invariant. Colouring K_n by sampling a part per vertex gives expected
 monochromatic K4 density t(K4, W) + t(K4, 1 - W), so this bounds c4 from above. With
@@ -36,7 +36,7 @@ import numpy as np
 REFERENCE = Fraction(31383468324407329838135970970371081393990727093313271428891812741,
                      1041295852679825698551191435837073366434387539971249757275291648000)
 MAX_DENOMINATOR = 2 ** 30
-STRUCTURE = Path(__file__).resolve().parent / "assets" / "frontier.npz"
+FRONTIER = Path(__file__).resolve().parent / "assets" / "frontier.py"
 
 
 def _load(program_path, module_name="program"):
@@ -47,7 +47,7 @@ def _load(program_path, module_name="program"):
 def structure():
     """(classes, rows, cols, sizes): classes[i, j] is the class of the pair (i, j), numbered by first appearance in
     row-major order; (rows[c], cols[c]) is the representative of class c and sizes[c] its number of ordered pairs."""
-    generators = np.load(STRUCTURE)["generators"].astype(np.int64)
+    generators = load_candidate(str(FRONTIER), "frontier").generators()
     m = generators.shape[1]
     label = np.arange(m * m, dtype=np.int64).reshape(m, m)
     while True:
