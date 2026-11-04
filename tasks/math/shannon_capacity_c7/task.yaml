@@ -1,0 +1,64 @@
+suite: math
+name: shannon_capacity_c7
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement certificate() returning a recipe for an independent set of size M in C_7^(box d); Theta(C_7) >= M^(1/d)
+  (Tao's constant 9). Maximize it. combined_score = M^(1/d) / 3.258838705444608 (L. Tang, PR 296, d = 680; Tandon's
+  published 3.2588326 is 0.999998); above 1 is a record. Scoring is exact integer profile algebra: Gao products,
+  Tandon's heterogeneous product with left patterns whose counts q = |J minus N(X_L^0)| are exact block counts over
+  the 367-word base gadget, BPZ rules and terminal codes. c7 = sciel.task.asset('c7') documents the format and has
+  value(cert) -> (M, d), estimate(cert) (fast rate), library() (G5, sG5, Tandon's gadgets with dimensions),
+  patterns() (usable at once), count(name) (a new S<A,B,P> or N<Q,C> pattern, 1 to 60 s; the evaluator counts it
+  too), RULES, CODES, apply_rule, apply_code, gao, hetgao, sigma, phi, load(output). frontier =
+  sciel.task.asset('frontier').certificate() is Tang's: nine hetgao/sigma steps, S3b on three Phi vectors, K4a. The
+  seed returns it first; afterwards it rewires a few steps (pattern, right factor, rule inputs, rule) among patterns
+  with known counts, climbs for 0.4 of its stage time and returns the result even if lower: a distinct output is
+  admitted, a repeat is not useful. Wall limits: smoke 300 s, full 900 s, confirm 3 repeats in 2700 s keeping the
+  worst; scoring with known counts takes under 1 s.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: capacity_lower_bound
+  denominator: 3.258838705444608
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - dimension
+  - log_size
+  - record
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different certificates on repeats; confirm keeps the worst of three,
+# so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 300.0
+full_timeout: 900.0
+confirm_timeout: 2700.0
+license: "Constant 9 of Tao's optimization problems; base gadget of Polak and Schrijver (2019) and Buys, Polak, Zuiddam (arXiv:2607.29681, Apache-2.0 data and rules), heterogeneous recursion of R. Tandon (arXiv:2608.30273, Apache-2.0 code ported), certificate of L. Tang (teorth/optimizationproblems PR 296); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: new nested left patterns N<...<S<A,B,P>,C>...,D> with live counts, applied to new right factors, deeper or heterogeneous gadget chains"
+  - "a STRUCTURAL approach: rewiring the BPZ top level (rules S2a..S3h nested on Phi vectors, terminal codes K3a/K4a/K4b, different subtrees per coordinate) and trading dimension against size"
+  - "an EXHAUSTIVE approach: enumerating small recipes over the known patterns and gadgets by the fast exact profile algebra, keeping the best rate"
