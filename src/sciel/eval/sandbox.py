@@ -202,6 +202,14 @@ def _program_budget(evaluator_path, stage, per_call):
     return max(0.25 * per_call, per_call - 1.25 * max(seen) - 1.0)
 
 
+def _note_timeout(evaluator_path, stage, per_call):
+    """A timed-out stage shows the reserve was too small for the outputs now being scored: double it."""
+    with _OVERHEAD_LOCK:
+        seen = _OVERHEAD.setdefault((evaluator_path, stage), [])
+        seen.append(min(0.6 * per_call, 2.0 * max(seen, default=0.05 * per_call)))
+        del seen[:-_OVERHEAD_KEEP]
+
+
 def _note_overhead(evaluator_path, stage, wall, n, result):
     if not result.ok or result.program_seconds is None:
         return
@@ -307,6 +315,7 @@ def run_stage(
                 cpu_seconds, mem_bytes, exc.diagnostic["reported_wall_seconds"])) from None
         raise
     except subprocess.TimeoutExpired:
+        _note_timeout(evaluator_path, stage, timeout / (n or 1))
         # `error` is what reaches the error_repair prompt (snapshot.artifacts);
         # leaving it empty starved the LLM of the one signal that explains ~75%
         # of failed evals (trace audit 2026-08-14)
