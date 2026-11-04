@@ -270,7 +270,7 @@ class EngineAdmission:
             world = out[op]["value"] if out else None
         self.trials.forecast(bet.q, event)
         self.log.decision(policy="forecast", action="scored", iteration_no=self.iteration_no, q=bet.q,
-                          event=event, brier=brier, delta=delta,
+                          hit=event, brier=brier, delta=delta,
                           interval=[bet.delta_low, bet.delta_high], covered=covered, swm_value=world)
 
     def _record_decisions(self, island, decision_context, child, parent, event, research=False, score=None, shaped=0.0):

@@ -86,6 +86,8 @@ class RunLog:
             self._check_unchanged()
             if event_type not in EVENT_TYPES:
                 raise ValueError(f"unknown event type {event_type}")
+            if "event" in fields:
+                raise ValueError("payload field 'event' would replace the event type")
             # Logger-owned observation times; scientific payloads cannot supply
             # or replace them. Monotonic elapsed time is comparable only inside
             # this segment (a resume starts a new segment, excluding downtime).
