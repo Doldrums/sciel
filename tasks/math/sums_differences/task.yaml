@@ -1,0 +1,65 @@
+suite: math
+name: sums_differences
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement law() returning {"laws": [{"points": [[x, y], ...], "weights": [w, ...]}, ...], "mix": [t,
+  ...]}: at most 4 laws on at most 512 distinct points of Z^2 each (|x|, |y| <= 10^4), weights and shares binary64
+  (read exactly), ints or [num, den] pairs, normalized by their sums. A share t_k of many independent digits is drawn
+  from law k, so per digit H(aX + bY) = sum_k t_k H_k(ax + by), and Tao's constant 3b is bounded from below:
+  C_3b >= H(X - Y) / max(H(X), H(Y), H(X + Y)). Maximize it. combined_score = lower_bound / 1.778988841420693549805
+  (Mosaic Intelligence 2026: one law on 13 points); above 1 is a record. Scoring is certified:
+  exact rational image laws, logarithms in 50-digit interval arithmetic, the ratio rounded down. Wall limits: smoke
+  60 s, full 300 s, confirm 3 repeats in 900 s keeping the worst; scoring takes 0.01 s. entropy =
+  sciel.task.asset('entropy') has entropies_and_jacobian(points, p) (float entropies of the four forms, numerator
+  first, and their gradients in p, 0.1 ms), ratio(candidate), exact_value(candidate)
+  (as scored), polish(candidate, seconds) (SLSQP on weights and shares with fixed supports), neighbours(points,
+  radius), extend(candidate, points, law, weight), as_float, make(laws, mix) and load(output); frontier =
+  sciel.task.asset('frontier').law() is that certificate, where float polish gains under 1e-16 relative. The seed
+  returns it first; later it adds or drops points of one law of its population view's candidate, shakes the
+  weights, polishes for 0.4 of its stage time and returns it even if worse: a repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: entropy_ratio
+  denominator: 1.778988841420693549805
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - points
+  - laws
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different laws on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 900.0
+license: "Constant 3b of Tao's optimization constants (teorth/optimizationproblems); entropy formulation of Green and Ruzsa (2019); construction of Mosaic Intelligence (doi 10.5281/zenodo.20794135, PR 92); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: structured supports (strips along x + y = const, lattice cosets, products and sums of small laws) whose images under x, y, x + y collide while x - y stays spread"
+  - "an OPTIMIZATION approach: weights and mixture shares refined by SLSQP on the epigraph of the three denominator entropies, with support points added where the entropy gradient pays and dropped where weights vanish"
+  - "a MIXTURE approach: several laws whose denominator entropies are unbalanced in different directions, combined so that the largest one falls"
