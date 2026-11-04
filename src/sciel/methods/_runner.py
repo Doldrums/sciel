@@ -102,7 +102,8 @@ def _call(request_path):
         result = _invoke(_REQUEST['method_id'], _REQUEST['input'])
         raw = canonical(result)
         if len(raw) > limits['max_output_bytes']:
-            raise ValueError('method output exceeds max_output_bytes')
+            raise ValueError(f"method output is {len(raw)} bytes, over max_output_bytes {limits['max_output_bytes']}; "
+                             "return summary statistics, not raw arrays; a candidate goes in as program source")
         sys.stdout = saved_stdout
         os.write(1, raw)
         return 0
