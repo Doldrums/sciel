@@ -1,6 +1,6 @@
 """The task's objective for a candidate to build on: from sciel.task import asset; sarkozy = asset("sarkozy").
 
-A certificate is a dict {alpha, chains, codes, binary} as described in the task (frontier.json is Naslund's).
+A certificate is a dict {alpha, chains, codes, binary} as described in the task (frontier.certificate() is Naslund's).
 certify(cert) is the scorer: the exact alpha it proves, the parts and the surplus, or an exception. The geometry fixes
 how far alpha can go: capacity(cert) is that largest alpha (an mpmath number, 50 digits), with the best power of
 every component; finalize(cert) rewrites alpha, the code powers and the binary f, a, vector and depth just below it,
