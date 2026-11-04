@@ -3,26 +3,21 @@ name: sunflower_free_capacity
 origin: math
 primary_metric: combined_score
 task_prompt: >-
-  Implement module-level block() returning {"nodes": [...], "ports": [p, q]}: a Sperner family on n <= 62 points with
-  no 3-sunflower (three distinct members with A&B = A&C = B&C) and two ports. Chaining copies at q -> p by the DEGKM
-  gluing lemma bounds the 3-sunflower-free capacity (Tao's constant 49a) from below: mu_3 >= rho^(1/(n-2)), rho the
-  Perron root of [[N10, N11], [N00, N01]], N_ab = #members with [p in D] = a, [q in D] = b, all >= 1. Maximize this
-  lower_bound. combined_score = lower_bound / 1.5678599024 (Koshta, Kos2026, 252292 sets on 28 points, October 2026);
-  above 1 is a record. Sets are integer bitmasks (bit x = point x). A node is a leaf {"n": n, "sets": [...]} or
-  {"glue": [i, a, j, b], "sets": [...]}: the glue of earlier nodes i, j at points a, b, members (X-a)|(Y-b) with
-  [a in X] != [b in Y], the points of i other than a first, then those of j other than b, plus explicit sets; the
-  block is the last node. The lemma makes the glue of valid nodes valid, so scoring is exact and checks every pair
-  and triple through each explicit set against its whole node (a leaf exhaustively), at most 4e6 members per node
-  and 6e8 explicit sets times node size in all. Stdlib, NumPy and SciPy are available. Wall limits: smoke 300 s,
-  full 900 s, confirm 3 repeats in 2700 s keeping the worst; checking the record takes 75 s. sf =
-  sciel.task.asset('sunflower') has members(block) and families(block) ((n, int64 members), fast, unchecked),
-  glue(...), port_counts(fam, p, q), rate(N, n), value(block) (fast), exact_value(block) (as scored), why_not(fam, n,
-  E) and addable(fam, n, E) (exact test of one new set, 0.1 s against 252292 members) and load(output) (the block of
-  a population output); known = sciel.task.asset('known') has F() and H() (Cla2026's 75 sets on the edges of K5 and
-  121 sets on Z11) and record() (H glued to F twice plus 842 explicit sets). The seed returns record() on the first
-  evaluation; afterwards it drops a few explicit sets of its population view's block, bars them, re-adds sets
-  greedily for 0.3 of its stage time and returns the result even below the start: a distinct lower output is
-  admitted, a repeat is not useful.
+  Implement block() returning {"nodes": [...], "ports": [p, q]}: a Sperner family on n <= 62 points with no
+  3-sunflower (A&B = A&C = B&C) and two ports. Chaining copies q -> p (DEGKM gluing lemma) bounds Tao's constant 49a
+  from below: mu_3 >= rho^(1/(n-2)), rho the Perron root of [[N10, N11], [N00, N01]], N_ab = #members with [p in D] =
+  a, [q in D] = b, all >= 1. Maximize it. combined_score = lower_bound / 1.5678599024 (Koshta 2026, 252292 sets, 28
+  points); above 1 is a record. Sets are int bitmasks. A node is a leaf {"n": n, "sets": [...]} or {"glue": [i, a, j,
+  b], "sets": [...]}: the glue of earlier nodes i, j at points a, b, members (X-a)|(Y-b) with [a in X] != [b in Y],
+  points of i minus a then of j minus b, plus explicit sets; the block is the last node. Scoring is exact: the lemma
+  covers glues; each explicit set is checked against its node, leaves exhaustively (caps: 4e6 members/node, 6e8
+  set-checks). Wall: smoke 300 s, full 900 s, confirm 3x in 2700 s (worst kept); the record checks in 75 s. sf =
+  sciel.task.asset('sunflower') has members(block) and families(block), glue(...), port_counts(fam, p, q), rate(N, n),
+  value(block) (fast), exact_value(block) (as scored), why_not(fam, n, E) and addable(fam, n, E) (exact one-set test,
+  0.1 s) and load(output); known = sciel.task.asset('known') has F() and H() (Cla2026 blocks) and record(). The seed
+  returns record() on the first evaluation; afterwards it drops a few explicit sets of its population view's block,
+  bars them, re-adds sets greedily for 0.3 of its stage time and returns the result even if lower; repeats are
+  useless.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
