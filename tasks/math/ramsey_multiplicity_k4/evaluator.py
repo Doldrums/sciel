@@ -149,7 +149,7 @@ def numerator(q, d):
     primes = _primes(bits // (math.isqrt(2 ** 53 // m).bit_length() - 1) + 2, m)
     # Primes are independent and run in fresh processes, one group per core: a forked child of a process that has
     # already used a threaded BLAS can hang.
-    workers = max(1, min(len(primes), os.cpu_count() or 1))
+    workers = max(1, min(len(primes), 4, os.cpu_count() or 1))
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "q.npy")
         np.save(path, np.stack([red, d - red]))
