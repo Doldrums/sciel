@@ -1,0 +1,65 @@
+suite: math
+name: furstenberg_sarkozy
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level certificate() returning a dict {alpha, chains, codes, binary} for Naslund's
+  interval-moment criterion: components in pairwise coprime square bases, an interval [a_x, a_x+w_x] in [0,1] per
+  digit ordered along every modular square difference, powers f_i with sum_x w_x^f_i >= b_i^alpha and sum f_i >
+  alpha. It proves square-difference-free sets in [1,N] of size N^(alpha-o(1)), a lower bound on Tao's C_4b. Maximize
+  alpha. chains [[p, digits]]: p = 3 mod 4 prime, digits with c_j - c_i a square iff j > i, f = 1 - (2alpha-1) log
+  p / log t. codes: odd primes, low words per prime, integer starts and widths over a denominator, power. binary:
+  Naslund's 25-state recursion at 2 (f, a, depth, root, vector, states). combined_score = alpha /
+  473797394875551/625000000000000 (Naslund, Oct 2026); above 1 is a record. Scoring is
+  exact, with proved bounds on powers and logs. NumPy, SciPy, mpmath. Wall limits: smoke 60 s, full 600 s,
+  confirm 3 repeats in 1800 s keeping the worst; scoring takes 2 s. sarkozy = sciel.task.asset('sarkozy') has
+  certify(cert) (exact), capacity(cert) (largest alpha the geometry allows, 50 digits, 1-4 s), finalize(cert)
+  (alpha and all powers set just below capacity), relayout(code, widths) (float widths placed on the code's
+  square-difference order), incoming(code) and load(output); asset('frontier').certificate() is Naslund's. The seed
+  returns it first; afterwards it moves a few widths of one code, re-lays it out, keeps the best capacity for 0.4 of
+  its stage time and returns it finalized: a distinct output is admitted, a repeat is not useful.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: alpha
+  numerator_units: exponent
+  denominator: 0.7580758318008816
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - alpha
+  - surplus
+  - components
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different certificates on repeats; confirm keeps the worst of three,
+# so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 600.0
+confirm_timeout: 1800.0
+license: "Problem from Tao's optimization constants (constant 4b, teorth/optimizationproblems); construction and criterion of E. Naslund (Hexagon 2610.00151v1, github.com/enaslund/sarkozy-lower-bound-0.758, Apache-2.0); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: new components (Paley chains at other primes, composite low-digit codes on new prime pairs, other binary recursions) or re-chosen digit sets"
+  - "an OPTIMIZATION approach: the interval widths of a code refined against sum w^f under the longest-path constraints of its square-difference order"
+  - "a GLOBAL-STOCHASTIC approach: multi-restart search over component choices, retained words and layouts, keeping the best under the time budget"
