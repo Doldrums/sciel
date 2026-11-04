@@ -1,0 +1,71 @@
+suite: math
+name: sunflower_free_capacity
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level block() returning {"nodes": [...], "ports": [p, q]}: a Sperner family on n <= 62 points with
+  no 3-sunflower (three distinct members with A&B = A&C = B&C) and two ports. Chaining copies at q -> p by the DEGKM
+  gluing lemma bounds the 3-sunflower-free capacity (Tao's constant 49a) from below: mu_3 >= rho^(1/(n-2)), rho the
+  Perron root of [[N10, N11], [N00, N01]], N_ab = #members with [p in D] = a, [q in D] = b, all >= 1. Maximize this
+  lower_bound. combined_score = lower_bound / 1.5678599024 (Koshta, Kos2026, 252292 sets on 28 points, October 2026);
+  above 1 is a record. Sets are integer bitmasks (bit x = point x). A node is a leaf {"n": n, "sets": [...]} or
+  {"glue": [i, a, j, b], "sets": [...]}: the glue of earlier nodes i, j at points a, b, members (X-a)|(Y-b) with
+  [a in X] != [b in Y], the points of i other than a first, then those of j other than b, plus explicit sets; the
+  block is the last node. The lemma makes the glue of valid nodes valid, so scoring is exact and checks every pair
+  and triple through each explicit set against its whole node (a leaf exhaustively), at most 4e6 members per node
+  and 6e8 explicit sets times node size in all. Stdlib, NumPy and SciPy are available. Wall limits: smoke 300 s,
+  full 900 s, confirm 3 repeats in 2700 s keeping the worst; checking the record takes 75 s. sf =
+  sciel.task.asset('sunflower') has members(block) and families(block) ((n, int64 members), fast, unchecked),
+  glue(...), port_counts(fam, p, q), rate(N, n), value(block) (fast), exact_value(block) (as scored), why_not(fam, n,
+  E) and addable(fam, n, E) (exact test of one new set, 0.1 s against 252292 members) and load(output) (the block of
+  a population output); known = sciel.task.asset('known') has F() and H() (Cla2026's 75 sets on the edges of K5 and
+  121 sets on Z11) and record() (H glued to F twice plus 842 explicit sets). The seed returns record() on the first
+  evaluation; afterwards it drops a few explicit sets of its population view's block, bars them, re-adds sets
+  greedily for 0.3 of its stage time and returns the result even below the start: a distinct lower output is
+  admitted, a repeat is not useful.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: chain_growth_rate
+  denominator: 1.5678599024
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - points
+  - members
+  - record
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different blocks on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 300.0
+full_timeout: 900.0
+confirm_timeout: 2700.0
+license: "Constant 49a of Tao's optimization problems; gluing lemma of Deuber, Erdos, Gunderson, Kostochka, Meyer (1997), chain count of IRSI2026, families of Cla2026, block of Koshta (Kos2026); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: new small Sperner sunflower-free base families (symmetric designs on graph edges or Z_p, orbits of a group action) glued into trees with pendants at chosen points"
+  - "an AUGMENTATION approach: adding explicit sets to a glued block (sets with an empty pendant part, flips of members), each checked exactly, since every new set raises a port count"
+  - "a STRUCTURAL approach: changing the gluing tree (which nodes, which points, which ports), trading points per period against port counts"
