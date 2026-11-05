@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import hashlib
+import os
 from pathlib import Path
 from ..methods.models import content_hash
 from .config import validate_config, library_limits
@@ -37,6 +38,17 @@ from .tool_protocol import (
 )
 from .observation_cards import _head_tail, _clip, _clip_json
 
+
+def _data_readme(config, target):
+    """A bounded excerpt of the data directory's own README; its bytes are bound by the directory's digest."""
+    root = os.environ.get(config['data_env']) if config['data_env'] else None
+    path = Path(root) / 'README.txt' if root else None
+    if path is None or not path.is_file():
+        return ''
+    text = path.read_text(encoding='utf-8', errors='replace').strip()
+    return f"{target}/README.txt:\n{_clip(text, min(1500, config['max_prompt_chars'] // 16))}\n"
+
+
 class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, BackgroundToolsMixin):
     def __init__(self, config, run_dir, *, task_identity, emit, charge, library=None, capacity_config=None, jobs=None):
         self.config = validate_config(config)
@@ -63,8 +75,9 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         data = self._identity['library']['executor'].get('data')
         self.data_note = '' if data is None else (
             f"DATA: read-only {data['target']} holds {data['files']} files "
-            f"({data['bytes'] / 2 ** 20:.0f} MiB) of the task's development data; scored data is absent. "
-            f"Read {data['target']}/README.txt first; load arrays with numpy mmap_mode='r'.\n")
+            f"({data['bytes'] / 2 ** 20:.0f} MiB); scored data is absent. "
+            f"Read {data['target']}/README.txt first; load arrays with numpy mmap_mode='r'.\n"
+            + _data_readme(self.config, data['target']))
         self._state = {'schema': CONTRACT, 'identity_sha256': content_hash(self._identity),
             'opportunities': {}, 'last_episode_opportunity': {}, 'registered': [], 'published': [],
             'committed_episodes': [], 'charges': {}, 'uses': {}, 'lifecycle': {}, 'followups': {},
