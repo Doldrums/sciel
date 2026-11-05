@@ -1,0 +1,63 @@
+suite: math
+name: zhang_zagier_height
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement certificate() returning {"denominators": [{"coeffs": [...], "multiplicity": m}], "numerators": [{"coeffs":
+  [...], "exponent": q}]}: integer polynomials, coefficients leading first, degree <= 128; R_j with leading +-1 (at most
+  8), S_i (at most 64 with q > 0), m_j positive ints, q_i >= 0 ints or [num, den], sum q_i deg S_i < D =
+  sum m_j deg R_j. Doche's limit point bounds Tao's constant 82 (Zhang-Zagier essential minimum): C_82 <= B = (1/D)
+  [sum m_j log M(R_j o T) + int_0^1 max(0, log|A/Q|(T(e^{2 pi i t}))) dt], T(z) = z(1 - z). Minimize B.
+  combined_score = 0.2520591385265 / B (Patankar, PR 280); above 1 is a record. Scoring is certified: disjoint root
+  discs, adaptive dyadic integral with outward margins. Wall limits: smoke 300 s, full 900 s, confirm 3 repeats in
+  2700 s keeping the worst; scoring takes 25 s. doche = sciel.task.asset('doche') has roots(coeffs) (of P o T,
+  cached), log_mahler, value(candidate) (float B), certify (as scored), resolve(den_list, num_list, grid) (joint LP
+  for m and q, a few s), load(output); frontier = sciel.task.asset('frontier').certificate() is PR 280's (3
+  degree-104 denominators, 21 numerators), where LP re-solves lose. The seed returns it first; later it adds lattice
+  neighbours of numerators or drops one, re-solves the LP and returns it even if worse: a repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: upper_bound
+  numerator_units: height
+  denominator: 0.2520591385265
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - upper_bound
+  - denominators
+  - numerators
+  - degree_ratio
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different certificates on repeats; confirm keeps the worst of three,
+# so a record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 300.0
+full_timeout: 900.0
+confirm_timeout: 2700.0
+license: "Constant 82 of Tao's optimization constants (teorth/optimizationproblems); limit-point construction of C. Doche (JTNB 13, 2001); certificate format and joint LP of R. Pinho; certificate and checker scheme of V. Patankar (vidigoat/optimization-records, MIT, PR 280); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: new denominators R whose composed roots R o T sit where log|Q| should be large, with small log M(R o T) / deg R, found by lattice reduction or closest-vector search on weighted evaluations"
+  - "an OPTIMIZATION approach: the joint LP for multiplicities and exponents on a fine grid, with numerators chosen where the dual prices of the positive part are largest"
+  - "an EXHAUSTIVE approach: enumerating small-height integer polynomials of low degree as numerator candidates and keeping those the LP takes"
