@@ -1,0 +1,65 @@
+suite: math
+name: ramsey_multiplicity_k5_mixed
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement module-level kernel() returning {"moduli": [m_1, ..., m_k], "q": (numerators, denominator)}: a finite
+  abelian group G = Z_{m_1} x ... x Z_{m_k} of order N <= 256, m_i >= 2, and one integer in [0, denominator <=
+  2**32] per element, mixed-radix index with the first modulus most significant, symmetric: q(-z) = q(z). q is a
+  step graphon on N equal parts, red with probability q(x - y) between parts x, y (q(0) inside a part); it bounds
+  the Ramsey multiplicity constant c5 (Tao's 89b) by the monochromatic K5 density upper_bound = t(K5,W) +
+  t(K5,1-W), to minimize. combined_score = 0.0016489705256017126 / upper_bound, R. Pinho's Cayley graphon on
+  Z_2^8 (Nov 2026); above 1 is a record. This task searches groups with odd factors, so it starts below 1:
+  the seed is a Cayley graphon on Z_2^6 x Z_3 at 0.97848. Scoring is exact in integers. NumPy, SciPy. Wall:
+  smoke 60 s, full 600 s, confirm 3 x worst in 1800 s; N = 192 scores in 6 s. group =
+  sciel.task.asset('group') has value_and_gradient(moduli, q) (float, symmetric gradient), exact_value(kernel),
+  snap(moduli, q, bits) (valid kernel), symmetrize, orbits(moduli) ({z, -z} representatives), tables(moduli)
+  (difference and negation indices), as_float(kernel), load(output) and lift(moduli, q, m) (same density on
+  G x Z_m). frontier = sciel.task.asset('frontier').kernel() is the seed's start. The seed returns it first;
+  afterwards it flips one to five orbits to 0/1, descends with L-BFGS-B and keeps hopping from the best for 0.4 of
+  its stage time, returning the result even if worse: a distinct output is admitted, a repeat is not useful.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: inverse_bound
+  numerator_units: reciprocal_upper_bound
+  denominator: 606.4389778192658
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - upper_bound
+  - inverse_bound
+  - order
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different kernels on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 600.0
+confirm_timeout: 1800.0
+license: "Problem from Tao's optimization constants (constant 89b, teorth/optimizationproblems PR 277 and 307); record of R. Pinho (github.com/rpinho/math-certificates, c89b/round4); evaluator and mixed-group seed written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: Cayley kernels on groups with odd factors (Z_3, Z_5, Z_4 x Z_3) built from characters, quadratic forms or products of good kernels on the factors"
+  - "an OPTIMIZATION approach: projected gradient or L-BFGS-B on the float density over symmetric q, with discrete flips of orbits between 0 and 1"
+  - "a GLOBAL-STOCHASTIC approach: greedy 0/1 descent from random orbit patterns on several groups, polish and basin hopping, keeping the best under the time budget"
