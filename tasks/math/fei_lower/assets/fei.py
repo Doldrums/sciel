@@ -21,7 +21,14 @@ from sciel.candidate_modules import load_candidate
 
 MAX_N = 20
 _evaluator = load_candidate(str(Path(__file__).resolve().parents[1] / "evaluator.py"), "evaluator")
-popcounts = _evaluator.popcounts
+_POPCOUNTS = {}
+
+
+def popcounts(n) -> np.ndarray:
+    """|S| for every bitmask S of [n], int64, computed once per n."""
+    if n not in _POPCOUNTS:
+        _POPCOUNTS[n] = _evaluator.popcounts(n)
+    return _POPCOUNTS[n]
 
 
 def load(output) -> tuple:
@@ -120,3 +127,76 @@ def rehost(n, bits, i, cells) -> tuple:
     moved = cells[z & ~b]
     z = np.where(moved, (z & ~b) | (((idx >> n) & 1) << i), z)
     return n + 1, bits[z].copy()
+
+
+def merge(n, bits, i, j) -> tuple:
+    """(n - 1, bits) of f with x_{j+1} identified with x_{i+1} and then dropped, the inverse of rehosting: the cells
+    variable j decided pass to variable i. Variables above j shift down by one."""
+    if i == j or n < 2:
+        raise ValueError("merge needs two distinct variables")
+    bits = np.asarray(bits, dtype=np.uint8)
+    idx = np.arange(1 << (n - 1), dtype=np.int64)
+    low, high = idx & ((1 << j) - 1), (idx >> j) << (j + 1)
+    z = low | high
+    i2 = i if i < j else i + 1
+    z |= ((z >> i2) & 1) << j
+    return n - 1, bits[z].copy()
+
+
+def core(n, bits, a=None) -> list:
+    """The core variables: those whose influence is at least a quarter of the largest one. On the record they are
+    x1..x9 (the majority) and the other nine are auxiliaries deciding two core cells each."""
+    a = spectrum(n, bits) if a is None else a
+    w = (a * a).astype(np.float64)
+    idx = np.arange(1 << n, dtype=np.int64)
+    inf = np.array([w[((idx >> i) & 1) == 1].sum() for i in range(n)])
+    return [i for i in range(n) if inf[i] >= inf.max() / 4]
+
+
+def cells(n, bits, variables) -> np.ndarray:
+    """The table reshaped as (cells, inputs within a cell): row c is f on the inputs whose core variables read the
+    bits of c (bit k of c is variables[k]), columns run over the other variables in increasing order."""
+    bits = np.asarray(bits, dtype=np.uint8)
+    rest = [i for i in range(n) if i not in variables]
+    c = np.arange(1 << len(variables), dtype=np.int64)
+    r = np.arange(1 << len(rest), dtype=np.int64)
+    x = np.zeros((c.size, r.size), dtype=np.int64)
+    for k, v in enumerate(variables):
+        x |= ((c[:, None] >> k) & 1) << v
+    for k, v in enumerate(rest):
+        x |= ((r[None, :] >> k) & 1) << v
+    return x
+
+
+def move_cell(n, bits, variables, rng) -> np.ndarray:
+    """A balanced jump in the cell picture: a core cell where f depends on the auxiliaries becomes constant, and a
+    constant cell on the core boundary takes over the same number of entries as a threshold of an auxiliary
+    variable and then of the auxiliary weight, so f stays balanced and monotone in the auxiliaries."""
+    bits = np.asarray(bits, dtype=np.uint8).copy()
+    x = cells(n, bits, variables)
+    table = bits[x]
+    mixed = np.flatnonzero((table.min(axis=1) == 0) & (table.max(axis=1) == 1))
+    if mixed.size == 0:
+        raise ValueError("no cell depends on the auxiliary variables")
+    c = int(rng.choice(mixed))
+    u = int(rng.integers(2))
+    d = int((u - table[c].astype(np.int64)).sum())
+    bits[x[c]] = u
+    if d == 0:
+        return bits
+    value = 1 if d > 0 else 0
+    k = len(variables)
+    constant = np.flatnonzero((table.min(axis=1) == value) & (table.max(axis=1) == value))
+    boundary = [int(e) for e in constant if e != c and any(table[e ^ (1 << t)].min() != value for t in range(k))]
+    if not boundary:
+        raise ValueError("no constant boundary cell to take the entries")
+    e = int(rng.choice(boundary))
+    rest = n - k
+    r = np.arange(1 << rest, dtype=np.int64)
+    weight = popcounts(rest)[r] if rest else np.zeros(1, dtype=np.int64)
+    lead = (r >> int(rng.integers(rest))) & 1 if rest else np.zeros(1, dtype=np.int64)
+    # Entries that move away from value: those with the auxiliaries farthest from the TRUE side when value is TRUE.
+    key = (lead * (rest + 1) + weight) * (1 if value else -1)
+    order = np.argsort(key, kind="stable")[:abs(d)]
+    bits[x[e][order]] = 1 - value
+    return bits

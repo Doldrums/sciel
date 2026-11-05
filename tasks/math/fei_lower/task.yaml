@@ -8,16 +8,17 @@ task_prompt: >-
   Inf = sum_S fhat(S)^2 |S| > 1. Maximize lower_bound = H / (Inf - 1), H = sum_S fhat(S)^2 log2(1/fhat(S)^2), a
   lower bound on the Fourier entropy-influence constant (Tao's constant 71a) by O'Donnell-Tan composition.
   combined_score = lower_bound / 6.5218457109, Numaro's balanced monotone record on 18 variables (2026); above 1
-  beats every known function. Scoring is exact: integer Walsh-Hadamard spectrum, Inf as a fraction, H in
-  outward-rounded intervals, the score is the certified lower end. Stdlib, NumPy, SciPy and mpmath are available.
-  Wall limits: smoke 30 s, full 300 s, confirm 3 repeats in 960 s keeping the worst. fei =
-  sciel.task.asset('fei') has spectrum(n, bits), stats(n, a) and value(n, a) (H, Inf and the bound in floats),
-  exact_value(n, bits) (as scored), influence and entropy (exact), flip/swap(n, a, bits, ...) (spectrum after a
-  move, O(2^n)), flip_delta, compose(g, h) and rehost(n, bits, i, cells) (a new variable takes over x_{i+1} on
-  some cells) and load(output). known = sciel.task.asset('known') has record() and majority(m). The seed
-  returns the record on the first evaluation; afterwards it swaps a chunk of entries of the function in its
-  population view, climbs by balanced swaps for half its stage time and returns the result even below the start,
-  since a distinct lower-scoring output is admitted and an exact repeat of a known output is not useful.
+  is a record. Scoring is exact: integer Walsh-Hadamard spectrum, Inf as a fraction, H in
+  outward-rounded intervals, the score is the certified lower end. NumPy, SciPy, mpmath.
+  Wall: smoke 30 s, full 300 s, confirm 3 x worst in 960 s. fei =
+  sciel.task.asset('fei') has spectrum(n, bits), stats(n, a) and value(n, a) (floats),
+  exact_value(n, bits) (as scored), influence, entropy, flip/swap(n, a, bits, ...) (spectrum after a move,
+  O(2^n)), compose(g, h) and rehost(n, bits, i, cells) (a new variable takes over x_{i+1} on
+  cells), merge(n, bits, i, j) (its inverse), core(n, bits), cells(n, bits, core) and move_cell(n, bits,
+  core, rng) (balanced: an auxiliary-decided cell moves to another boundary cell) and load(output).
+  known = sciel.task.asset('known') has record() and majority(m). The seed returns the record first; afterwards
+  it moves cells, merges two auxiliaries and resplits their cells, or splits one onto a new variable, then climbs
+  by cell moves and edge swaps for half its stage time and returns it even below the start (about 0.998).
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
