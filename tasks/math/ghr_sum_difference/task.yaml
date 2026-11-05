@@ -1,0 +1,63 @@
+suite: math
+name: ghr_sum_difference
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement candidate() returning {"mask": [m, ...], "x": x, "y": y}: a set M of distinct integers in [0, 2000]
+  containing 0 and a positive one, tilts x, y in (0, 1) as binary64 or [num, den] (read exactly). With
+  kappa(d) = min{a + b : a - b = d, a, b in M}, rho = log P_-(x) - mu log x for P_-(x) = sum over M - M of x^kappa(d)
+  and its Gibbs mean mu, and sigma = log P_+(y) - mu log y for P_+(y) = sum over M + M of y^s, Olafson's
+  two-temperature theorem gives C_3a >= 2 - sigma / rho (Tao's 3a, Gyarmati-Hennecart-Ruzsa). Maximize it.
+  combined_score = bound / 1.214181180950531 (Olafson 2026, PR 148: <4, 5> cut at 80); above 1 is a record.
+  Scoring is certified: interval Horner at 50 digits, rounded down. Wall limits: smoke 60 s, full 300 s, confirm 3
+  repeats in 900 s keeping the worst; scoring takes under 1 s. ghr = sciel.task.asset('ghr') has costs(mask),
+  kappa(mask), rates(mask, x, y=None) (float bound, rho, sigma, mu, best y), best(mask, x0=None) (both tilts,
+  10 ms), value, exact_value(candidate) (as scored), make(mask, x, y), load(output); frontier =
+  sciel.task.asset('frontier').candidate() is that mask, where cut and tilt polish gain under 3e-8 relative. The seed
+  returns it first; later it toggles one to three elements or moves the cut, re-tilts, climbs by single toggles for
+  0.4 of its stage time and returns it even if worse: a repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: sum_difference_exponent
+  denominator: 1.214181180950531047454969211484
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - mask_size
+  - max_element
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different masks on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 900.0
+license: "Constant 3a of Tao's optimization constants (teorth/optimizationproblems); finite-set lemma of Gyarmati, Hennecart and Ruzsa (2007); two-temperature cyclic quotient and mask of C. Olafson (github.com/carson-olaf/c3a-two-temperature-bound, PR 148); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: masks from numerical semigroups, their unions, products and gluings, cut at a chosen height, where M + M loses many small sums while every difference keeps a cheap witness"
+  - "an OPTIMIZATION approach: both tilts solved exactly for a mask, with local search over element toggles, cuts and generator swaps scored by the fast float bound"
+  - "an EXHAUSTIVE approach: enumerating small masks or gap sets below the conductor and ranking them by the bound before refining the best"
