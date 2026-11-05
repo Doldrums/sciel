@@ -1,0 +1,62 @@
+suite: math
+name: hardy_littlewood_squares
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement candidate() returning {"Px": Px, "Py": Py, "atoms": [[x, y, m], ...]}: a periodic atomic measure, at most
+  80 distinct atoms of mass m > 0 in the cell [0, Px) x [0, Py), periods in [1/2, 8]; numbers are ints, binary64 (read
+  exactly), "p/q" or [p, q]. Every box B with sides on atom coordinates (side <= 1396/125) and rho < sqrt(mu(B) / 4)
+  on the 2^-40 grid gives the rectangle of centres whose square of radius rho holds B; the union area in the cell over
+  the cell mass is a lower bound for Tao's constant 47a (centred Hardy-Littlewood maximal constant for squares in 2D,
+  Lin, Tomar). Maximize it. combined_score = ratio / 1.70311634551278 (59 atoms, PR 321, Tomar's hole-filling); above
+  1 is a record. Scoring is exact (Tomar's enumeration, fractions). Wall limits: smoke 300 s, full 900 s, confirm 3
+  repeats in 2700 s keeping the worst; scoring takes 1 s. hl = sciel.task.asset('hl') has value(candidate) (float
+  ratio, 1 s), exact, rectangles, holes(candidate, n) (uncovered grid points), floats, make(Px, Py, atoms),
+  load(output); frontier = sciel.task.asset('frontier').candidate() is that measure. The seed returns it first; later
+  it inserts a light atom in a hole, moves or drops one, climbs by single-atom moves and returns it even if worse: a
+  repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: weak_type_ratio
+  denominator: 1.7031163455127832639
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - atoms
+  - rectangles
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different measures on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 300.0
+full_timeout: 900.0
+confirm_timeout: 2700.0
+license: "Constant 47a of Tao's optimization constants (teorth/optimizationproblems); weighted lattice and truncation-smearing argument of Y. Lin (2026); rational periodic measure, exact checker and hole-filling of T. S. Tomar (zenodo 23716077, github.com/tejasvi/square-maximal-weak-type); 59-atom half cell of R. Pinho (rpinho/math-certificates, PR 321); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: lattices of heavy atoms with light rows or columns placed so that their boxes fill the slots the heavy lattice leaves uncovered, as in Lin's weighted lattice and Tomar's insertions"
+  - "an OPTIMIZATION approach: atom positions and masses refined by local search or gradients of the covered area, with the holes of the superlevel set guiding where atoms go"
+  - "an EXHAUSTIVE approach: enumerating period shapes, symmetric patterns and doubled or halved cells of the record and ranking them by the float ratio before refining the best"
