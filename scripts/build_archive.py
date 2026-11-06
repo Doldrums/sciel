@@ -95,7 +95,7 @@ def loose_programs(roots):
     for root in roots:
         for here, _, files in os.walk(root):
             for name in sorted(files):
-                if name.endswith(('.py', '.c')):
+                if name.endswith(('.py', '.c')) and not name.startswith('.'):
                     path = os.path.join(here, name)
                     with open(path, errors='replace') as source:
                         code = source.read()
@@ -116,7 +116,7 @@ def texts(roots):
         for here, dirs, files in os.walk(root):
             dirs[:] = [name for name in dirs if not name.startswith('.')]
             for name in sorted(files):
-                if not name.endswith(('.pdf', '.md', '.txt')):
+                if name.startswith('.') or not name.endswith(('.pdf', '.md', '.txt')):
                     continue
                 path = os.path.join(here, name)
                 body = read_text(path)
