@@ -37,12 +37,14 @@ def candidate():
     else:
         key = ["outer", "inner"][int(rng.integers(2))]
         r = c[key] + [0.0] * max(0, 5 - len(c[key]))
-        r[int(rng.integers(1, 5))] += rng.normal(0, 0.003) * r[0]
+        r[int(rng.choice([1, 3]))] += rng.normal(0, 0.003) * r[0]
         c[key] = r
     no, ni = len(c["outer"]), len(c["inner"])
 
     def unpack(x):
-        return helix.make(c["P"], c["Q"], x[0], x[1], x[2:2 + no], x[2 + no:])
+        outer, inner = np.array(x[2:2 + no]), np.array(x[2 + no:])
+        outer[2::2] = inner[2::2] = 0.0
+        return helix.make(c["P"], c["Q"], x[0], x[1], outer, inner)
 
     def f(x):
         if time.time() > deadline:

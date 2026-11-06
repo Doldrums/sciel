@@ -5,8 +5,8 @@ primary_metric: combined_score
 task_prompt: >-
   Implement candidate() returning {"P": p, "Q": q, "R": R, "h": h, "outer": [a0, a1, b1, ...], "inner": [i0, ...]}:
   two coaxial helix axes c R e(t) + h t ez (c = +-1, R <= h), each with an outer strand at radius a(u) and an inner
-  one at -i(u) in the axis Frenet frame, phase u = N t, N = P / Q (gcd 1, Q <= 64), a, i > 0 trig polynomials of
-  order <= 4 in u. Closed by PR 324's caps this is T(2, 4Pn + 3), so Tao's 22b (alternating knot ropelength per
+  one at -i(u) in the axis Frenet frame, phase u = N t, N = P / Q (gcd 1, Q <= 64), a, i > 0 even trig polynomials of
+  order <= 4 in u (every sine coefficient b_k must be 0, or the caps do not fit). Closed by PR 324's caps this is T(2, 4Pn + 3), so Tao's 22b (alternating knot ropelength per
   crossing) has C_22b <= B = (length per crossing) / thickness. Minimize B. combined_score = 7.090412 / B (Pinho's
   unequal superhelix, PR 324); above 1 is a record. Scoring is certified: thickness = min(curvature radius, R - max
   radius, half the self-distance past short arcs) by branch and bound with derivative sup norms. Wall limits: smoke

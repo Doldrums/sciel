@@ -57,6 +57,9 @@ def canonical(candidate):
         c = [float(x) for x in candidate[key]]
         if len(c) % 2 != 1 or len(c) > 2 * MAX_ORDER + 1:
             raise ValueError(f"{key} must list a0, a1, b1, ... up to order {MAX_ORDER}")
+        # The caps of PR 324 need r'(0) = 0 and the pi rotation about the X axis, so the radii must be even in u.
+        if any(c[2::2]):
+            raise ValueError(f"the {key} radius must be even: every sine coefficient b_k must be 0")
         radii.append(c)
     if not all(np.isfinite([R, h, *radii[0], *radii[1]])):
         raise ValueError("non-finite parameter")
