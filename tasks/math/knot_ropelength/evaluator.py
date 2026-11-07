@@ -23,9 +23,9 @@ import numpy as np
 
 _helix = load_candidate(str(Path(__file__).resolve().parent / "assets" / "helix.py"), "helix")
 
-# Pinho's PR 324 claim 7.090412 (his own body bound 7.0904111 after a 10001/10000 scale margin); this evaluator
-# bounds the same construction by 7.0904084, so it scores just above 1.
-REFERENCE = 7.090412
+# SCiEL's PR 342 claim 7.087662112 (its certified body bound 7.08766211189 rounded up); this evaluator bounds the same
+# construction by 7.0876621, so it scores just above 1.
+REFERENCE = 7.087662112
 
 
 def _load(program_path, module_name="program"):

@@ -1,29 +1,36 @@
-"""The best known construction for this task: the 59-atom half cell of R. Pinho's certificate for C_47 (rpinho/math-
-certificates commit 3d4cd55, c47/round1/certificates/half59.json, teorth/optimizationproblems PR 321, 2026; candidate,
-unrefereed), further hole-filling on T. S. Tomar's 50-atom measure (zenodo 23716077, C_47 >= 1.7027237335), which
-refines Y. Lin's weighted lattice. 50 inherited atoms and 9 inserted ones, rational coordinates and masses, period
-Px = 164377561597/50000000000, Py = 2744174966813/1000000000000. Tomar's check_exact2.py and assets/hl.py both give
-the ratio 215956002657486428307163448091951082893881/126800499112387565339223240212480000000000 = 1.70311634551278...
-from 33356 rectangles. The data is the measure's JSON, zlib-compressed and base64-encoded."""
+"""The best known construction for this task: SCiEL's 63-atom measure for C_47 (Qwen3.8-27B, run hl1, 6 Nov 2026;
+teorth/optimizationproblems PR 341, candidate, unrefereed; zenodo 24022791), found from R. Pinho's 59-atom half cell
+of PR 321, itself hole-filling on T. S. Tomar's measure (zenodo 23716077) refining Y. Lin's weighted lattice. Binary64
+coordinates and masses, read exactly. Tomar's check_exact2.py and assets/hl.py both give the ratio
+3132581668909806427917067970204393210052649/1839223215401194968772738622942534413844480 = 1.70320907...
+from 165083 rectangles. The data is the measure's JSON, zlib-compressed and base64-encoded."""
 
 import base64
 import json
 import zlib
 
 DATA = (
-    "eNqdWEuuIzcMvIvXA5h/inOK2T/MIgcIskgWCYLcPUXn92yp1e4YzwZey12qLlJk0b/fvv16+3rjMM30YK+8O/37un25ffsN65JmnFYRg/XORE9f+eGX"
-    "n378+fb14+PW//Wbb9+/fDyj8vM9/RYi0xCR4WGjPm/cX2oIL8IKudTLem9Cw0XdK4bzRCpIzILM+ZXxG9BDygK4VoOnbV0GFkzS9S4+4QpTeCoLiM1a"
-    "7Uk3tuBOKPM/sHesgxlXtO/NpRwsJlaqUTIFa09aKQfUHopor2K4Qz6hHDqUOIWXlAXRJcfmEhcpZ4CQlGfd+bPMp7AnfItCVVLWGcdKRjRCxS9nhpJD"
-    "itK0F43fQD4TeRjuxOqSdBVnshTuv3oCAS0RBXi9DL3jjOiJ6uNoP4fv7/ghyckygc53uZgWeIlW5lXgE40T8RM86zqRIb6RWyDR8xrj1pgHmw/Oy9Bn"
-    "nJNR8OsI2CNR1wf+8qlUvcO5OBD8kOvQZ5W5uLBx8Kp6MsqUs1BK1tXz13oIqWv4weHegp/VjS5FFHmgB4KnDf/8WO9wphJFIIkvAu/4IpWzEhlXeFBf"
-    "ha8SS8H1KeHeIEuGVpyqfpQVa9i9tOTOaD3pawVchT1ZXxrBgy3IsPJoPq9nUkwRsqjHml9AdRuJwoU67lNqW2XguojbQbjgaHAmIqioFvl7TLjKBjFu"
-    "fl44B93xFazhCg6E87LvI9IN6p5XxAXXLgDEba8uoZ6Ii/JgJXFQg1FuKrzGGMlzPTumCxUcNhKNzpanYYd7oi5UkH7SJS5yDPa53PL+vrboX2nC1i4i"
-    "JuNzCLnjydUmGt4DfcIW0YLlTOu99P6+qAiSE6ILc7BqxBvUE0mj7T7qeK6HDXgsbeCFb9gnbKRavCydo+7IZsYgwicU8E+x+iupEMG2ez1aXUnWPgU5"
-    "4AfE1kV2B7xjCw0EVgEGdKlB23hlxQAg1wpXEx4gjAHxyDptkLd5667lyDP4Xn0qJA+rV20vawCY+SpjDBCwinrgevfQJyLD7MHO1bIyGoZzTLxog67X"
-    "RVbDIHDg9bbIZ0UMlxPFYTneC0wEngcduq3eVc4Jd1pH9XwPfdYqMMVhqdbQsIIEH4jGmbM/DdyYeG5E3561QEJYoroemKZBOECe5DUVH/DBrOOY/3hO"
-    "8qRHpfAuaut8Q6KNRJumuQBxSwCh/KXJ/DN+wzxicl+rYGjEeCPdcxbYBM/DjNmEdTp6IujuGAyzlh0eA5YbdSXiGVgwYnehwcaTUD0TwqP36tKQMMpb"
-    "xwaTzSIluH/d4vTX7tDAEuiM1j9gzG2zYVEy0amz5gM9HHYO6TJIJ4nR4LAfUomWBgr1AbZCB4nS4nQkmjnmHVde1BGwhN8Oe/lB7z+NR/cBHyKxqMjw"
-    "zYlpRCHJIgJIcILdybE4Ht//+BOnxvho")
+    "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")
 
 
 def candidate() -> dict:

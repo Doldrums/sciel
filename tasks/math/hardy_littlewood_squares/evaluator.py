@@ -23,9 +23,9 @@ import numpy as np
 
 _hl = load_candidate(str(Path(__file__).resolve().parent / "assets" / "hl.py"), "hl")
 
-# The 59-atom half cell of PR 321 (Pinho, after Tomar's hole-filling), reproduced exactly by this evaluator and by
+# SCiEL's 63-atom measure of PR 341 (hl1, from PR 321's half cell), reproduced exactly by this evaluator and by
 # Tomar's check_exact2.py.
-REFERENCE = Fraction(215956002657486428307163448091951082893881, 126800499112387565339223240212480000000000)
+REFERENCE = Fraction(3132581668909806427917067970204393210052649, 1839223215401194968772738622942534413844480)
 
 
 def _load(program_path, module_name="program"):

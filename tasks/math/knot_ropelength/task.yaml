@@ -6,21 +6,21 @@ task_prompt: >-
   Implement candidate() returning {"P": p, "Q": q, "R": R, "h": h, "outer": [a0, a1, b1, ...], "inner": [i0, ...]}:
   two coaxial helix axes c R e(t) + h t ez (c = +-1, R <= h), each with an outer strand at radius a(u) and an inner
   one at -i(u) in the axis Frenet frame, phase u = N t, N = P / Q (gcd 1, Q <= 64), a, i > 0 even trig polynomials of
-  order <= 4 in u (every sine coefficient b_k must be 0, or the caps do not fit). Closed by PR 324's caps this is T(2, 4Pn + 3), so Tao's 22b (alternating knot ropelength per
-  crossing) has C_22b <= B = (length per crossing) / thickness. Minimize B. combined_score = 7.090412 / B (Pinho's
-  unequal superhelix, PR 324); above 1 is a record. Scoring is certified: thickness = min(curvature radius, R - max
-  radius, half the self-distance past short arcs) by branch and bound with derivative sup norms. Wall limits: smoke
-  60 s, full 300 s, confirm 3 repeats in 900 s keeping the worst; scoring takes 4 s. helix = sciel.task.asset('helix')
-  has value(candidate) (float B, 0.15 s), certify (as scored), make, load(output); frontier =
-  sciel.task.asset('frontier').candidate() is PR 324's, where local polish constant-radius polish gains nothing but 600 simplex steps with order-2 harmonics reach 1.00032. The seed
-  returns it first; later it moves N or adds a harmonic, re-optimizes for 0.4 of its stage time and returns it even
-  if worse: a repeat is useless.
+  order <= 4 in u (every sine coefficient b_k must be 0, or the caps do not fit). Closed by PR 324's caps this is T(2,
+  4Pn + 3), so Tao's 22b (alternating knot ropelength per crossing) has C_22b <= B = (length per crossing) /
+  thickness. Minimize B. combined_score = 7.087662112 / B (SCiEL's modulated superhelix, PR 342, from Pinho's PR 324);
+  above 1 is a record. Scoring is certified: thickness = min(curvature radius, R - max radius, half the self-distance
+  past short arcs) by branch and bound with derivative sup norms. Wall limits: smoke 60 s, full 300 s, confirm 3
+  repeats in 900 s keeping the worst; scoring takes 4 s. helix = sciel.task.asset('helix') has value(candidate) (float
+  B, 0.15 s), certify (as scored), make, load(output); frontier = sciel.task.asset('frontier').candidate() is PR
+  342's, with cos u and cos 2u harmonics on both strands. The seed returns it first; later it moves N or adds a
+  harmonic, re-optimizes for 0.4 of its stage time and returns it even if worse: a repeat is useless.
 research_metric:
   kind: validity_gated_ratio
   score_units: dimensionless
   numerator_case: upper_bound
   numerator_units: ropelength_per_crossing
-  denominator: 7.090412
+  denominator: 7.087662112
   validity_case: validity
   valid_value: 1.0
   invalid_score: 0.0
@@ -55,7 +55,7 @@ confirm_n: 3
 smoke_timeout: 60.0
 full_timeout: 300.0
 confirm_timeout: 900.0
-license: "Constant 22b of Tao's optimization constants (teorth/optimizationproblems); four-strand superhelix of Huh, Kim and Oh (2018), unequal radii of Y. Li (2026), construction and caps of R. Pinho (rpinho/math-certificates, PR 324); thickness theorem of Cantarella, Kusner and Sullivan (2002); evaluator written for SCiEL"
+license: "Constant 22b of Tao's optimization constants (teorth/optimizationproblems); four-strand superhelix of Huh, Kim and Oh (2018), unequal radii of Y. Li (2026), construction and caps of R. Pinho (rpinho/math-certificates, PR 324); modulated radii of SCiEL (PR 342); thickness theorem of Cantarella, Kusner and Sullivan (2002); evaluator written for SCiEL"
 paradigms:
   - "a CONSTRUCTIVE approach: radius profiles a(u), i(u) with harmonics that pull the strands apart exactly where the contact or curvature constraint binds, spending length only there"
   - "an OPTIMIZATION approach: joint local search over R, h and the Fourier coefficients on the float estimate, at many rationals N = P / Q, then certify the best"
