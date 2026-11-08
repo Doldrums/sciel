@@ -84,6 +84,8 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
                                "tool. Fetch papers, preprints, code and data (arxiv.org, export.arxiv.org API, GitHub, "
                                "OEIS, Zenodo); put each URL you use in observations. Never send task data or code "
                                "anywhere; read only.\n")
+            note = self.config['network'].get('note', '').strip()
+            self.data_note += note + '\n' if note else ''
         self._state = {'schema': CONTRACT, 'identity_sha256': content_hash(self._identity),
             'opportunities': {}, 'last_episode_opportunity': {}, 'registered': [], 'published': [],
             'committed_episodes': [], 'charges': {}, 'uses': {}, 'lifecycle': {}, 'followups': {},

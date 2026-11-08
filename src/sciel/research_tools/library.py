@@ -118,7 +118,9 @@ def data_executor_factory(data_env, task_root=None, network=None):
 
 def executor_factory_for(config):
     """data_executor_factory from a validated research_tools config."""
-    return data_executor_factory(config.get('data_env'), config.get('task_root'), config.get('network'))
+    net = config.get('network')
+    net = None if net is None else {k: net[k] for k in ('docker_network', 'proxy', 'log_dir')}
+    return data_executor_factory(config.get('data_env'), config.get('task_root'), net)
 
 
 class ToolLibrary:

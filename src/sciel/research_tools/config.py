@@ -41,7 +41,8 @@ DEFAULTS = {
     # The task directory, set by the engine: tools import its evaluator and assets as a candidate does.
     'task_root': None,
     # Web access for tools: {'docker_network': internal network, 'proxy': 'http://host:port' on it, 'log_dir':
-    # host directory where the proxy writes one JSONL per container}. None keeps tools offline.
+    # host directory where the proxy writes one JSONL per container, optional 'note': what else is reachable, for the
+    # prompt}. None keeps tools offline.
     'network': None,
     'jobs': {'enabled': False, 'max_active': 1, 'max_pending': 16,
              'max_cpu_seconds': 3600.0, 'max_wall_seconds': 7200.0},
@@ -124,12 +125,13 @@ def validate_config(value=None):
     if root is not None and (type(root) is not str or not root.startswith('/')):
         raise ValueError('research_tools.task_root must be an absolute path or null')
     net = cfg['network']
-    if net is not None and (type(net) is not dict or set(net) != {'docker_network', 'proxy', 'log_dir'}
+    if net is not None and (type(net) is not dict or not {'docker_network', 'proxy', 'log_dir'} <= set(net)
+            or set(net) - {'docker_network', 'proxy', 'log_dir', 'note'} or type(net.get('note', '')) is not str
             or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]*', str(net['docker_network']))
             or not re.fullmatch(r'http://[a-zA-Z0-9.-]+:[0-9]+', str(net['proxy']))
             or not str(net['log_dir']).startswith('/')):
         raise ValueError('research_tools.network must be null or {docker_network, proxy: http://host:port, '
-                         'log_dir: absolute path}')
+                         'log_dir: absolute path, note: optional text}')
     if cfg['enabled'] and image is None:
         raise ValueError('enabled research_tools requires an immutable Docker image_id')
     for name, limit in cfg['limits'].items():
