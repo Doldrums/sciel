@@ -6,19 +6,25 @@ crossing number. Huh-Kim-Oh's four-strand superhelix with Li's unequal radii (R.
 teorth/optimizationproblems) closes into T(2, 4 P n + 3): two coaxial axes alpha_c(t) = c R e(t) + h t ez, c = +-1,
 each carrying an outer and an inner strand on opposite sides,
 
-    P_c,r(t) = alpha_c(t) + r(u) (cos u n_c(t) - sin u b_c(t)),   u = N t,  N = P / Q,
+    P_c,r(t) = alpha_c(t) + r(u) (cos v(u) n_c(t) - sin v(u) b_c(t)),   u = N t,  N = P / Q,
 
 n_c, b_c the Frenet normal and binormal of the axis, r = +a(u) (outer) and r = -i(u) (inner) with a, i > 0
-trigonometric polynomials in u (PR 324: constants). One minor period u in [0, 2 pi] holds four crossings, so the
+trigonometric polynomials in u (PR 324: constants), v(u) = u + sum_k p_k sin k u the phase shared by all strands
+(PR 324: v = u; PR 347: four orders). v is odd, so v(u + 2 pi) = v(u) + 2 pi and the reversal symmetry the caps need
+is kept. One minor period u in [0, 2 pi] holds four crossings, so the
 length per crossing of the limit is c = (1/2) int_0^2pi (|P'_a| + |P'_-i|) du and C_22b <= c / thickness; the
 caps cost O(1) and drop out as n -> oo.
 
-A candidate is {"P": int, "Q": int, "R": x, "h": x, "outer": [a0, a1, b1, a2, b2, ...], "inner": [...]} with
-a(u) = a0 + sum_k (a_k cos k u + b_k sin k u), k <= MAX_ORDER.
+A candidate is {"P": int, "Q": int, "R": x, "h": x, "outer": [a0, a1, b1, a2, b2, ...], "inner": [...],
+"phase": [p1, p2, ...]} with a(u) = a0 + sum_k (a_k cos k u + b_k sin k u), k <= MAX_ORDER, and at most MAX_PHASE
+phase coefficients ("phase" may be omitted).
 
-Certification (certify): every strand is a trigonometric polynomial in u, so the sup norms of its derivatives are
-bounded by sums of |coefficient| frequency^k. Thickness = min(curvature radius, half the doubly critical
-self-distance) (Cantarella-Kusner-Sullivan) is bounded below by
+Certification (certify): r e^{i v} = r e^{i u} prod_k sum_n J_n(p_k) e^{i n k u} (Jacobi-Anger), truncated where the
+tail, in the norm sum |c_m| (1 + |m|)^j for j <= 4, is below TAIL, and terms below PRUNE in that norm dropped; both go
+into err, added to every sup norm and to the length, and are far below the absolute margins below. Every strand is
+then a trigonometric polynomial in u, so the sup norms of its derivatives are bounded by sums of |coefficient|
+frequency^k; max r is bounded on cells. Thickness = min(curvature radius, half the doubly critical self-distance)
+(Cantarella-Kusner-Sullivan) is bounded below by
   - curvature: branch and bound on tau^2 |v x a|^2 - |v|^6 <= 0 with a second-order Taylor bound per cell;
   - other bundle: axes at distance >= 2R when h >= R, so tau <= R - max r;
   - same bundle: screw symmetry (u -> u + 2 pi is an isometry) reduces pairs to u in [0, 2 pi], phase gap delta
@@ -28,11 +34,15 @@ self-distance) (Cantarella-Kusner-Sullivan) is bounded below by
 Floating point is binary64 with an absolute margin on every cell.
 """
 
-from math import gcd
+from math import factorial, gcd
 
 import numpy as np
+from scipy.special import jv
 
-MAX_ORDER = 4
+MAX_ORDER = 6
+MAX_PHASE = 6
+TAIL = 1e-24
+PRUNE = 1e-20
 MAX_P = 4000
 MAX_Q = 64
 SLACK = 1e-11
@@ -42,7 +52,7 @@ MAX_CELLS = 4_000_000
 
 
 def canonical(candidate):
-    """(P, Q, R, h, outer, inner) checked; raises ValueError."""
+    """(P, Q, R, h, outer, inner, phase) checked; raises ValueError."""
     if not isinstance(candidate, dict) or not {"P", "Q", "R", "h", "outer", "inner"} <= set(candidate):
         raise ValueError('the candidate must be {"P", "Q", "R", "h", "outer", "inner"}')
     P, Q = candidate["P"], candidate["Q"]
@@ -61,21 +71,40 @@ def canonical(candidate):
         if any(c[2::2]):
             raise ValueError(f"the {key} radius must be even: every sine coefficient b_k must be 0")
         radii.append(c)
-    if not all(np.isfinite([R, h, *radii[0], *radii[1]])):
+    phase = [float(x) for x in candidate.get("phase", [])]
+    if len(phase) > MAX_PHASE or sum(map(abs, phase)) > 1:
+        raise ValueError(f"at most {MAX_PHASE} phase coefficients, sum |p_k| <= 1")
+    if not all(np.isfinite([R, h, *radii[0], *radii[1], *phase])):
         raise ValueError("non-finite parameter")
     if not 0 < R <= h:
         raise ValueError("need 0 < R <= h (the axes then stay 2R apart)")
     for key, c in zip(("outer", "inner"), radii):
         if c[0] - sum(np.hypot(c[1::2], c[2::2])) <= 0:
             raise ValueError(f"the {key} radius must stay positive")
-    return P, Q, R, h, radii[0], radii[1]
+    return P, Q, R, h, radii[0], radii[1], phase
+
+
+def _jacobi_anger(p, k):
+    """Coefficients of e^{i p sin k u} on frequencies -n k .. n k, the l1 norms of the kept series and bounds on the
+    dropped tail, both with weights (1 + |m|)^j, j <= 4. |J_n(p)| <= (|p| / 2)^n / n!."""
+    def term(n, j):
+        return 2 * (abs(p) / 2) ** n / factorial(n) * (1 + n * k) ** j
+
+    n = 1
+    while sum(term(m, 4) for m in range(n + 1, n + 40)) * 2 > TAIL:
+        n += 1
+    tail = [2 * sum(term(m, j) for m in range(n + 1, n + 40)) for j in range(5)]
+    c = np.zeros(2 * n * k + 1, complex)
+    c[n * k + k * np.arange(-n, n + 1)] = jv(np.arange(-n, n + 1), p)
+    m = np.abs(np.arange(-n * k, n * k + 1))
+    return c, [sum(abs(c) * (1 + m) ** j) for j in range(5)], tail
 
 
 class Strand:
-    """The c = +1 strand of signed radius r(u) as trig polynomials: horizontal sum G_m e^{i (m + nu) u}, vertical
-    (h / N) u + sum Z_m e^{i m u}."""
+    """The c = +1 strand of signed radius r(u) and phase v(u) as trig polynomials: horizontal sum G_m e^{i (m + nu)
+    u}, vertical (h / N) u + sum Z_m e^{i m u}, exact up to err[j] in the j-th derivative."""
 
-    def __init__(self, P, Q, R, h, coeffs, sign):
+    def __init__(self, P, Q, R, h, coeffs, sign, phase=()):
         N = P / Q
         self.nu, s = 1 / N, np.hypot(R, h)
         K = (len(coeffs) - 1) // 2
@@ -84,19 +113,54 @@ class Strand:
         for k in range(1, K + 1):
             z = sign * complex(coeffs[2 * k - 1], -coeffs[2 * k]) / 2
             rho[K + k], rho[K - k] = z, np.conj(z)
-        M = K + 1
-        up, down = np.zeros(2 * M + 1, complex), np.zeros(2 * M + 1, complex)
-        up[2:], down[:-2] = rho, rho      # rho e^{iu}, rho e^{-iu}
+        w = np.zeros(2 * K + 3, complex)
+        w[2:] = rho                        # rho e^{iu}
+        full, drop = np.ones(5), np.zeros(5)
+        for k, p in enumerate(phase, 1):
+            if p:
+                c, norm, tail = _jacobi_anger(p, k)
+                w = np.convolve(w, c)
+                # prod (n + t) - prod n, kept apart from the product so a tail below 1e-16 is not rounded away
+                drop = drop * (np.array(norm) + tail) + full * tail
+                full = full * (np.array(norm) + tail)
+        # The weight (1 + |m|)^j is submultiplicative, so the truncated product is off by at most drop, and G, Z
+        # take at most twice the error of w and of its mirror.
+        weight = (1 + np.abs(np.arange(len(rho)) - K)) ** np.arange(5)[:, None]
+        self.err = 3 * 2 ** np.arange(5) * (weight * np.abs(rho)).sum(1) * drop * (1 + 1e-12)
+        M = (len(w) - 1) // 2
+        up, down = w, np.conj(w[::-1])     # r e^{iv}, r e^{-iv}
         cos_r, sin_r = (up + down) / 2, (up - down) / 2j
-        self.m = np.arange(-M, M + 1)
-        self.G = -cos_r + 1j * (h / s) * sin_r
-        self.G[M] += R
-        self.Z = -(R / s) * sin_r
+        m = np.arange(-M, M + 1)
+        G = -cos_r + 1j * (h / s) * sin_r
+        G[M] += R
+        Z = -(R / s) * sin_r
+        # Terms below PRUNE in the weight (1 + |m|)^4 are dropped into err, so a phase costs few extra terms.
+        keep = (np.abs(G) + np.abs(Z)) * (1 + np.abs(m)) ** 4 >= PRUNE
+        keep[M] = True
+        lost = np.abs(G[~keep]) + np.abs(Z[~keep])
+        self.err = self.err + (lost * (1 + np.abs(m[~keep])) ** np.arange(5)[:, None]).sum(1) * (1 + 1e-12)
+        self.m, self.G, self.Z = m[keep], G[keep], Z[keep]
         self.rise, self.tilt = h / N, R / s
-        self.rmax = sum(abs(rho))
-        self.lean = (R / s) * sum(abs(sin_r) * abs(self.m))
+        # sup |r| on cells of radius pi / n: |r(c)| + sup |r'| pi / n
+        n = 1 << 14
+        k = np.arange(-K, K + 1)
+        u = (np.arange(n) + 0.5) * (2 * np.pi / n)
+        r = (rho * np.exp(1j * k * u[:, None])).sum(1).real
+        self.rmax = min(sum(abs(rho)), np.max(np.abs(r)) * (1 + 1e-14) + sum(abs(rho) * abs(k)) * np.pi / n + 1e-15)
         self.bound = [np.hypot(sum(abs(self.G) * abs(self.m + self.nu) ** k),
-                               sum(abs(self.Z) * abs(self.m) ** k) + (self.rise if k == 1 else 0)) for k in range(5)]
+                               sum(abs(self.Z) * abs(self.m) ** k) + (self.rise if k == 1 else 0)) + self.err[k]
+                      for k in range(5)]
+
+    def climbs(self):
+        """Z' > 0 on a period, certified on cells of radius r by Z'(c) - |Z''(c)| r - sup |Z^(3)| r^2 / 2 > 0; the
+        strand is then a graph over Z."""
+        z3 = sum(abs(self.Z) * np.abs(self.m) ** 3) + self.err[3]
+        for n in (1 << 10, 1 << 14, 1 << 18):
+            u, r = (np.arange(n) + 0.5) * (2 * np.pi / n), np.pi / n
+            low = self.eval(u, 1)[:, 2] - self.err[1] - (np.abs(self.eval(u, 2)[:, 2]) + self.err[2]) * r
+            if np.min(low - z3 * r * r / 2) > SLACK:
+                return True
+        return False
 
     def eval(self, u, k=0):
         """k-th derivative in u at the points u, as an (n, 3) array."""
@@ -109,9 +173,9 @@ class Strand:
 
 
 def strands(candidate):
-    P, Q, R, h, outer, inner = canonical(candidate)
-    a, i = Strand(P, Q, R, h, outer, 1.0), Strand(P, Q, R, h, inner, -1.0)
-    if a.rise <= a.lean or i.rise <= i.lean:
+    P, Q, R, h, outer, inner, phase = canonical(candidate)
+    a, i = Strand(P, Q, R, h, outer, 1.0, phase), Strand(P, Q, R, h, inner, -1.0, phase)
+    if not (a.climbs() and i.climbs()):
         raise ValueError("every strand must climb monotonically (a graph over Z)")
     if R <= max(a.rmax, i.rmax):
         raise ValueError("the bundles overlap")
@@ -126,7 +190,7 @@ def length(a, i, cells=LENGTH_CELLS):
     for st in (a, i):
         v, acc = st.eval(u, 1), st.eval(u, 2)
         cell = w * np.sqrt((v * v).sum(1) + (acc * acc).sum(1) * w * w / 12) + st.bound[3] * w ** 3 / 24
-        total += cell.sum() * (1 + 1e-14) + cells * 1e-15
+        total += cell.sum() * (1 + 1e-14) + cells * 1e-15 + 2 * np.pi * st.err[1]
     return total / 2
 
 
@@ -237,10 +301,11 @@ def value(candidate):
     return length(a, i, 4096) / tau
 
 
-def make(P, Q, R, h, outer, inner):
-    return {"P": int(P), "Q": int(Q), "R": float(R), "h": float(h),
-            "outer": [float(x) for x in outer], "inner": [float(x) for x in inner]}
+def make(P, Q, R, h, outer, inner, phase=()):
+    return {"P": int(P), "Q": int(Q), "R": float(R), "h": float(h), "outer": [float(x) for x in outer],
+            "inner": [float(x) for x in inner], "phase": [float(x) for x in phase]}
 
 
 def load(output):
-    return make(output["P"], output["Q"], output["R"], output["h"], output["outer"], output["inner"])
+    return make(output["P"], output["Q"], output["R"], output["h"], output["outer"], output["inner"],
+                output.get("phase", []))

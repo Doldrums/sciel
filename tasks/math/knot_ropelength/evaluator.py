@@ -3,7 +3,8 @@
 C_22b is the largest b with L >= b C for every alternating knot (L ropelength at unit radius thickness, C crossing
 number). A candidate is a four-strand superhelix: two coaxial helical axes of radius R and rise h per radian, each
 carrying an outer strand of radius a(u) and an inner strand of radius i(u) on the opposite side, twisting N = P / Q
-times per axis turn (Huh-Kim-Oh's superhelix with Li's unequal radii; R. Pinho, PR 324). Closed by PR 324's caps it is
+times per axis turn (Huh-Kim-Oh's superhelix with Li's unequal radii; R. Pinho, PR 324), the twist phase modulated by
+sine terms (PR 347). Closed by PR 324's caps it is
 T(2, 4 P n + 3), so C_22b <= (length per crossing) / thickness of the periodic body (assets/helix.py). It is scored
 as a certified upper bound: the length by a per-cell second-order bound, the thickness as the least of a curvature
 branch and bound, the bundle gap R - max r and a branch and bound on the squared self-distance, every bound from
@@ -23,9 +24,9 @@ import numpy as np
 
 _helix = load_candidate(str(Path(__file__).resolve().parent / "assets" / "helix.py"), "helix")
 
-# SCiEL's PR 342 claim 7.087662112 (its certified body bound 7.08766211189 rounded up); this evaluator bounds the same
-# construction by 7.0876621, so it scores just above 1.
-REFERENCE = 7.087662112
+# Pinho's PR 347 construction as this evaluator bounds it (7.0875531992, rounded up); his own claim is 7.087559024,
+# so anything above 1 here is below both.
+REFERENCE = 7.0875532
 
 
 def _load(program_path, module_name="program"):
@@ -73,8 +74,7 @@ def _evaluate(program_path, stage):
     start_time = time.time()
     raw = program.candidate()
     eval_time = time.time() - start_time
-    P, Q, R, h, outer, inner = _helix.canonical(raw)
-    candidate = _helix.make(P, Q, R, h, outer, inner)
+    candidate = _helix.make(*_helix.canonical(raw))
     upper, length, tau, binding = _helix.certify(candidate)
     combined = float(np.nextafter(REFERENCE / upper, -np.inf))
     cases = {"upper_bound": float(upper), "combined_score": combined, "validity": 1.0,

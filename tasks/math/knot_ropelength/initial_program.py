@@ -17,34 +17,40 @@ def candidate():
     length per crossing over its thickness, an upper bound on C_22b, is as small as possible.
 
     Returns:
-        {"P": int, "Q": int, "R": x, "h": x, "outer": [a0, a1, b1, ...], "inner": [i0, ...]}: Fourier coefficients
-        of the radii in u = N t, order <= 4.
+        {"P": int, "Q": int, "R": x, "h": x, "outer": [a0, a1, b1, ...], "inner": [i0, ...], "phase": [p1, ...]}:
+        cosine coefficients of the radii in u = N t (order <= 6, every b_k = 0) and sine coefficients of the twist
+        phase v(u) = u + sum p_k sin k u (at most 6).
     """
     deadline = time.time() + 0.4 * float(os.environ.get("SCIEL_STAGE_SECONDS", "30"))
     # The first evaluation returns the best known construction unchanged, so the record enters the population.
     views = [program for program in population() if program["output"] is not None]
     if not views:
         return asset("frontier").candidate()
-    # Afterwards jump out of the parent's basin (or the view's best): move N to a nearby fraction, or add a random
-    # first or second harmonic to one radius, then re-optimize the continuous parameters on the float estimate.
+    # Afterwards jump out of the parent's basin (or the view's best): move N to a nearby fraction, kick a random radius
+    # harmonic or a phase coefficient, then re-optimize the continuous parameters on the float estimate.
     start = helix.load(next((p for p in views if p["parent"]), views[0])["output"])
     rng = np.random.default_rng(int(time.time() * 1e6) % 2**32)
-    c = dict(start, outer=list(start["outer"]), inner=list(start["inner"]))
-    if rng.random() < 0.5:
+    c = dict(start, outer=list(start["outer"]), inner=list(start["inner"]), phase=list(start["phase"]))
+    move = rng.random()
+    if move < 0.3:
         while (c["P"], c["Q"]) == (start["P"], start["Q"]) or np.gcd(c["P"], c["Q"]) != 1:
             c["Q"] = int(np.clip(start["Q"] + rng.integers(-2, 3), 1, helix.MAX_Q))
             c["P"] = int(round(start["P"] / start["Q"] * c["Q"] * (1 + rng.normal(0, 0.02))))
-    else:
+    elif move < 0.65:
         key = ["outer", "inner"][int(rng.integers(2))]
-        r = c[key] + [0.0] * max(0, 5 - len(c[key]))
-        r[int(rng.choice([1, 3]))] += rng.normal(0, 0.003) * r[0]
+        r = c[key] + [0.0] * max(0, 2 * helix.MAX_ORDER + 1 - len(c[key]))
+        r[2 * int(rng.integers(1, helix.MAX_ORDER + 1)) - 1] += rng.normal(0, 0.002) * r[0]
         c[key] = r
+    else:
+        p = c["phase"] + [0.0] * max(0, helix.MAX_PHASE - len(c["phase"]))
+        p[int(rng.integers(helix.MAX_PHASE))] += rng.normal(0, 0.01)
+        c["phase"] = p
     no, ni = len(c["outer"]), len(c["inner"])
 
     def unpack(x):
-        outer, inner = np.array(x[2:2 + no]), np.array(x[2 + no:])
+        outer, inner = np.array(x[2:2 + no]), np.array(x[2 + no:2 + no + ni])
         outer[2::2] = inner[2::2] = 0.0
-        return helix.make(c["P"], c["Q"], x[0], x[1], outer, inner)
+        return helix.make(c["P"], c["Q"], x[0], x[1], outer, inner, x[2 + no + ni:])
 
     def f(x):
         if time.time() > deadline:
@@ -54,7 +60,7 @@ def candidate():
         except ValueError:
             return 1e3
 
-    x0 = np.r_[c["R"], c["h"], c["outer"], c["inner"]]
+    x0 = np.r_[c["R"], c["h"], c["outer"], c["inner"], c["phase"]]
     best = [f(x0) if time.time() < deadline else 1e3, x0]
 
     def track(x):
