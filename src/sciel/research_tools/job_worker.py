@@ -13,7 +13,7 @@ from ..engine.capacity import HostCapacity
 from ..engine.runtime import process_identity
 from ..methods.executor import ExecutionRefused
 from ..methods.models import canonical_bytes, content_hash
-from .library import ToolLibrary, data_executor_factory
+from .library import ToolLibrary, executor_factory_for
 from .jobs import (SCHEMA, TERMINAL, _root, _spec, _receipt, _no_links,
                    read_json, write_json, lock, now)
 
@@ -168,8 +168,7 @@ def run_service(run_dir, *, library_factory=None, stop_when_idle=False, poll_sec
         lib = identity['library']
         if library_factory is None:
             library = ToolLibrary(run_dir, lib['runtime_lock'], lib['limits'],
-                                  executor_factory=data_executor_factory(identity['config'].get('data_env'),
-                                                                         identity['config'].get('task_root')))
+                                  executor_factory=executor_factory_for(identity['config']))
         else:
             library = library_factory(run_dir, lib['runtime_lock'], lib['limits'])
         if library.identity != lib:

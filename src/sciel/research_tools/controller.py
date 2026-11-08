@@ -11,7 +11,7 @@ from .controller_jobs import BackgroundToolsMixin
 from .continuations import ContinuationMixin
 from .sharing import SharingMixin
 from .transfer_jobs import TransferJobsMixin
-from .library import ToolLibrary, data_executor_factory
+from .library import ToolLibrary, executor_factory_for
 from .lifecycle import CellLifecycle
 from .followups import FollowupLedger
 from .observation_cards import format_context
@@ -57,7 +57,7 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
         self.culture = None
         self.library = library or ToolLibrary(run_dir,
             {'image_id': self.config['image_id']}, library_limits(self.config),
-            executor_factory=data_executor_factory(self.config['data_env'], self.config['task_root']))
+            executor_factory=executor_factory_for(self.config))
         self.path = self.library.path / 'artifacts'
         self.path.mkdir(parents=True, exist_ok=True)
         from ..engine.source_identity import package_source_hashes
@@ -78,6 +78,12 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
             f"({data['bytes'] / 2 ** 20:.0f} MiB); scored data is absent. "
             f"Read {data['target']}/README.txt first; load arrays with numpy mmap_mode='r'.\n"
             + _data_readme(self.config, data['target']))
+        if self.config['network'] is not None:
+            self.data_note += ("WEB (this run overrides 'No network'): HTTP(S) works through a logging proxy set in "
+                               "the environment (urllib, requests, pip download). Every request is logged with the "
+                               "tool. Fetch papers, preprints, code and data (arxiv.org, export.arxiv.org API, GitHub, "
+                               "OEIS, Zenodo); put each URL you use in observations. Never send task data or code "
+                               "anywhere; read only.\n")
         self._state = {'schema': CONTRACT, 'identity_sha256': content_hash(self._identity),
             'opportunities': {}, 'last_episode_opportunity': {}, 'registered': [], 'published': [],
             'committed_episodes': [], 'charges': {}, 'uses': {}, 'lifecycle': {}, 'followups': {},

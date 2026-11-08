@@ -139,6 +139,10 @@ def _supervise(request_path):
     for key in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS',
                 'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS', 'BLIS_NUM_THREADS'):
         env[key] = '1'
+    # The only host setting a tool sees: the logging web proxy, when the executor gives one.
+    for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
+        if key in os.environ:
+            env[key] = os.environ[key]
     child = subprocess.Popen([PYTHON, '-s', '-P', '-B', '/runtime/_runner.py', '--call', request_path],
         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         cwd='/tmp', user=10001, group=10001, extra_groups=[], env=env, start_new_session=True)

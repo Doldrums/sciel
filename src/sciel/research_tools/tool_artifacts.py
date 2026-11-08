@@ -144,7 +144,8 @@ def _record_invocation(tools, plan, bundle, inputs, invocation_id, receipt, limi
         output_sha256=receipt.get('output_sha256'), dispatch_status=receipt.get('dispatch_status'),
         status=receipt.get('status'), resources=receipt.get('resources'), error=receipt.get('reason'),
         result_schema=RESULT_SCHEMA, tool_result_status=result['status'],
-        tool_result_error=result['error'], replay_policy=policy, target_binding=binding)
+        tool_result_error=result['error'], replay_policy=policy, target_binding=binding,
+        network=None if 'network' not in receipt else {k: v for k, v in receipt['network'].items() if k != 'entries'})
     if receipt.get('status') == 'unknown' or receipt.get('dispatch_status') == 'unknown':
         raise CampaignStopped('research tool execution outcome unknown; reconcile its durable receipt')
     if receipt.get('status') not in ('ok', 'failed'):

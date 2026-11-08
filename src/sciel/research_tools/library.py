@@ -105,15 +105,20 @@ def validate_tool_entrypoint(code):
         raise _entrypoint_error('run cannot be called with one positional input', functions)
 
 
-def data_executor_factory(data_env, task_root=None):
-    """Executor factory mounting the directory named by data_env and staging the task's files; None keeps the
-    default."""
-    if data_env is None and task_root is None:
+def data_executor_factory(data_env, task_root=None, network=None):
+    """Executor factory mounting the directory named by data_env, staging the task's files and, with network, giving
+    tools the logging web proxy; None keeps the default."""
+    if data_env is None and task_root is None and network is None:
         return None
     data_dir = os.environ.get(data_env) if data_env is not None else None
     if data_env is not None and not data_dir:
         raise ValueError(f'research_tools.data_env names an unset variable: {data_env}')
-    return lambda image_id: DockerExecutor(image_id, data_dir=data_dir, task_dir=task_root)
+    return lambda image_id: DockerExecutor(image_id, data_dir=data_dir, task_dir=task_root, network=network)
+
+
+def executor_factory_for(config):
+    """data_executor_factory from a validated research_tools config."""
+    return data_executor_factory(config.get('data_env'), config.get('task_root'), config.get('network'))
 
 
 class ToolLibrary:

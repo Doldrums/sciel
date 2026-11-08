@@ -244,12 +244,34 @@ def _attach(name, timeout, stdout_limit, stderr_limit, cancel_requested=None):
                 cancelled=cancelled)
 
 
+def _web_log(log_dir, name, keep=200):
+    """The proxy's requests for one container: counts, hosts and the first `keep` entries. The proxy writes an entry
+    when a connection closes, which container removal forces, so a short wait catches the last ones."""
+    path = Path(log_dir) / (str(name) + '.jsonl')
+    time.sleep(0.5)
+    entries = []
+    try:
+        with open(path) as f:
+            for line in f:
+                try:
+                    entries.append(json.loads(line))
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+    hosts = sorted({str(e.get('host')) for e in entries})
+    return dict(requests=len(entries), denied=sum(1 for e in entries if e.get('status') in (403, 407)),
+                bytes_in=sum(int(e.get('bytes_down') or 0) for e in entries),
+                bytes_out=sum(int(e.get('bytes_up') or 0) for e in entries),
+                hosts=hosts[:50], log=str(path), entries=entries[:keep])
+
+
 class DockerExecutor:
     # Create/attach are inside the requested wall allowance. CLI teardown has
     # these additional bounds; materialization is size-bounded and charged too.
     overhead_wall_bound = 12
 
-    def __init__(self, image_id, *, data_dir=None, task_dir=None):
+    def __init__(self, image_id, *, data_dir=None, task_dir=None, network=None):
         if not isinstance(image_id, str) or _IMAGE.fullmatch(image_id) is None:
             raise ValueError('an immutable sha256 Docker image ID is required')
         self._data_dir, data = _data_record(data_dir) if data_dir is not None else (None, None)
@@ -271,6 +293,11 @@ class DockerExecutor:
             loader_sha256=hashlib.sha256(self._loader).hexdigest(), policy=deepcopy(POLICY))
         if data is not None:
             self._identity['data'] = data
+        # Web access goes only through the proxy on an internal network; the proxy logs every request per container.
+        self._network = deepcopy(network)
+        if network is not None:
+            self._identity['policy']['network'] = 'proxy'
+            self._identity['network'] = dict(docker_network=network['docker_network'], proxy=network['proxy'])
         if self._task is not None:
             self._identity['task'] = _record(self._task, TASK_TARGET)
             self._identity['candidate_library'] = _record(self._library, '/runtime/lib/sciel')
@@ -284,7 +311,8 @@ class DockerExecutor:
         owner = uuid.uuid4().hex
         container_id, create_attempted = None, False
         limits = request['limits']
-        args = ['create', '--pull=never', '--name', name, '--network=none', '--read-only', '--cpus=1',
+        net = 'none' if self._network is None else self._network['docker_network']
+        args = ['create', '--pull=never', '--name', name, '--network=' + net, '--read-only', '--cpus=1',
             '--label=sciel.invocation-owner=' + owner,
             '--user=0:0', '--cgroupns=private',
             '--pids-limit=' + str(limits['pids']), '--memory=' + str(limits['memory_bytes']),
@@ -297,6 +325,11 @@ class DockerExecutor:
             args += ['--mount', f'type=bind,src={directory / local},dst={target},readonly']
         if self._data_dir is not None:
             args += ['--mount', f'type=bind,src={self._data_dir},dst={DATA_TARGET},readonly']
+        if self._network is not None:
+            # The container name is the proxy user, so each logged request belongs to one invocation.
+            proxy = self._network['proxy'].replace('http://', 'http://' + name + ':x@')
+            for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
+                args += ['--env', key + '=' + proxy]
         args += [self._identity['image_id'], '-I', '-B', '/runtime/_runner.py', '--supervise', '/request.json']
         result = dict(stdout=b'', stderr='', exit_code=None, timed_out=False, overflow=False,
                       dispatched=False, removed=False, name=name)
@@ -480,5 +513,7 @@ class DockerExecutor:
                                      else 'invalid_or_missing_trusted_container_receipt')
         if not transport['removed']:
             receipt.update(status='unknown', reason='container_cleanup_unconfirmed')
+        if self._network is not None:
+            receipt['network'] = _web_log(self._network['log_dir'], transport.get('name'))
         receipt['receipt_sha256'] = content_hash(receipt)
         return receipt
