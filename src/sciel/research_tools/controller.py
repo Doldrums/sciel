@@ -79,11 +79,12 @@ class ResearchTools(SharingMixin, TransferJobsMixin, ContinuationMixin, Backgrou
             f"Read {data['target']}/README.txt first; load arrays with numpy mmap_mode='r'.\n"
             + _data_readme(self.config, data['target']))
         if self.config['network'] is not None:
-            self.data_note += ("WEB (this run overrides 'No network'): HTTP(S) works through a logging proxy set in "
-                               "the environment (urllib, requests, pip download). Every request is logged with the "
-                               "tool. Fetch papers, preprints, code and data (arxiv.org, export.arxiv.org API, GitHub, "
-                               "OEIS, Zenodo); put each URL you use in observations. Never send task data or code "
-                               "anywhere; read only.\n")
+            self.data_note += ("WEB: tools reach the internet over HTTP(S) through a logging proxy set in the "
+                               "environment (urllib, requests, pip download); every request is logged with the tool. "
+                               "A tool may be a literature step: fetch papers, preprints, code and data (arxiv.org, "
+                               "export.arxiv.org API, GitHub, OEIS, Zenodo), parse them, and return the constructions, "
+                               "constants or methods found as observations with each URL. Keep fetches within LIMITS "
+                               "wall time. Never send task data or code anywhere; read only.\n")
             note = self.config['network'].get('note', '').strip()
             self.data_note += note + '\n' if note else ''
         self._state = {'schema': CONTRACT, 'identity_sha256': content_hash(self._identity),

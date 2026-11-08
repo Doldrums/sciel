@@ -382,6 +382,10 @@ Missing artifacts are unknown; timing/conditions are separate.
     remaining = cfg['max_prompt_chars'] - len(prompt) - 2
     if remaining >= 64:
         prompt += '\n\n' + _clip('\n\n'.join(parts), remaining)
+    if tools.config['network'] is not None:
+        # The contracts forbid the network; a run that gives tools the web must not say both.
+        prompt = prompt.replace('No network/credentials;', 'Web only through the proxy (WEB); no credentials;')
+        prompt = prompt.replace('No network;', 'Web only through the proxy (WEB);')
     if shared_view is not None:
         tools._event(plan, 'shared_observations_delivered', attempt=attempt,
             prompt_sha256=_sha(prompt), recipient_candidate_id=targets['selected']['program_id'],
