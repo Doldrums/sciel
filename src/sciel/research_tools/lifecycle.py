@@ -13,6 +13,10 @@ from . import lifecycle_evidence, lifecycle_delivery
 TASK_QUESTION = ('What structure of the task itself, in its inputs, data, constraints and scoring, would change how '
                  'programs should be designed? Study the task and its data directly with a reusable analysis tool; '
                  'do not tune the supplied candidate.')
+LITERATURE_QUESTION = ('What do published sources (papers, preprints, code, tables) report for this task: the best '
+                       'known values, the constructions behind them and the methods that found them? Search and read '
+                       'them with a tool over the web, and return what can be reproduced or turned into a candidate, '
+                       'with each URL; do not tune the supplied candidate.')
 
 
 class CellLifecycle:
@@ -61,6 +65,12 @@ class CellLifecycle:
             names.append('open_claim')
         return names
 
+    def _literature_due(self, island):
+        """With web access, each island's first new cell reads the literature; templates alone never ask it to."""
+        return self.config.get('network') is not None and not any(
+            str(cell['origin_island']) == island and cell['question'].startswith(LITERATURE_QUESTION)
+            for cell in self.cells.all_cells())
+
     def prepare(self, snapshot, signals, *, maintenance=False, proactive=False, renew_closed=False, choose_stage=None,
                 choose_scope=None):
         if type(proactive) is not bool:
@@ -101,6 +111,8 @@ class CellLifecycle:
                             f'Scheduling context: proactive research for island {snapshot.island}.')
                 if choose_scope is not None and choose_scope() == 'task':
                     question = TASK_QUESTION + f' Scheduling context: proactive research for island {snapshot.island}.'
+                if self._literature_due(island):
+                    question = LITERATURE_QUESTION + f' Scheduling context: proactive research for island {snapshot.island}.'
                 if previous_closed is not None:
                     question += (' New question after closed cell ' + previous_closed['id'][:12]
                                  + '; allocate a different uncertainty using its retained evidence.')
@@ -123,6 +135,8 @@ class CellLifecycle:
                         'this explains scheduling only.')
             if choose_scope is not None and choose_scope() == 'task':
                 question = TASK_QUESTION + f' Trigger context: island {snapshot.island}, record evaluation {anchor}.'
+            if self._literature_due(island):
+                question = LITERATURE_QUESTION + f' Trigger context: island {snapshot.island}, record evaluation {anchor}.'
             if type(signals.get('open_claim')) is str:
                 question += ' Open claim of the search theory worth resolving: ' + signals['open_claim']
             if previous_closed is not None:
