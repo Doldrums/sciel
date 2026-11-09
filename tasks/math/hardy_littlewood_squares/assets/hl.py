@@ -18,7 +18,7 @@ import numpy as np
 
 REACH = Fraction(1396, 125)
 DR = 2 ** 40
-MAX_ATOMS = 80
+MAX_ATOMS = 128
 MAX_PERIOD = 8
 MIN_PERIOD = Fraction(1, 2)
 MAX_DENOMINATOR_BITS = 128

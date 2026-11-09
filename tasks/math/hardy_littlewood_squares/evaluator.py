@@ -23,9 +23,8 @@ import numpy as np
 
 _hl = load_candidate(str(Path(__file__).resolve().parent / "assets" / "hl.py"), "hl")
 
-# SCiEL's 63-atom measure of PR 341 (hl1, from PR 321's half cell), reproduced exactly by this evaluator and by
-# Tomar's check_exact2.py.
-REFERENCE = Fraction(3132581668909806427917067970204393210052649, 1839223215401194968772738622942534413844480)
+# Pinho's 98-atom measure of PR 350 (from SCiEL's PR 341), rounded to binary64, scored by this evaluator.
+REFERENCE = Fraction(47861206742878272615637096835775228687, 28087100168700099164727324743556923392)
 
 
 def _load(program_path, module_name="program"):

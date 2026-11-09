@@ -15,7 +15,7 @@ def candidate():
     weak-type ratio for the centred square maximal function, a lower bound for C_47, is as large as possible.
 
     Returns:
-        {"Px": Px, "Py": Py, "atoms": [[x, y, m], ...]}: at most 80 distinct atoms in the cell, masses m > 0, periods in
+        {"Px": Px, "Py": Py, "atoms": [[x, y, m], ...]}: at most 128 distinct atoms in the cell, masses m > 0, periods in
         [1/2, 8]; numbers are ints, binary64 (read exactly), "p/q" strings or [p, q] pairs.
     """
     deadline = time.time() + 0.4 * float(os.environ.get("SCIEL_STAGE_SECONDS", "30"))
