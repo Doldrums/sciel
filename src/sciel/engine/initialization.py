@@ -313,8 +313,15 @@ class EngineInitialization:
                 imported = import_methods(self.research_tools, self.heritage.methods, len(self.db.islands))
                 self.log.decision(policy="heritage", action="methods", offered=len(self.heritage.methods),
                                   imported=imported)
-        from ..eval.task_prompt import compose_task_prompt
+        from ..eval.task_prompt import asset_summary, compose_task_prompt
         self.task_prompt = compose_task_prompt(task, cfg.get("llm", {}).get("system_message"))
+        # The contract names the assets in a sentence each; programs that guessed the rest called functions that do
+        # not exist or used a returned tuple as an array. The exact names and signatures are listed instead.
+        assets = asset_summary(task.root) if getattr(task, "root", None) else ""
+        if assets:
+            self.task_prompt += (
+                "\n\nTASK ASSETS: sciel.task.asset(name) loads the module of that name; these are all their public "
+                "names, nothing else exists:\n" + assets)
         req = set(_required_entrypoints(getattr(task, "evaluator_path", None)))
         try:
             req |= set(_internal_contract(_read(self.task.initial_program_path)))
