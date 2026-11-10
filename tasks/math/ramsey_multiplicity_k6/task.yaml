@@ -7,13 +7,13 @@ task_prompt: >-
   n+1 integers in [0, denominator]. q is a step graphon on the 2^n parts F_2^n, red with probability q(|x XOR y|)
   between parts x, y (Hamming weight; q(0) inside a part); it bounds the Ramsey multiplicity constant c6 (Tao's 89c)
   by the monochromatic K6 density upper_bound = t(K6,W) + t(K6,1-W). Minimize it. combined_score =
-  4.530364145468903e-05 / upper_bound, Jeetu SK's refinement of Franek's graph on F_2^10 (0.742254861593625 * 2^-14,
-  October 2026); above 1 is a record. Scoring is exact in integers, no tolerance. NumPy, SciPy. Wall limits: smoke
+  4.53005500200226e-05 / upper_bound, SCiEL's PR 331 kernel on F_2^10 (0.7422042115 * 2^-14, November 2026), itself
+  from Jeetu SK's refinement of Franek's graph (PR 279); above 1 is a record. Scoring is exact in integers, no tolerance. NumPy, SciPy. Wall limits: smoke
   60 s, full 600 s, confirm 3 repeats in 1800 s keeping the worst; scoring n = 10 takes 7 s. weights =
   sciel.task.asset('weights') has value_and_gradient(q) (float, 0.3 s), exact_value(kernel), orbits(n) (the
   weighted 6-vertex configurations summed over), snap(q, bits) (valid kernel), as_float(kernel) and load(output)
-  (kernel of a population output); frontier = sciel.task.asset('frontier') has kernel(), SK's (1, .43996, 0, 1, 1,
-  .01295, 0, 1, 1, 0, .76253), a local minimum, and franek(), its 0/1 start. The seed returns kernel() first;
+  (kernel of a population output); frontier = sciel.task.asset('frontier') has kernel(), PR 331's (1, .44646, 0, 1, 1,
+  0, .01895, 1, 1, 0, 0), a local minimum, and franek(), its 0/1 start. The seed returns kernel() first;
   afterwards it flips weight classes of its population view's kernel, re-optimizes for half its stage time and
   returns the result even if worse: a distinct output is admitted, a repeat is not useful.
 research_metric:
@@ -21,7 +21,7 @@ research_metric:
   score_units: dimensionless
   numerator_case: inverse_bound
   numerator_units: reciprocal_upper_bound
-  denominator: 22073.280820045376
+  denominator: 22074.787161701246
   validity_case: validity
   valid_value: 1.0
   invalid_score: 0.0
@@ -56,7 +56,7 @@ confirm_n: 3
 smoke_timeout: 60.0
 full_timeout: 600.0
 confirm_timeout: 1800.0
-license: "Problem from Tao's optimization constants (constant 89c, teorth/optimizationproblems PR 279); construction of Jeetu SK (github.com/JeetuSK0808/tao-constants-certificates, c89c) refining Franek (Combinatorica 2002); evaluator written for SCiEL"
+license: "Problem from Tao's optimization constants (constant 89c, teorth/optimizationproblems PR 279); construction of Jeetu SK (github.com/JeetuSK0808/tao-constants-certificates, c89c) refining Franek (Combinatorica 2002); kernel of SCiEL (PR 331) from it; evaluator written for SCiEL"
 paradigms:
   - "a CONSTRUCTIVE approach: an explicit 0/1 set of Hamming weights (Franek-type distance graphs, weights from codes or quadratic forms) on F_2^n"
   - "an OPTIMIZATION approach: a good weight profile refined by L-BFGS-B on the float density, with discrete flips of weight classes"
