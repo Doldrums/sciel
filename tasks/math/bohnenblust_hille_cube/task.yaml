@@ -1,0 +1,63 @@
+suite: math
+name: bohnenblust_hille_cube
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement candidate() returning {"n": n, "terms": [[mask, a], ...]}: f(x) = sum a x^S on {-1, 1}^n, n <= 22, S the
+  set bits of mask, distinct masks, nonzero integers |a| <= 2^40, at most 65536 terms. With d the largest |S| and
+  p = 2d / (d + 1), R = (sum |a|^p)^(1 / p) / max_x |f(x)| is a lower bound on Tao's 26a, the Bohnenblust-Hille
+  constant on the Boolean cube. Maximize it. combined_score = R / 2 (the address functions tend to 2); above 1 is a
+  record. Koshta's cycle family (PR 284) reaches 2 (1 - 2^-d)^((d + 1) / (2d)), 1.99106 at d = 7, n = 21, but every
+  {0, +-1}-valued f has R <= 2 Pr[f != 0]^((d + 1) / (2d)) < 2: a record needs f with more values. Scoring is
+  certified: exact integer Walsh transform for max |f| over all 2^n points, sum |a|^p by interval powers at 50 digits,
+  rounded down (under 1 s at n = 21). Wall limits: smoke 60 s, full 300 s, confirm 3 repeats in 900 s keeping the
+  worst. bh = sciel.task.asset('bh') has wht(a), ratio(a, d) (float R of a dense coefficient array of length 2^n,
+  about 0.2 s at n = 21), degree(a), popcounts(n), array(candidate), make(a, scale), value, certify and load(output);
+  frontier = sciel.task.asset('frontier') has candidate(d) and table(d), the cycle function for any d (n = 3d), d = 7
+  by default. The seed returns it first; later it rescales a few coefficients or adds a term, climbs by
+  single-coefficient moves for 0.4 of its stage time and returns it even if worse: a repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: lp_norm_over_sup_norm
+  denominator: 2
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - variables
+  - degree
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different functions on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 900.0
+license: "Constant 26a of Tao's optimization constants (teorth/optimizationproblems); address functions of Arunachalam, Dutt, Escudero Gutierrez and Palazuelos (Math. Ann. 2025); cycle family of D. Koshta (PR 284, github DennisKoshta/c26a-bohnenblust-hille-cube-family, MIT), rebuilt here from its note; evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: sums and products of affine blocks, address and tribes functions, compositions f(g_1, ..., g_k) and tensor powers that spread the spectrum while keeping max |f| small, with values beyond {0, +-1}"
+  - "an OPTIMIZATION approach: LP and linearisation ascent on the coefficients for a fixed support (max |f| is a linear program over the 2^n points), scored by the fast float ratio"
+  - "an EXHAUSTIVE approach: enumerating small supports and symmetric families for d = 2 to 7 and n up to 22 and ranking them by the ratio before refining the best"
