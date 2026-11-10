@@ -1,0 +1,65 @@
+suite: math
+name: spencer_discrepancy
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement candidate() returning {"rows": [[a_11, ..., a_1n], ...], "den": D}: an n x n integer matrix with entries
+  in [-D, D], 1 <= n <= 28, 1 <= D <= 2^20, standing for A = rows / D in [-1, 1]^{n x n}. Its discrepancy disc(A) =
+  min over x in {-1, 1}^n of max_i |(Ax)_i|, and disc(A) / sqrt(n) is a lower bound on Spencer's constant (Tao's 10c,
+  "six standard deviations suffice"). Maximize it. combined_score = bound / (5 / sqrt(8)) = bound / 1.7677669529663687
+  (Y. H. 2026, an 8 x 8 matrix over {-1, 0, 1} from the perfect [7, 4] Hamming code); above 1 is a record. Scoring
+  is exact: all 2^(n-1) sign vectors are enumerated in integers (0.1 s at n = 24, about 2 s at n = 28). Every sign
+  matrix is a covering code (row i certifies the x within Hamming distance (n - d) / 2 of row i or its negation), and
+  covering-code tables cap sign and {-1, 0, 1} matrices near 5 / sqrt(8), 7 / 4 and 7 / sqrt(17); a counting bound
+  proves 5 is optimal at n = 8 but leaves room at n = 10 to 16, where fractional entries are untried. Wall limits:
+  smoke 60 s, full 300 s, confirm 3 repeats in 900 s keeping the worst. disc = sciel.task.asset('disc') has
+  disc_numerator(M) (exact min-max for an integer or float matrix), float_value(a) (disc / sqrt(n) of a float
+  matrix, microseconds at n = 8, 0.1 s at n = 24), exact(candidate), value(candidate), make(a, den), check and
+  load(output); frontier = sciel.task.asset('frontier').candidate() is that matrix. The seed returns it first; later
+  it perturbs a few entries or grows the matrix by a row and a column, climbs by single-entry moves for 0.4 of its
+  stage time and returns it even if worse: a repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: discrepancy_over_sqrt_n
+  denominator: 1.7677669529663687
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - dimension
+  - discrepancy
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different matrices on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 900.0
+license: "Constant 10c of Tao's optimization constants (teorth/optimizationproblems); sign-matrix certificates of [G2026], [X2026], [L2026] and the {-1, 0, 1} Hamming-code matrix of Y. H. [H2026] recorded there; evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: covering codes, Hadamard and conference matrices, Kronecker products and codes with a few fractional or zero entries that break the parity of sign matrices"
+  - "an OPTIMIZATION approach: local search over real entries scored by the exact discrepancy, raising the rows that certify the worst sign vectors"
+  - "an EXHAUSTIVE approach: enumerating small structured families (circulant, symmetric, code-derived) for n from 9 to 16 and ranking them by the bound before refining the best"
