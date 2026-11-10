@@ -1,0 +1,64 @@
+suite: math
+name: fourier_entropy_influence
+origin: math
+primary_metric: combined_score
+task_prompt: >-
+  Implement candidate() returning {"n": n, "table": hex}: a Boolean function f on {-1, 1}^n, 2 <= n <= 22, given by
+  its truth table, bit x of int(hex, 16) set when f(x) = -1 (bit i of x is coordinate i). With the Walsh coefficients
+  f^(S), spectral entropy H = sum f^(S)^2 log2(1 / f^(S)^2) and total influence I = sum f^(S)^2 |S|, a balanced f
+  (f^(empty) = 0) with I > 1 gives C_71 >= H / (I - 1) by O'Donnell and Tan's amplification (Tao's 71, the
+  Fourier Entropy-Influence constant of Friedgut and Kalai). Maximize it. combined_score = bound / 6.5218457109230466
+  (Numaro 2026, n = 18, I = 261/128); above 1 is a record. Scoring is certified: exact integer Walsh transform and
+  influence, entropy by interval logs at 50 digits, rounded down. Wall limits: smoke 60 s, full 300 s, confirm 3
+  repeats in 900 s keeping the worst; scoring n = 18 takes about 0.1 s. fei = sciel.task.asset('fei') has wht(f),
+  rates(f) (float ratio, H, I for a +-1 array, -inf if unbalanced or I <= 1; about 20 ms at n = 18), popcounts(n),
+  array(candidate) (+-1 int64 array), make(f), value(candidate), certify(candidate) and load(output); frontier =
+  sciel.task.asset('frontier').candidate() is that function: a perturbed majority of 9 core variables whose boundary
+  cells are decided by 9 low-influence auxiliary variables, a strict local optimum under single cell moves in its
+  authors' class. The seed returns it first; later it swaps two to six points of opposite sign, climbs by single
+  swaps for 0.4 of its stage time and returns it even if worse: a repeat is useless.
+research_metric:
+  kind: validity_gated_ratio
+  score_units: dimensionless
+  numerator_case: lower_bound
+  numerator_units: entropy_over_influence
+  denominator: 6.521845710923046575658143972948578468366
+  validity_case: validity
+  valid_value: 1.0
+  invalid_score: 0.0
+  invalid_numerator_value: 0.0
+  invalid_numerator_semantics: penalty_sentinel_not_physical_measurement
+output_identity:
+  schema: sciel-output-identity-adapter/1
+  adapter: canonical-json/1
+  artifact: full_output
+  input_scope: task_fixed
+  seed_scope: unpaired
+case_metrics:
+  - lower_bound
+  - variables
+  - influence
+  - validity
+  - b_dispersion
+  - b_boundary_frac
+  - b_contact
+  - b_offset
+  - b_concentration
+  - b_structure
+tiers:
+  - smoke
+  - full
+  - confirm
+resources: cpu
+# Searches that draw unseeded randomness return different functions on repeats; confirm keeps the worst of three, so a
+# record must survive its own repetition.
+stochastic: true
+confirm_n: 3
+smoke_timeout: 60.0
+full_timeout: 300.0
+confirm_timeout: 900.0
+license: "Constant 71 of Tao's optimization constants (teorth/optimizationproblems); amplification rule of R. O'Donnell and L.-Y. Tan (ICALP 2013) and R. Hod (arXiv 1711.00762); n = 17 function of Mosaic Intelligence (zenodo 21113935); n = 18 function of Numaro (zenodo 21497769); evaluator written for SCiEL"
+paradigms:
+  - "a CONSTRUCTIVE approach: compositions and recursive majorities, tribes and lexicographic functions, with low-influence auxiliary variables that decide the boundary cells of a core function"
+  - "an OPTIMIZATION approach: local search over balanced swaps, cell moves and auxiliary-variable hosting, scored by the fast float ratio"
+  - "an EXHAUSTIVE approach: enumerating small cores, hosting maps and variable counts up to 22 and ranking them by the ratio before refining the best"
