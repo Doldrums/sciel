@@ -8,10 +8,9 @@ task_prompt: >-
   min over x in {-1, 1}^n of max_i |(Ax)_i|, and disc(A) / sqrt(n) is a lower bound on Spencer's constant (Tao's 10c,
   "six standard deviations suffice"). Maximize it. combined_score = bound / (5 / sqrt(8)) = bound / 1.7677669529663687
   (Y. H. 2026, an 8 x 8 matrix over {-1, 0, 1} from the perfect [7, 4] Hamming code); above 1 is a record. Scoring
-  is exact: all 2^(n-1) sign vectors are enumerated in integers (0.1 s at n = 24, about 2 s at n = 28). Every sign
-  matrix is a covering code (row i certifies the x within Hamming distance (n - d) / 2 of row i or its negation), and
-  covering-code tables cap sign and {-1, 0, 1} matrices near 5 / sqrt(8), 7 / 4 and 7 / sqrt(17); a counting bound
-  proves 5 is optimal at n = 8 but leaves room at n = 10 to 16, where fractional entries are untried. Wall limits:
+  is exact: all 2^(n-1) sign vectors are enumerated in integers (0.1 s at n = 24, about 2 s at n = 28). Sign
+  matrices are covering codes, capped by code tables near 5 / sqrt(8); a counting bound proves 5 optimal at n = 8 but
+  leaves room at n = 10 to 16, where fractional entries are untried. Wall limits:
   smoke 60 s, full 300 s, confirm 3 repeats in 900 s keeping the worst. disc = sciel.task.asset('disc') has
   disc_numerator(M) (exact min-max for an integer or float matrix), float_value(a) (disc / sqrt(n) of a float
   matrix, microseconds at n = 8, 0.1 s at n = 24), exact(candidate), value(candidate), make(a, den), check and
