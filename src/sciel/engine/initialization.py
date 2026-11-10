@@ -340,4 +340,6 @@ class EngineInitialization:
             "\n\nTIME BUDGET: os.environ['SCIEL_STAGE_SECONDS'] holds the wall seconds your program has in the "
             "stage now running it, with the time the evaluator needs to score the result already taken off (smoke "
             "is short; full and each confirm repeat are longer). Search until shortly before it and return the "
-            "best result found.")
+            "best result found. When it runs out the program is interrupted, even inside a long optimizer call: "
+            "`from sciel.task import keep` and call keep(best) whenever the best improves, and the last kept "
+            "result is scored instead of a failure.")

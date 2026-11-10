@@ -7,6 +7,7 @@ needed. This provides importability, not isolation or a sandbox.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import importlib
 import importlib.abc
@@ -14,7 +15,9 @@ import importlib.util
 import os
 from pathlib import Path
 import re
+import signal
 import sys
+import threading
 import time
 import types
 import uuid
@@ -108,11 +111,20 @@ def _install():
 
 # The evaluation runner names the program it scores; time spent importing it and in its
 # module-level functions is that program's own, the rest of the stage is scoring overhead.
-_TIMED = {"path": None, "seconds": 0.0, "called": False, "depth": 0}
+_NOTHING = object()
+_TIMED = {"path": None, "seconds": 0.0, "called": False, "depth": 0, "calls": 0,
+          "kept": _NOTHING, "kept_used": False}
+
+
+class StageBudgetExceeded(BaseException):
+    """Raised inside the timed program when its stage budget runs out. A BaseException, so the `except Exception`
+    of a search loop does not swallow it; it is re-raised every half second until the program's entry function
+    unwinds."""
 
 
 def time_program(program_path):
-    _TIMED.update(path=str(Path(program_path).resolve(strict=True)), seconds=0.0, called=False, depth=0)
+    _TIMED.update(path=str(Path(program_path).resolve(strict=True)), seconds=0.0, called=False, depth=0, calls=0,
+                  kept=_NOTHING, kept_used=False)
 
 
 def program_seconds():
@@ -120,16 +132,73 @@ def program_seconds():
     return _TIMED["seconds"] if _TIMED["called"] else None
 
 
+def keep(result):
+    """Record a copy of result as the timed program's answer so far (sciel.task.keep)."""
+    _TIMED["kept"] = copy.deepcopy(result)
+
+
+def kept_used():
+    """Whether an entry function of the timed program returned its kept result at the end of its budget."""
+    return _TIMED["kept_used"]
+
+
+def _expire(signum, frame):
+    raise StageBudgetExceeded
+
+
+def _arm():
+    """Interrupt the program when its stage budget runs out (SCIEL_INTERRUPT_SECONDS, which the sandbox sets at most
+    SCIEL_STAGE_SECONDS): (previous SIGALRM handler,) or None when no budget is set or no timer can be armed here.
+    The import of the program counts against its first call."""
+    try:
+        budget = float(os.environ["SCIEL_INTERRUPT_SECONDS"])
+    except (KeyError, ValueError):
+        return None
+    if not hasattr(signal, "setitimer") or threading.current_thread() is not threading.main_thread():
+        return None
+    if not _TIMED["calls"]:
+        budget -= _TIMED["seconds"]
+    previous = signal.signal(signal.SIGALRM, _expire)
+    signal.setitimer(signal.ITIMER_REAL, max(0.05, budget), 0.5)
+    return (previous,)
+
+
+def _disarm(armed):
+    if armed is not None:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, armed[0] if armed[0] is not None else signal.SIG_DFL)
+
+
 def _timed(fn):
     def call(*args, **kwargs):
+        outer = not _TIMED["depth"]
+        if outer:
+            _TIMED["kept"] = _NOTHING
         _TIMED["depth"] += 1
         _TIMED["called"] = True
         started = time.monotonic()
+        armed = _arm() if outer else None
         try:
-            return fn(*args, **kwargs)
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                _disarm(armed)
+        except StageBudgetExceeded:
+            # Only the entry function the evaluator called answers for the program: it returns the last kept result,
+            # or fails as an ordinary exception the evaluator reports.
+            if not outer:
+                raise
+            if _TIMED["kept"] is _NOTHING:
+                raise TimeoutError(
+                    "the program ran past its stage budget (SCIEL_STAGE_SECONDS) and was interrupted without a "
+                    "kept result; call sciel.task.keep(best) whenever the best improves, and the last kept result "
+                    "is scored when the budget runs out") from None
+            _TIMED["kept_used"] = True
+            return _TIMED["kept"]
         finally:
             _TIMED["depth"] -= 1
             if not _TIMED["depth"]:
+                _TIMED["calls"] += 1
                 _TIMED["seconds"] += time.monotonic() - started
     for key in ("__module__", "__name__", "__qualname__", "__doc__", "__wrapped__"):
         setattr(call, key, fn if key == "__wrapped__" else getattr(fn, key))

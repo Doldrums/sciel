@@ -2,7 +2,7 @@
 
 import os
 
-from sciel.candidate_modules import load_candidate
+from sciel.candidate_modules import keep as _keep, load_candidate
 
 
 def asset(name: str):
@@ -12,3 +12,10 @@ def asset(name: str):
     if not root:
         raise ImportError("no task is evaluating this program")
     return load_candidate(os.path.join(root, "assets", name + ".py"), name)
+
+
+def keep(result):
+    """Record a copy of result as the program's answer so far. When the stage budget (SCIEL_STAGE_SECONDS) runs out,
+    the program is interrupted and the function the evaluator called returns the last kept result instead of
+    failing, so a search that overruns still scores its best. Call it whenever the best improves."""
+    _keep(result)

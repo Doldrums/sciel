@@ -216,6 +216,11 @@ def main(argv):
                   and getattr(mod, "confirm", None) is fn and _wants_n(fn))
         result = fn(program_path, n) if pass_n else fn(program_path)
         payload = _normalize(result)
+        from sciel.candidate_modules import kept_used
+        if kept_used():
+            payload["artifacts"]["stage_budget"] = (
+                "the program reached its stage budget and was interrupted; the result it last passed to "
+                "sciel.task.keep() was scored")
         # Whether re-sampling HAPPENED is the evaluator's to report, not something to
         # infer from a signature: every stub `def confirm(p, n=3): return full(p)`
         # ignores n, yet was flagged as a confirmed multi-sample and its single fresh
@@ -228,7 +233,7 @@ def main(argv):
             payload["artifacts"]["confirm_note"] = (
                 "confirm() did not report n_trials, so the result is not treated as "
                 "re-sampled; have it return cases['n_trials']")
-    except Exception as e:
+    except (Exception, _budget_exceeded()) as e:
         if not setup_complete:
             # This phase has not imported the evaluator. The unisolated parent
             # still treats the marker conservatively, never as zero-use proof.
@@ -251,6 +256,16 @@ def main(argv):
                 payload["program_seconds"] = program_seconds()
     with open(out_path, "w") as f:
         json.dump(payload, f)
+
+
+def _budget_exceeded():
+    """The interrupt a timed program raises at the end of its budget, should it escape the program's entry function
+    (it is a BaseException); an exception type that never occurs before sciel is importable."""
+    try:
+        from sciel.candidate_modules import StageBudgetExceeded
+    except ImportError:
+        return Exception
+    return StageBudgetExceeded
 
 
 def _wants_n(fn):

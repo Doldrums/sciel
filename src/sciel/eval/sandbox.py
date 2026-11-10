@@ -253,7 +253,11 @@ def run_stage(
     if population is not None:
         env["SCIEL_POPULATION"] = population
     # A program can spend its stage: smoke checks it quickly, full and each confirm repeat may search.
-    env["SCIEL_STAGE_SECONDS"] = repr(_program_budget(evaluator_path, stage, timeout / (n or 1)))
+    budget = _program_budget(evaluator_path, stage, timeout / (n or 1))
+    env["SCIEL_STAGE_SECONDS"] = repr(budget)
+    # The program is interrupted at its budget, but never later than 0.85 of the call's wall time: before any
+    # scoring overhead has been measured the budget is the whole call, and the kill would come first.
+    env["SCIEL_INTERRUPT_SECONDS"] = repr(min(budget, 0.85 * timeout / (n or 1)))
     env["SCIEL_TASK_ROOT"] = os.path.dirname(os.path.abspath(evaluator_path))
     proc = stderr = None
     started = time.monotonic()
@@ -327,7 +331,8 @@ def run_stage(
                                          "wall-clock limit and was killed before producing any "
                                          "result. Reduce iterations/restarts or wrap the search "
                                          "in an explicit deadline guard (track elapsed time and "
-                                         "return the best result found before the limit).")})
+                                         "return the best result found before the limit), and "
+                                         "call sciel.task.keep(best) whenever the best improves.")})
     finally:
         if proc is not None:
             _kill_group(proc)                     # never leave the group running
