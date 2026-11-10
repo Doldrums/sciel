@@ -24,7 +24,7 @@ import numpy as np
 _hl = load_candidate(str(Path(__file__).resolve().parent / "assets" / "hl.py"), "hl")
 
 # Pinho's 98-atom measure of PR 350 (from SCiEL's PR 341), rounded to binary64, scored by this evaluator.
-REFERENCE = Fraction(47861206742878272615637096835775228687, 28087100168700099164727324743556923392)
+REFERENCE = Fraction(6837325052916568364798811725856251555, 4012442881242871309246760677650989056)
 
 
 def _load(program_path, module_name="program"):

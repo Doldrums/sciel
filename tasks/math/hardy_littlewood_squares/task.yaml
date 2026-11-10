@@ -8,9 +8,9 @@ task_prompt: >-
   exactly), "p/q" or [p, q]. Every box B with sides on atom coordinates (side <= 1396/125) and rho < sqrt(mu(B) / 4)
   on the 2^-40 grid gives the rectangle of centres whose square of radius rho holds B; the union area in the cell over
   the cell mass is a lower bound for Tao's constant 47a (centred Hardy-Littlewood maximal constant for squares in 2D,
-  Lin, Tomar). Maximize it. combined_score = ratio / 1.70402805756 (98 atoms, Pinho's PR 350 from SCiEL's PR 341);
+  Lin, Tomar). Maximize it. combined_score = ratio / 1.70403050093 (98 atoms, SCiEL from Pinho's PR 350);
   above 1 is a record. Scoring is exact (Tomar's enumeration, fractions). Wall limits: smoke 600 s, full 1800 s,
-  confirm 3 repeats in 5400 s keeping the worst; scoring the frontier takes about 100 s (1.8M rectangles), so a
+  confirm 3 repeats in 5400 s keeping the worst; scoring the frontier takes about 100 s (2M rectangles), so a
   program affords few full scorings. hl = sciel.task.asset('hl') has value(candidate) (float ratio, same cost), exact, rectangles, holes(candidate, n) (uncovered grid points), floats, make(Px, Py, atoms),
   load(output); frontier = sciel.task.asset('frontier').candidate() is that measure. The seed returns it first; later
   it inserts a light atom in a hole, moves or drops one, climbs by single-atom moves and returns it even if worse: a
@@ -20,7 +20,7 @@ research_metric:
   score_units: dimensionless
   numerator_case: lower_bound
   numerator_units: weak_type_ratio
-  denominator: 1.704028057556977
+  denominator: 1.704030500939786
   validity_case: validity
   valid_value: 1.0
   invalid_score: 0.0
@@ -55,7 +55,7 @@ confirm_n: 3
 smoke_timeout: 600.0
 full_timeout: 1800.0
 confirm_timeout: 5400.0
-license: "Constant 47a of Tao's optimization constants (teorth/optimizationproblems); weighted lattice and truncation-smearing argument of Y. Lin (2026); rational periodic measure, exact checker and hole-filling of T. S. Tomar (zenodo 23716077, github.com/tejasvi/square-maximal-weak-type); 59-atom half cell of R. Pinho (rpinho/math-certificates, PR 321); 63-atom measure of SCiEL (PR 341); 98-atom measure of R. Pinho (PR 350); evaluator written for SCiEL"
+license: "Constant 47a of Tao's optimization constants (teorth/optimizationproblems); weighted lattice and truncation-smearing argument of Y. Lin (2026); rational periodic measure, exact checker and hole-filling of T. S. Tomar (zenodo 23716077, github.com/tejasvi/square-maximal-weak-type); 59-atom half cell of R. Pinho (rpinho/math-certificates, PR 321); 63-atom measure of SCiEL (PR 341); 98-atom measure of R. Pinho (PR 350); 98-atom measure of SCiEL from it; evaluator written for SCiEL"
 paradigms:
   - "a CONSTRUCTIVE approach: lattices of heavy atoms with light rows or columns placed so that their boxes fill the slots the heavy lattice leaves uncovered, as in Lin's weighted lattice and Tomar's insertions"
   - "an OPTIMIZATION approach: atom positions and masses refined by local search or gradients of the covered area, with the holes of the superlevel set guiding where atoms go"
