@@ -17,10 +17,16 @@ FRESH_DIRECTIVE = ("\nFRESH DESIGN: the reference program below is the task's st
 
 class EngineStepPlan:
 
-    def _seed_score(self) -> float:
+    def _seed_program(self):
+        """The best evaluation of the task's initial program, or None before it is scored."""
         from .loop_contracts import _read
         initial = _read(self.task.initial_program_path)
-        return next((p.score for p in self.db._all.values() if p.origin == "seed" and p.code == initial), 0.0)
+        return max((p for p in self.db._all.values() if p.origin == "seed" and p.code == initial),
+                   key=lambda p: p.score, default=None)
+
+    def _seed_score(self) -> float:
+        seed = self._seed_program()
+        return 0.0 if seed is None else seed.score
 
     def _families(self) -> list:
         """One strategy card per latent archive cell, or per island best before the archive exists."""
@@ -330,6 +336,16 @@ class EngineStepPlan:
             from .population_view import describe, freeze
             snap.population = freeze(self, island, parent.id, below=below)
             snap.directive += describe(self, snap.population)
+        elif self.cfg["population_access"] and self._seed_program() is not None:
+            # A fresh design is rewritten from the initial program, whose empty-view branch returns the task's known
+            # construction: with no view, half of the fresh designs repeated that output without searching. The view
+            # holds the reference program alone, so the design starts from the construction it was shown.
+            from .population_view import describe, refs
+            seed = self._seed_program()
+            snap.population = refs(self, [seed], seed.id)
+            snap.directive += describe(self, snap.population) + (
+                "The population view holds only the reference program, as the parent: returning its output unchanged "
+                "repeats it.\n")
         if origin != "fresh":
             from .population_view import feedback
             note = feedback(self, parent)

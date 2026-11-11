@@ -23,7 +23,6 @@ def freeze(engine, island: int, parent_id: str, below: float | None = None) -> l
     """References, best first; values are read only when the candidate is evaluated. With below, only programs
     scoring under it, the island's first and then the run's, so a child cannot start from the level it keeps
     returning to."""
-    from .research_artifacts import evaluation_id_for_program
     db = engine.db
     if below is None:
         programs = list(db.islands[island].top_k(SIZE))
@@ -35,6 +34,12 @@ def freeze(engine, island: int, parent_id: str, below: float | None = None) -> l
         held = {p.id for p in programs}
         rest = sorted((p for p in db._all.values() if p.score < below and p.id not in held), key=lambda p: -p.score)
         programs += rest[:SIZE - len(programs)]
+    return refs(engine, programs, parent_id)
+
+
+def refs(engine, programs: list, parent_id: str | None) -> list:
+    """Frozen references to the given programs, best first; parent_id marks the one being changed."""
+    from .research_artifacts import evaluation_id_for_program
     out = []
     for p in sorted(programs, key=lambda p: -p.score):
         try:
